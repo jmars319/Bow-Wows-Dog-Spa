@@ -5,7 +5,8 @@ declare(strict_types=1);
 use BowWowSpa\Services\PreviewGateService;
 use BowWowSpa\Services\SiteContentService;
 
-$bootstrapPath = __DIR__ . '/backend/bootstrap/app.php';
+$backendDir = resolveBackendDir();
+$bootstrapPath = $backendDir . '/bootstrap/app.php';
 if (is_file($bootstrapPath)) {
     require_once $bootstrapPath;
 }
@@ -245,6 +246,22 @@ function renderPlaceholder(array $details): void
   </body>
 </html>
     <?php
+}
+
+function resolveBackendDir(): string
+{
+    $paths = [
+        __DIR__ . '/backend',
+        __DIR__ . '/api',
+    ];
+
+    foreach ($paths as $path) {
+        if (is_dir($path)) {
+            return $path;
+        }
+    }
+
+    return __DIR__ . '/backend';
 }
 
 function renderPreviewGate(PreviewGateService $gate): void

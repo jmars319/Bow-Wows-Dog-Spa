@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 use BowWowSpa\Services\PreviewGateService;
 
-$bootstrapPath = __DIR__ . '/../backend/bootstrap/app.php';
+$backendPath = resolveBackendDir();
+$bootstrapPath = $backendPath . '/bootstrap/app.php';
 if (is_file($bootstrapPath)) {
     require_once $bootstrapPath;
 }
@@ -14,6 +15,23 @@ $gate = new PreviewGateService();
 if ($gate->isEnabled() && !$gate->hasAccess()) {
     header('Location: /preview', true, 302);
     exit;
+}
+
+function resolveBackendDir(): string
+{
+    $base = dirname(__DIR__);
+    $paths = [
+        $base . '/backend',
+        $base . '/api',
+    ];
+
+    foreach ($paths as $dir) {
+        if (is_dir($dir)) {
+            return $dir;
+        }
+    }
+
+    return $base . '/backend';
 }
 
 $relative = (string) ($_GET['path'] ?? '');
