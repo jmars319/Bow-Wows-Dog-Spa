@@ -4,3 +4,6 @@ RewriteEngine On
 # Route placeholder and preview through index.php
 RewriteRule ^$ index.php [L]
 RewriteRule ^preview/?$ index.php [QSA,L]
+RewriteRule ^current/(.*)$ current/gate.php [QSA,L]
+RewriteRule ^admin/(.*)$ admin/index.html [QSA,L]
+RewriteRule ^api/(.*)$ backend/public/$1 [QSA,L]
