@@ -269,5 +269,12 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
+-- default site settings for booking windows
+INSERT INTO site_settings (`key`, `value`)
+VALUES
+    ('booking_hold_minutes', '1440'),
+    ('booking_pending_expire_hours', '24')
+ON DUPLICATE KEY UPDATE `value` = VALUES(`value`);
+
 INSERT IGNORE INTO schema_migrations (version, applied_at)
 VALUES ('master_20250130_01', NOW());
