@@ -71,7 +71,14 @@ $config = [
 
 Config::load($config);
 
-Connection::init($config['database']);
+try {
+    Connection::init($config['database']);
+} catch (\Throwable $e) {
+    if (!defined('BOWWOW_OPTIONAL_BOOTSTRAP') || !BOWWOW_OPTIONAL_BOOTSTRAP) {
+        throw $e;
+    }
+    error_log('[BowWow] Database connection skipped during optional bootstrap: ' . $e->getMessage());
+}
 
 $sessionConfig = $config['session'] ?? [];
 $lifetime = (int) ($sessionConfig['lifetime'] ?? 14400);

@@ -8,6 +8,9 @@ use BowWowSpa\Services\SiteContentService;
 $backendDir = resolveBackendDir();
 $bootstrapPath = $backendDir . '/bootstrap/app.php';
 if (is_file($bootstrapPath)) {
+    if (!defined('BOWWOW_OPTIONAL_BOOTSTRAP')) {
+        define('BOWWOW_OPTIONAL_BOOTSTRAP', true);
+    }
     require_once $bootstrapPath;
 }
 
