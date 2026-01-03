@@ -1,0 +1,13 @@
+node_modules/
+frontend/**/node_modules/
+frontend/**/dist/
+backend/storage/media/*
+backend/uploads/
+backend/config/config.php
+backend/.env
+.env
+**/.env
+deploy-*.zip
+*.DS_Store
+.build/
+.dev/
