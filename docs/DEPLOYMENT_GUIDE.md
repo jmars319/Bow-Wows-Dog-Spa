@@ -63,14 +63,20 @@ The CLI runner executes each file under `backend/migrations/` sequentially.
 
 ### Seed the initial super admin
 
-After migrations, create the first admin account (role `super_admin`) by running:
+After migrations, create the first admin account (role `super_admin`) using one of:
 
-```bash
-cd /path/to/backend
-php scripts/seed_admin.php
-```
+- **Temporary web endpoint (no SSH required)**  
+  1. Set `ADMIN_SEED_KEY=some-long-random-string` in `backend/.env`.  
+  2. Deploy the backend.  
+  3. Visit `https://yourdomain.com/api/seed_admin.php?key=THE_KEY&email=admin@example.com&password=StrongPass123!` (use HTTPS). Optional `force=1` overwrites an existing user.  
+  4. Remove `ADMIN_SEED_KEY` (or delete `backend/public/seed_admin.php`) after the admin is created.
 
-The script prompts for email + password (or read `ADMIN_EMAIL` / `ADMIN_PASSWORD`). Use `--reset` if you need to overwrite an existing admin user.
+- **CLI seeder (when SSH is available)**
+  ```bash
+  cd /path/to/backend
+  php scripts/seed_admin.php
+  ```
+  The CLI script prompts for email/password (or reads `ADMIN_EMAIL` / `ADMIN_PASSWORD`). Use `--reset` to overwrite an existing admin.
 
 ## 5. Deploy the front-end
 

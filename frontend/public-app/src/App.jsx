@@ -48,7 +48,7 @@ function useSiteContent() {
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/current">
       <SiteContentProvider>
         <Routes>
           <Route path="/" element={<PublicPage />} />

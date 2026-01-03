@@ -45,6 +45,7 @@ See `docs/DEPLOYMENT_GUIDE.md` for cPanel deployment steps and `docs/OPERATOR_NO
 - **Sessions** – cookie name, lifetime, `SESSION_SECURE` (set `true` when HTTPS enforced).
 - **Media & Upload Processing** – `UPLOAD_DIR`, size/quality knobs, width profiles.
 - **Preview Gate** – password, secret, cookie, TTL, and master enable flag.
+- **Admin seeding (optional)** – set `ADMIN_SEED_KEY` temporarily if you want to run the web-based admin seeder endpoint.
 
 Missing `.env` results in a clear bootstrap error so the backend never runs with partial config.
 

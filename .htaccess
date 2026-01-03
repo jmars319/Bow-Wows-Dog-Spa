@@ -5,7 +5,15 @@ RewriteEngine On
 RewriteRule ^$ index.php [L]
 RewriteRule ^preview/?$ index.php [QSA,L]
 RewriteRule ^current/(.*)$ current/gate.php [QSA,L]
+
+# serve existing static files (except /current which is gate-protected)
+RewriteCond %{REQUEST_URI} !^/current/
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
 RewriteRule ^admin/(.*)$ admin/index.html [QSA,L]
+
 RewriteCond %{DOCUMENT_ROOT}/backend/public -d
 RewriteRule ^api/(.*)$ backend/public/$1 [QSA,L]
 RewriteCond %{DOCUMENT_ROOT}/api/public -d
