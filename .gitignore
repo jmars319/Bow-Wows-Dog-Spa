@@ -7,6 +7,7 @@ backend/config/config.php
 backend/.env
 .env
 **/.env
+references/
 deploy-*.zip
 *.DS_Store
 .build/
