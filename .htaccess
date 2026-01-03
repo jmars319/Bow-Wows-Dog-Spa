@@ -5,7 +5,7 @@ RewriteEngine On
 RewriteRule ^$ index.php [L]
 RewriteRule ^preview/?$ index.php [QSA,L]
 RewriteRule ^current/(.*)$ current/gate.php [QSA,L]
-RewriteRule ^(privacy|terms)/?$ current/gate.php [QSA,L]
+RewriteRule ^(privacy|terms)/?$ current/gate.php?path=$1 [QSA,L]
 
 # serve existing static files (except /current which is gate-protected)
 RewriteCond %{REQUEST_URI} !^/current/
