@@ -33,6 +33,9 @@ rsync -a "$ROOT_DIR/frontend/public-app/dist/" "$FRONT_STAGING/current/"
 rsync -a "$ROOT_DIR/frontend/admin-app/dist/" "$FRONT_STAGING/admin/"
 cp "$ROOT_DIR/index.php" "$FRONT_STAGING/index.php"
 cp "$ROOT_DIR/.htaccess" "$FRONT_STAGING/.htaccess"
+if [ -d "$ROOT_DIR/public-root" ]; then
+  rsync -a --exclude '.gitignore' --exclude '.DS_Store' "$ROOT_DIR/public-root/" "$FRONT_STAGING/"
+fi
 
 log "Preparing backend bundle"
 rsync -a \
