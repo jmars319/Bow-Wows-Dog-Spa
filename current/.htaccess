@@ -1,0 +1,9 @@
+RewriteEngine On
+
+RewriteRule ^gate\.php$ - [L]
+
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+RewriteRule ^(.*)$ gate.php?path=$1 [QSA,L]
