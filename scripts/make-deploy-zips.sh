@@ -5,8 +5,18 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/.build/deploy"
 FRONT_STAGING="$BUILD_DIR/frontend"
 BACKEND_STAGING="$BUILD_DIR/backend"
+INCLUDE_CLI_TOOLS_IN_DEPLOY="${INCLUDE_CLI_TOOLS_IN_DEPLOY:-false}"
 
 log() { printf '[deploy] %s\n' "$*"; }
+
+is_true() {
+  local value
+  value="$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')"
+  case "$value" in
+    1|true|yes|on) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 log "Cleaning previous artifacts"
 rm -f "$ROOT_DIR"/deploy-*.zip
@@ -28,9 +38,9 @@ popd >/dev/null
 
 log "Preparing frontend bundle"
 rsync -a --exclude '.gitignore' --exclude '.DS_Store' "$ROOT_DIR/placeholder/" "$FRONT_STAGING/placeholder/"
-rsync -a --exclude '.gitignore' --exclude '.DS_Store' "$ROOT_DIR/current/" "$FRONT_STAGING/current/"
-rsync -a "$ROOT_DIR/frontend/public-app/dist/" "$FRONT_STAGING/current/"
+rsync -a "$ROOT_DIR/frontend/public-app/dist/" "$FRONT_STAGING/"
 rsync -a "$ROOT_DIR/frontend/admin-app/dist/" "$FRONT_STAGING/admin/"
+cp "$ROOT_DIR/placeholder/index.php" "$FRONT_STAGING/placeholder/index.php"
 cp "$ROOT_DIR/index.php" "$FRONT_STAGING/index.php"
 cp "$ROOT_DIR/.htaccess" "$FRONT_STAGING/.htaccess"
 if [ -d "$ROOT_DIR/public-root" ]; then
@@ -38,13 +48,26 @@ if [ -d "$ROOT_DIR/public-root" ]; then
 fi
 
 log "Preparing backend bundle"
+BACKEND_EXCLUDES=(
+  --exclude 'config/config.php'
+  --exclude '.env'
+  --exclude '.env.production'
+  --exclude 'uploads/'
+  --exclude 'storage/media/'
+  --exclude 'public/seed_admin.php'
+  --exclude '.DS_Store'
+  --exclude '.gitignore'
+)
+
+if is_true "$INCLUDE_CLI_TOOLS_IN_DEPLOY"; then
+  log "Including backend CLI tools in deploy-backend.zip by explicit request"
+else
+  log "Excluding backend CLI tools from deploy-backend.zip (default)"
+  BACKEND_EXCLUDES+=(--exclude 'scripts/')
+fi
+
 rsync -a \
-  --exclude 'config/config.php' \
-  --exclude '.env' \
-  --exclude 'uploads/' \
-  --exclude 'storage/media/' \
-  --exclude '.DS_Store' \
-  --exclude '.gitignore' \
+  "${BACKEND_EXCLUDES[@]}" \
   "$ROOT_DIR/backend/" "$BACKEND_STAGING/backend/"
 
 log "Creating deploy-frontend.zip"

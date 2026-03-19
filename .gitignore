@@ -7,6 +7,7 @@ backend/config/config.php
 backend/.env
 .env
 **/.env
+**/.env.production
 references/
 deploy-*.zip
 *.DS_Store

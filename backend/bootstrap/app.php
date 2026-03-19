@@ -13,19 +13,33 @@ use BowWowSpa\Lib\Dotenv;
 $envFile = BOWWOW_APP_PATH . '/.env';
 Dotenv::load($envFile);
 
+$appEnv = getenv('APP_ENV') ?: 'production';
+$appDebug = filter_var(getenv('APP_DEBUG'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
+$dbHost = trim((string) (getenv('DB_HOST') ?: ''));
+$dbName = trim((string) (getenv('DB_NAME') ?: ''));
+$dbUser = trim((string) (getenv('DB_USER') ?: ''));
+
+if ($dbHost === '' || $dbName === '' || $dbUser === '') {
+    throw new \RuntimeException('Database environment is not configured. Set DB_HOST, DB_NAME, and DB_USER in backend/.env.');
+}
+
+ini_set('display_errors', $appDebug ? '1' : '0');
+ini_set('session.use_strict_mode', '1');
+ini_set('session.use_only_cookies', '1');
+
 $config = [
     'app' => [
-        'url' => getenv('APP_URL') ?: 'https://bowwowsdogspa.example.com',
-        'env' => getenv('APP_ENV') ?: 'production',
-        'debug' => filter_var(getenv('APP_DEBUG'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false,
+        'url' => getenv('APP_URL') ?: 'https://bowwowsdogspa.com',
+        'env' => $appEnv,
+        'debug' => $appDebug,
     ],
     'database' => [
         'dsn' => sprintf(
             'mysql:host=%s;dbname=%s;charset=utf8mb4',
-            getenv('DB_HOST') ?: '127.0.0.1',
-            getenv('DB_NAME') ?: 'bowwow'
+            $dbHost,
+            $dbName
         ),
-        'username' => getenv('DB_USER') ?: '',
+        'username' => $dbUser,
         'password' => getenv('DB_PASS') ?: '',
         'options' => [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -59,13 +73,6 @@ $config = [
             "gallery": [640, 1280, 1920],
             "retail": [320, 640, 960]
         }', true),
-    ],
-    'preview' => [
-        'enabled' => filter_var(getenv('PREVIEW_GATE_ENABLED'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true,
-        'password' => getenv('PREVIEW_GATE_PASSWORD') ?: null,
-        'cookie_name' => getenv('PREVIEW_GATE_COOKIE') ?: 'preview_ok',
-        'cookie_ttl' => (int) (getenv('PREVIEW_GATE_COOKIE_TTL') ?: 86400),
-        'secret' => getenv('PREVIEW_GATE_SECRET') ?: 'change-this-preview-secret',
     ],
 ];
 

@@ -2,14 +2,14 @@
 
 return [
     'app' => [
-        'url' => 'https://bowwowsdogspa.example.com',
+        'url' => 'https://bowwowsdogspa.com',
         'env' => 'local',
         'debug' => true,
     ],
     'database' => [
-        'dsn' => 'mysql:host=127.0.0.1;dbname=bowwow;charset=utf8mb4',
-        'username' => 'bowwow_user',
-        'password' => 'secret',
+        'dsn' => 'mysql:host=127.0.0.1;dbname=bowwow_dev;charset=utf8mb4',
+        'username' => 'bowwow_dev_user',
+        'password' => 'change-me',
         'options' => [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -23,9 +23,9 @@ return [
     ],
     'sendgrid' => [
         'api_key' => 'SENDGRID_API_KEY',
-        'from_email' => 'hello@bowwowsdogspa.example.com',
+        'from_email' => 'hello@bowwowsdogspa.com',
         'from_name' => 'Bow Wow\'s Dog Spa',
-        'staff_notifications' => ['team@bowwowsdogspa.example.com'],
+        'staff_notifications' => ['bowwowsdogspa@gmail.com'],
     ],
     'media' => [
         'upload_dir' => getenv('UPLOAD_DIR') ?: __DIR__ . '/../uploads',
@@ -39,12 +39,5 @@ return [
             "gallery": [640, 1280, 1920],
             "retail": [320, 640, 960]
         }', true),
-    ],
-    'preview' => [
-        'enabled' => (bool) (getenv('PREVIEW_GATE_ENABLED') ?? true),
-        'password' => getenv('PREVIEW_GATE_PASSWORD') ?: 'bowwow-preview',
-        'cookie_name' => getenv('PREVIEW_GATE_COOKIE') ?: 'preview_ok',
-        'cookie_ttl' => (int) (getenv('PREVIEW_GATE_COOKIE_TTL') ?: 60 * 60 * 24),
-        'secret' => getenv('PREVIEW_GATE_SECRET') ?: 'change-this-preview-secret',
     ],
 ];

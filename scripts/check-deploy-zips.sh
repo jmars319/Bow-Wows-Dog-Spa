@@ -4,6 +4,16 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND_ZIP="$ROOT_DIR/deploy-backend.zip"
 FRONTEND_ZIP="$ROOT_DIR/deploy-frontend.zip"
+INCLUDE_CLI_TOOLS_IN_DEPLOY="${INCLUDE_CLI_TOOLS_IN_DEPLOY:-false}"
+
+is_true() {
+  local value
+  value="$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')"
+  case "$value" in
+    1|true|yes|on) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 if [[ ! -f "$BACKEND_ZIP" ]] || [[ ! -f "$FRONTEND_ZIP" ]]; then
   echo "[check] Missing deploy zips. Run scripts/make-deploy-zips.sh first." >&2
@@ -29,6 +39,38 @@ fi
 if echo "$BACKEND_FILES" | grep -Fx 'backend/.env'; then
   echo "[check][error] backend zip should not include backend/.env" >&2
   exit 1
+fi
+
+if echo "$BACKEND_FILES" | grep -Fx 'backend/.env.production'; then
+  echo "[check][error] backend zip should not include backend/.env.production" >&2
+  exit 1
+fi
+
+if echo "$BACKEND_FILES" | grep -Fx 'backend/public/seed_admin.php'; then
+  echo "[check][error] backend zip must not include backend/public/seed_admin.php" >&2
+  exit 1
+fi
+
+if is_true "$INCLUDE_CLI_TOOLS_IN_DEPLOY"; then
+  if ! echo "$BACKEND_FILES" | grep -Fx 'backend/scripts/seed_admin.php'; then
+    echo "[check][error] backend zip should include backend/scripts/seed_admin.php when INCLUDE_CLI_TOOLS_IN_DEPLOY=true" >&2
+    exit 1
+  fi
+
+  if ! echo "$BACKEND_FILES" | grep -Fx 'backend/scripts/run_migrations.php'; then
+    echo "[check][error] backend zip should include backend/scripts/run_migrations.php when INCLUDE_CLI_TOOLS_IN_DEPLOY=true" >&2
+    exit 1
+  fi
+else
+  if echo "$BACKEND_FILES" | grep -Fx 'backend/scripts/seed_admin.php'; then
+    echo "[check][error] backend zip should not include backend/scripts/seed_admin.php by default" >&2
+    exit 1
+  fi
+
+  if echo "$BACKEND_FILES" | grep -Fx 'backend/scripts/run_migrations.php'; then
+    echo "[check][error] backend zip should not include backend/scripts/run_migrations.php by default" >&2
+    exit 1
+  fi
 fi
 
 if ! echo "$BACKEND_FILES" | grep -Fx 'backend/.env.example'; then

@@ -18,19 +18,30 @@ bash scripts/make-deploy-zips.sh   # builds both SPAs + placeholder, outputs dep
 bash scripts/check-deploy-zips.sh  # optional sanity check
 ```
 
-The build script compiles the React SPAs, refreshes placeholder/logo assets, adds the preview gate helpers, and writes fresh `deploy-frontend.zip` and `deploy-backend.zip` to the repo root.
+The build script compiles the React SPAs, refreshes placeholder/logo assets, and writes fresh `deploy-frontend.zip` and `deploy-backend.zip` to the repo root.
+
+Default release posture:
+
+- `deploy-backend.zip` excludes `backend/.env`, `backend/.env.production`, runtime uploads/media, and CLI-only backend tools.
+- `deploy-frontend.zip` contains the live public site at `/`, the admin SPA at `/admin`, and the archived placeholder at `/placeholder`.
+
+If you intentionally want the CLI migration/admin tools in the backend bundle, opt in explicitly:
+
+```bash
+INCLUDE_CLI_TOOLS_IN_DEPLOY=true bash scripts/make-deploy-zips.sh
+INCLUDE_CLI_TOOLS_IN_DEPLOY=true bash scripts/check-deploy-zips.sh
+```
 
 ## 3. Configure the backend
 
 1. Upload `deploy-backend.zip` to your hosting account (e.g., `/home/{user}/bowwow-backend` or a subfolder under `public_html/api`).
-2. Extract the ZIP; the contents include `backend/public`, `src`, `config`, `migrations`, and scripts.
+2. Extract the ZIP; the contents include `backend/public`, `src`, `config`, `db`, and `migrations`. CLI scripts are excluded unless you built with `INCLUDE_CLI_TOOLS_IN_DEPLOY=true`.
 3. Copy `backend/.env.example` to `backend/.env`, then update the values (each block is labeled in the file):
    - `APP_URL` (usually `https://bowwowsdogspa.com`)
    - Database: `DB_HOST` (GoDaddy uses `localhost`), `DB_NAME`, `DB_USER`, `DB_PASS`
    - SendGrid: `SENDGRID_ENABLED`, `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`, `SENDGRID_FROM_NAME`, `SENDGRID_STAFF_NOTIFICATIONS`, plus booleans for customer emails (`SENDGRID_SEND_CUSTOMER_RECEIPTS` / `SENDGRID_SEND_CUSTOMER_CONFIRMATIONS`)
    - Sessions: `SESSION_*` flags (`SESSION_SECURE=true` when HTTPS is forced)
    - Media pipeline settings (leave defaults unless storage differs)
-   - Preview gate controls: `PREVIEW_GATE_ENABLED`, `PREVIEW_GATE_PASSWORD`, `PREVIEW_GATE_SECRET` (long random string), cookie name/TTL if needed
 4. Ensure the uploads tree defined by `UPLOAD_DIR` is writable by PHP. The default is `backend/uploads/` which must contain writable subdirectories:
    - `originals/`
    - `variants/optimized/`
@@ -40,7 +51,7 @@ The build script compiles the React SPAs, refreshes placeholder/logo assets, add
 5. Point an Apache virtual directory or subdomain (`/public_html/api`) to `backend/public`.
    - The included `.htaccess` routes all requests to `index.php`.
 
-> Missing `.env` stops the backend immediately with a clear message, so keep `backend/.env` in place (never commit it, and never include it in deploy ZIPs).
+> Missing `.env` stops the backend immediately with a clear message, so keep `backend/.env` in place on the host. Never commit it, and never include it or `.env.production` in deploy ZIPs.
 
 ## 4. Database provisioning (No SSH)
 
@@ -52,55 +63,83 @@ For a clean install using phpMyAdmin:
 
 ### Optional: CLI migrations
 
-If you have SSH/CLI access you can still apply the incremental migrations:
+If you have SSH/CLI access and intentionally included the CLI tools in the backend deploy, you can still apply the incremental migrations:
 
 ```bash
 cd /path/to/backend
 php scripts/run_migrations.php
 ```
 
-The CLI runner executes each file under `backend/migrations/` sequentially.
+The CLI runner executes each file under `backend/migrations/` sequentially. If you use the default deploy bundle, the CLI scripts are absent by design; use `master_schema.sql` via phpMyAdmin or rebuild with `INCLUDE_CLI_TOOLS_IN_DEPLOY=true`.
 
 ### Seed the initial super admin
 
-After migrations, create the first admin account (role `super_admin`) using one of:
+After migrations, create the first admin account (role `super_admin`) with the CLI seeder if you have intentionally deployed the CLI tools:
 
-- **Temporary web endpoint (no SSH required)**  
-  1. Set `ADMIN_SEED_KEY=some-long-random-string` in `backend/.env`.  
-  2. Deploy the backend.  
-  3. Visit `https://yourdomain.com/api/seed_admin.php?key=THE_KEY&email=admin@example.com&password=StrongPass123!` (use HTTPS). Optional `force=1` overwrites an existing user.  
-  4. Remove `ADMIN_SEED_KEY` (or delete `backend/public/seed_admin.php`) after the admin is created.
+```bash
+cd /path/to/backend
+php scripts/seed_admin.php
+```
 
-- **CLI seeder (when SSH is available)**
-  ```bash
-  cd /path/to/backend
-  php scripts/seed_admin.php
-  ```
-  The CLI script prompts for email/password (or reads `ADMIN_EMAIL` / `ADMIN_PASSWORD`). Use `--reset` to overwrite an existing admin.
+The CLI script prompts for email/password (or reads `ADMIN_EMAIL` / `ADMIN_PASSWORD`). Use `--reset` to overwrite an existing admin. On no-SSH/shared-host installs, seed the admin before packaging or use a controlled local/maintenance workflow instead of exposing a web seeder.
 
 ## 5. Deploy the front-end
 
 1. Upload `deploy-frontend.zip` into your `public_html` (or subdomain) directory.
 2. Extract; the archive already contains the correct structure:
-   - `/index.php` + `/.htaccess` → placeholder + `/preview` gateway (root requests route here)
-   - `/placeholder/` → static assets (logos) used by the placeholder
-   - `/current/` → public SPA build guarded by `current/gate.php`
+   - `/index.html` + `/index.php` + `/.htaccess` → public SPA mounted at the site root
+   - `/placeholder/` → archived placeholder page + static assets (logos)
    - `/admin/` → admin SPA build
-3. Ensure `/current` remains alongside `/placeholder` and `/index.php`. `/current/.htaccess` routes all `/current` requests through the gate so the preview cookie is checked before serving any asset.
-4. `/preview` shares the same configuration as the backend (reads `backend/.env`), so keep `backend` as a sibling directory of the deployed front-end.
-5. Both SPAs expect the PHP API to be reachable at `/api`, so keep the backend’s `/public` folder mounted at `/api`.
+3. Keep `backend` as a sibling directory of the deployed front-end so `/api` can be routed into `backend/public`.
+4. Both SPAs expect the PHP API to be reachable at `/api`, so keep the backend’s `/public` folder mounted at `/api`.
+
+Routing expectations on the live host:
+
+- `/` serves the live site.
+- `/preview` redirects to `/`.
+- `/current` redirects to `/`.
+- `/placeholder/` remains archived and isolated.
+- `/admin/login` is the real admin surface.
+- `/api/*` is the backend entrypoint.
 
 ## 6. Environment-specific tweaks
 
 - Enable HTTPS and set `session.secure` to `true`.
 - Use GoDaddy’s cron or task scheduler to periodically prune expired booking holds if needed (sample SQL: `DELETE FROM booking_holds WHERE expires_at < NOW();`).
 
-## 7. Smoke test
+## 7. Real-host smoke test checklist
 
-1. Visit `/privacy` and `/terms` to confirm routing works.
-2. Submit the public booking form (should emit SendGrid emails).
-3. Log into `/admin/login`, confirm dashboard data loads.
-4. Upload a media asset and confirm it appears under `backend/uploads/` (original + variants + manifest).
-5. Confirm booking status transitions update both the booking list and public availability.
-6. Visit `/preview`, enter the configured password, and confirm `/current` now renders the SPA while ungated visits redirect back to `/preview`.
-7. Visit `/admin/system` and verify the diagnostics checks are green (or follow the remediation hints shown in the UI).
+### Routing
+
+1. Visit `/` and confirm the live public site renders.
+2. Visit `/preview` and confirm it redirects to `/`.
+3. Visit `/current` and confirm it redirects to `/`.
+4. Visit `/admin/login` and confirm the admin login renders correctly.
+5. Visit `/privacy` and `/terms` and confirm the legal pages load with the correct root assets.
+
+### Backend & booking
+
+1. Confirm `/api/public/site` returns the expected JSON payload.
+2. Confirm schedule lookup works for a normal published date.
+3. Confirm booking hold works.
+4. Confirm booking request submission works end to end.
+5. Confirm confirmed/declined booking actions update availability as expected.
+
+### Uploads
+
+1. Confirm the configured upload directory is writable by PHP.
+2. Upload a booking attachment from the public form and confirm submission succeeds.
+3. Download that attachment from the admin booking detail view and confirm the controlled download works.
+4. Upload a media item from admin and confirm originals, variants, and manifests are written correctly.
+
+### Email
+
+1. Submit the contact form and confirm the staff email sends.
+2. Submit a booking request and confirm the staff email sends.
+3. Confirm a booking in admin and confirm the customer confirmation email sends.
+4. Decline a booking in admin and confirm the customer decline email sends.
+
+### Admin-only diagnostics
+
+1. Visit `/admin/system` after logging in and verify the diagnostics checks are green.
+2. Use this screen for environment verification only; there are no public debug endpoints.

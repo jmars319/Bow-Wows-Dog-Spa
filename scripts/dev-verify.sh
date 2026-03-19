@@ -25,7 +25,7 @@ function check_frontend() {
 }
 
 function check_admin() {
-  if curl -fsS "http://${DEV_HOST}:${ADMIN_PORT}/admin/login" >/dev/null; then
+  if curl -fsS "http://${DEV_HOST}:${FRONTEND_PORT}/admin/login" >/dev/null; then
     log_status "admin" "success" "Health OK"
   else
     log_status "admin" "error" "Health check failed"

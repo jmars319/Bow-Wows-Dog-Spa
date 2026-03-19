@@ -41,7 +41,7 @@ function convertToWebp(string $source, string $destination): void
         throw new RuntimeException("Unable to write {$destination}");
     }
 
-    if (function_exists('imagedestroy')) {
+    if (function_exists('imagedestroy') && PHP_VERSION_ID < 80500) {
         imagedestroy($image);
     }
 }
