@@ -1,8 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, createContext, lazy, useCallback, useContext, useEffect, useId, useMemo, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+
+const ADMIN_BASE = '/admin';
+const RichTextEditorImpl = lazy(() => import('./RichTextEditor'));
 
 const api = axios.create({
   baseURL: '/api/admin',
@@ -10,6 +11,12 @@ const api = axios.create({
 });
 
 const AuthContext = createContext(null);
+const DirtyStateContext = createContext({
+  isDirty: false,
+  setDirtyState: () => {},
+  clearDirty: () => {},
+  confirmNavigation: () => true,
+});
 
 function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -34,8 +41,8 @@ function AuthProvider({ children }) {
     load();
   }, [load]);
 
-  const login = async (email, password) => {
-    const response = await api.post('/login', { email, password });
+  const login = async (identifier, password) => {
+    const response = await api.post('/login', { identifier, password });
     setUser(response.data.data.user);
     setAllowedSections(response.data.data.allowed_sections);
   };
@@ -57,53 +64,121 @@ function useAuth() {
   return useContext(AuthContext);
 }
 
+function DirtyStateProvider({ children }) {
+  const [state, setState] = useState({
+    isDirty: false,
+    message: 'You have unsaved changes. Leave without saving?',
+  });
+
+  useEffect(() => {
+    if (!state.isDirty) {
+      return undefined;
+    }
+
+    const beforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = state.message;
+      return state.message;
+    };
+
+    window.addEventListener('beforeunload', beforeUnload);
+    return () => window.removeEventListener('beforeunload', beforeUnload);
+  }, [state]);
+
+  const setDirtyState = useCallback((next) => {
+    setState((current) => ({
+      isDirty: Boolean(next?.isDirty),
+      message: next?.message || current.message || 'You have unsaved changes. Leave without saving?',
+    }));
+  }, []);
+
+  const clearDirty = useCallback(() => {
+    setState((current) => ({ ...current, isDirty: false }));
+  }, []);
+
+  const confirmNavigation = useCallback(() => {
+    if (!state.isDirty) {
+      return true;
+    }
+
+    const shouldLeave = window.confirm(state.message || 'You have unsaved changes. Leave without saving?');
+    if (shouldLeave) {
+      setState((current) => ({ ...current, isDirty: false }));
+    }
+
+    return shouldLeave;
+  }, [state.isDirty, state.message]);
+
+  return (
+    <DirtyStateContext.Provider value={{ ...state, setDirtyState, clearDirty, confirmNavigation }}>
+      {children}
+    </DirtyStateContext.Provider>
+  );
+}
+
+function useAdminDirtyState() {
+  return useContext(DirtyStateContext);
+}
+
 function RequireAuth() {
   const { user, loading } = useAuth();
   if (loading) {
-    return <div className="card">Loading...</div>;
+    return <div className="card">Checking your session…</div>;
   }
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={`${ADMIN_BASE}/login`} replace />;
   }
   return <Outlet />;
 }
 
 const NAV_ITEMS = [
-  { path: '/dashboard', label: 'Dashboard', section: 'dashboard' },
-  { path: '/booking', label: 'Booking Requests', section: 'booking' },
-  { path: '/schedule', label: 'Schedule Setup', section: 'schedule' },
-  { path: '/happy-clients', label: 'Happy Clients', section: 'happy_clients' },
-  { path: '/retail', label: 'Retail', section: 'retail' },
-  { path: '/content', label: 'Text & Site Info', section: 'content' },
-  { path: '/media', label: 'Media', section: 'media' },
-  { path: '/audit', label: 'Audit Log', section: 'audit' },
-  { path: '/users', label: 'Admin Users', section: 'users', superOnly: true },
-  { path: '/system', label: 'System', section: 'system' },
+  { path: `${ADMIN_BASE}/dashboard`, label: 'Dashboard', section: 'dashboard' },
+  { path: `${ADMIN_BASE}/booking`, label: 'Booking Requests', section: 'booking' },
+  { path: `${ADMIN_BASE}/schedule`, label: 'Schedule Setup', section: 'schedule' },
+  { path: `${ADMIN_BASE}/services`, label: 'Services', section: 'services' },
+  { path: `${ADMIN_BASE}/reviews`, label: 'Reviews', section: 'reviews' },
+  { path: `${ADMIN_BASE}/gallery`, label: 'Gallery', section: 'gallery' },
+  { path: `${ADMIN_BASE}/content`, label: 'Text & Site Info', section: 'content' },
+  { path: `${ADMIN_BASE}/contacts`, label: 'Contact Inbox', section: 'contact_messages' },
+  { path: `${ADMIN_BASE}/media`, label: 'Media', section: 'media' },
+  { path: `${ADMIN_BASE}/retail`, label: 'Retail', section: 'retail' },
+  { path: `${ADMIN_BASE}/audit`, label: 'Audit Log', section: 'audit' },
+  { path: `${ADMIN_BASE}/users`, label: 'Admin Users', section: 'users', superOnly: true },
+  { path: `${ADMIN_BASE}/system`, label: 'System', section: 'system' },
 ];
 
 
 function App() {
   return (
-    <BrowserRouter basename="/admin">
+    <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          <Route element={<RequireAuth />}>
-            <Route element={<AdminLayout />}>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/booking" element={<BookingRequestsPage />} />
-              <Route path="/schedule" element={<SchedulePage />} />
-              <Route path="/happy-clients" element={<HappyClientsPage />} />
-              <Route path="/retail" element={<RetailPage />} />
-              <Route path="/content" element={<ContentPage />} />
-              <Route path="/media" element={<MediaPage />} />
-              <Route path="/audit" element={<AuditLogPage />} />
-              <Route path="/users" element={<AdminUsersPage />} />
-              <Route path="/system" element={<SystemPage />} />
+        <DirtyStateProvider>
+          <Routes>
+            <Route path="/" element={<Navigate to={`${ADMIN_BASE}/login`} replace />} />
+            <Route path="/login" element={<Navigate to={`${ADMIN_BASE}/login`} replace />} />
+            <Route element={<RequireAuth />}>
+              <Route element={<AdminLayout />}>
+                <Route path={ADMIN_BASE} element={<Navigate to={`${ADMIN_BASE}/dashboard`} replace />} />
+                <Route path={`${ADMIN_BASE}/dashboard`} element={<DashboardPage />} />
+                <Route path={`${ADMIN_BASE}/booking`} element={<BookingRequestsPage />} />
+                <Route path={`${ADMIN_BASE}/schedule`} element={<SchedulePage />} />
+                <Route path={`${ADMIN_BASE}/services`} element={<ServicesPage />} />
+                <Route path={`${ADMIN_BASE}/reviews`} element={<FeaturedReviewsPage />} />
+                <Route path={`${ADMIN_BASE}/gallery`} element={<GalleryPage />} />
+                <Route path={`${ADMIN_BASE}/happy-clients`} element={<Navigate to={`${ADMIN_BASE}/gallery`} replace />} />
+                <Route path={`${ADMIN_BASE}/retail`} element={<RetailPage />} />
+                <Route path={`${ADMIN_BASE}/content`} element={<ContentPage />} />
+                <Route path={`${ADMIN_BASE}/contacts`} element={<ContactMessagesPage />} />
+                <Route path={`${ADMIN_BASE}/media`} element={<MediaPage />} />
+                <Route path={`${ADMIN_BASE}/audit`} element={<AuditLogPage />} />
+                <Route path={`${ADMIN_BASE}/users`} element={<AdminUsersPage />} />
+                <Route path={`${ADMIN_BASE}/system`} element={<SystemPage />} />
+              </Route>
             </Route>
-          </Route>
-          <Route path="/login" element={<LoginPage />} />
-        </Routes>
+            <Route path={`${ADMIN_BASE}/login`} element={<LoginPage />} />
+            <Route path="*" element={<Navigate to={`${ADMIN_BASE}/login`} replace />} />
+          </Routes>
+        </DirtyStateProvider>
       </AuthProvider>
     </BrowserRouter>
   );
@@ -111,6 +186,7 @@ function App() {
 
 function AdminLayout() {
   const { user, allowedSections, logout } = useAuth();
+  const { confirmNavigation } = useAdminDirtyState();
   const navigate = useNavigate();
   const visibleNav = useMemo(
     () =>
@@ -123,8 +199,11 @@ function AdminLayout() {
   );
 
   const handleLogout = async () => {
+    if (!confirmNavigation()) {
+      return;
+    }
     await logout();
-    navigate('/login');
+    navigate(`${ADMIN_BASE}/login`);
   };
 
   return (
@@ -136,7 +215,16 @@ function AdminLayout() {
         </div>
         <nav className="admin-nav__links">
           {visibleNav.map((item) => (
-            <Link key={item.path} to={item.path} className="admin-nav__link">
+            <Link
+              key={item.path}
+              to={item.path}
+              className="admin-nav__link"
+              onClick={(event) => {
+                if (!confirmNavigation()) {
+                  event.preventDefault();
+                }
+              }}
+            >
               {item.label}
             </Link>
           ))}
@@ -159,15 +247,15 @@ function AdminLayout() {
 function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [form, setForm] = useState({ identifier: '', password: '' });
   const [error, setError] = useState(null);
 
   const submit = async (e) => {
     e.preventDefault();
     setError(null);
     try {
-      await login(form.email, form.password);
-      navigate('/dashboard');
+      await login(form.identifier, form.password);
+      navigate(`${ADMIN_BASE}/dashboard`);
     } catch (err) {
       setError(err.response?.data?.error?.message ?? 'Login failed.');
     }
@@ -177,9 +265,27 @@ function LoginPage() {
     <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', background: '#f5f4f1' }}>
       <form className="card" onSubmit={submit} style={{ minWidth: '320px' }}>
         <h2>Admin Login</h2>
-        <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} />
-        <input type="password" placeholder="Password" value={form.password} onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))} style={{ marginTop: '0.75rem' }} />
-        {error && <p style={{ color: '#b83232' }}>{error}</p>}
+        <div className="field-block">
+          <label htmlFor="admin-identifier">Email or username</label>
+          <input
+            id="admin-identifier"
+            type="text"
+            value={form.identifier}
+            onChange={(e) => setForm((prev) => ({ ...prev, identifier: e.target.value }))}
+            autoComplete="username"
+          />
+        </div>
+        <div className="field-block" style={{ marginTop: '0.75rem' }}>
+          <label htmlFor="admin-password">Password</label>
+          <input
+            id="admin-password"
+            type="password"
+            value={form.password}
+            onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
+            autoComplete="current-password"
+          />
+        </div>
+        {error && <p role="alert" style={{ color: '#b83232' }}>{error}</p>}
         <button className="btn" style={{ marginTop: '0.75rem' }}>
           Login
         </button>
@@ -258,6 +364,7 @@ function BookingRequestsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [selected, setSelected] = useState(null);
   const [notes, setNotes] = useState('');
+  const [notesDirty, setNotesDirty] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [scheduleSettings, setScheduleSettings] = useState(null);
 
@@ -280,13 +387,37 @@ function BookingRequestsPage() {
     const refreshed = items.find((item) => item.id === selected.id);
     if (refreshed) {
       setSelected(refreshed);
-      setNotes(refreshed.admin_notes || '');
+      if (!notesDirty) {
+        setNotes(refreshed.admin_notes || '');
+      }
+      return;
     }
-  }, [items, selected]);
+
+    setSelected(null);
+    setNotes('');
+    setNotesDirty(false);
+  }, [items, notesDirty, selected]);
 
   const openDetails = (request) => {
+    setFeedback(null);
     setSelected(request);
     setNotes(request.admin_notes || '');
+    setNotesDirty(false);
+  };
+
+  const saveNotes = async () => {
+    if (!selected) return;
+    try {
+      const response = await api.post('/booking-requests/notes', { id: selected.id, notes });
+      const updated = response.data.data;
+      setSelected(updated);
+      setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setNotes(updated.admin_notes || '');
+      setNotesDirty(false);
+      setFeedback({ tone: 'success', message: 'Internal notes saved.' });
+    } catch (err) {
+      setFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to save notes.' });
+    }
   };
 
   const performAction = async (action) => {
@@ -295,30 +426,43 @@ function BookingRequestsPage() {
       confirm: 'Confirm this booking and notify the customer?',
       decline: 'Decline this booking request?',
       cancel: 'Cancel this booking?',
+      complete: 'Mark this booking as completed?',
     };
     if (!window.confirm(prompts[action])) {
       return;
     }
     try {
-      await api.post('/booking-requests/action', { id: selected.id, action, notes });
-      setFeedback(`Booking ${action}ed.`);
+      const response = await api.post('/booking-requests/action', { id: selected.id, action, notes });
+      const updated = response.data.data;
+      const labels = {
+        confirm: 'Booking confirmed.',
+        decline: 'Booking declined.',
+        cancel: 'Booking cancelled.',
+        complete: 'Booking marked completed.',
+      };
+      setSelected(updated);
+      setNotes(updated.admin_notes || '');
+      setNotesDirty(false);
+      setFeedback({ tone: 'success', message: labels[action] || 'Booking updated.' });
       setTimeout(() => setFeedback(null), 2500);
-      setSelected(null);
-      setNotes('');
       load();
     } catch (err) {
-      setFeedback(err.response?.data?.error?.message ?? 'Unable to update booking.');
+      setFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to update booking.' });
     }
   };
 
   const extendHold = async () => {
     if (!selected) return;
     try {
-      await api.post('/booking-requests/extend', { id: selected.id });
+      const response = await api.post('/booking-requests/extend', { id: selected.id });
+      const updated = response.data.data;
+      setSelected(updated);
+      setNotes(updated.admin_notes || '');
+      setNotesDirty(false);
       load();
-      setFeedback('Hold extended an additional 24 hours.');
+      setFeedback({ tone: 'success', message: 'Hold extended an additional 24 hours.' });
     } catch (err) {
-      setFeedback(err.response?.data?.error?.message ?? 'Unable to extend hold.');
+      setFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to extend hold.' });
     }
   };
 
@@ -328,12 +472,15 @@ function BookingRequestsPage() {
       return;
     }
     try {
-      await api.post('/booking-requests/release', { id: selected.id, notes });
-      setSelected(null);
+      const response = await api.post('/booking-requests/release', { id: selected.id, notes });
+      const updated = response.data.data;
+      setSelected(updated);
+      setNotes(updated.admin_notes || '');
+      setNotesDirty(false);
       load();
-      setFeedback('Hold released.');
+      setFeedback({ tone: 'success', message: 'Hold released.' });
     } catch (err) {
-      setFeedback(err.response?.data?.error?.message ?? 'Unable to release hold.');
+      setFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to release hold.' });
     }
   };
 
@@ -341,6 +488,7 @@ function BookingRequestsPage() {
     { value: '', label: 'All statuses' },
     { value: 'pending_confirmation', label: 'Pending' },
     { value: 'confirmed', label: 'Confirmed' },
+    { value: 'completed', label: 'Completed' },
     { value: 'declined', label: 'Declined' },
     { value: 'cancelled', label: 'Cancelled' },
     { value: 'expired', label: 'Expired' },
@@ -389,7 +537,7 @@ function BookingRequestsPage() {
                   return (
                     <article
                       key={request.id}
-                      className={`card booking-card ${selected?.id === request.id ? 'is-active' : ''}`}
+                      className={`card booking-card booking-card--${request.status} ${selected?.id === request.id ? 'is-active' : ''}`}
                       onClick={() => openDetails(request)}
                     >
                       <div className="booking-card__header">
@@ -407,11 +555,14 @@ function BookingRequestsPage() {
                           <p className="small-text">{request.phone}</p>
                         </div>
                         <div>
-                          <p className="small-text">{request.dog_name || 'No dog name'}</p>
-                          <p className="small-text muted">{truncateText(request.dog_notes) || 'No notes yet'}</p>
+                          <p className="small-text">{summarizePets(request.pets) || request.dog_name || 'No dog info'}</p>
+                          <p className="small-text muted">{truncateText(request.request_notes || request.dog_notes) || 'No customer notes provided'}</p>
                         </div>
                       </div>
-                      <p className="small-text">{summarizeServices(request.services_json)}</p>
+                      <p className="small-text">{(request.service_names || []).join(', ') || summarizeServices(request.services_json)}</p>
+                      {(request.paperwork_attachments || []).length > 0 && (
+                        <p className="small-text muted">{request.paperwork_attachments.length} paperwork file{request.paperwork_attachments.length === 1 ? '' : 's'} attached</p>
+                      )}
                       <p className="muted small-text">
                         Submitted {formatTimeAgo(request.created_at)}
                         {holdInfo && request.status === 'pending_confirmation' ? ` · ~${holdInfo.hoursRemaining}h hold left` : ''}
@@ -431,6 +582,13 @@ function BookingRequestsPage() {
                 <div className="booking-detail__content">
                   <h2>{selected.customer_name}</h2>
                   <p className="muted small-text">Request #{selected.id}</p>
+                  <StatusBadge status={selected.status} />
+                  {selected.status === 'pending_confirmation' && (
+                    <div className="inline-note booking-detail__notice">
+                      <strong>Pending review</strong>
+                      <p className="muted small-text">This request is still holding availability until staff confirms, declines, or releases it.</p>
+                    </div>
+                  )}
                   <div className="detail-section">
                     <h4>Reservation Window</h4>
                     <p>
@@ -448,25 +606,87 @@ function BookingRequestsPage() {
                       <h4>Contact</h4>
                       <p>{selected.email}</p>
                       <p>{selected.phone}</p>
+                      <p className="muted small-text">{selected.vet_name || 'Vet not provided'}</p>
+                      {selected.vet_phone && <p className="muted small-text">{selected.vet_phone}</p>}
                     </div>
                     <div>
                       <h4>Dog Details</h4>
-                      <p>{selected.dog_name || 'Not provided'}</p>
-                      <p className="muted">{selected.dog_notes || 'No notes yet'}</p>
+                      {(selected.pets || []).length > 0 ? (
+                        <div className="stack gap-sm">
+                          {selected.pets.map((pet, index) => (
+                            <div key={`${pet.pet_name}-${index}`} className="inline-note">
+                              <strong>{pet.pet_name}</strong>
+                              <p className="muted small-text">
+                                {[pet.breed, pet.approximate_weight].filter(Boolean).join(' · ') || 'Breed/weight not provided'}
+                              </p>
+                              {(pet.temperament_notes || pet.medical_or_grooming_notes) && (
+                                <p className="muted small-text">
+                                  {[pet.temperament_notes, pet.medical_or_grooming_notes].filter(Boolean).join(' | ')}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <>
+                          <p>{selected.dog_name || 'Not provided'}</p>
+                          <p className="muted">{selected.dog_notes || 'No intake notes provided'}</p>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="detail-section">
                     <h4>Requested Services</h4>
                     <ul>
-                      {parseServices(selected.services_json).map((service, index) => (
+                      {(selected.service_names || parseServices(selected.services_json)).map((service, index) => (
                         <li key={index}>{service}</li>
                       ))}
-                      {parseServices(selected.services_json).length === 0 && <li>Not specified</li>}
+                      {(selected.service_names || parseServices(selected.services_json)).length === 0 && <li>Not specified</li>}
                     </ul>
+                  </div>
+                  <div className="detail-grid">
+                    <div>
+                      <h4>Customer Notes</h4>
+                      <p className="muted">{selected.request_notes || 'No intake notes provided.'}</p>
+                    </div>
+                    <div>
+                      <h4>Paperwork</h4>
+                      <p className="muted">{selected.paperwork_notes || 'No paperwork notes provided.'}</p>
+                      {(selected.paperwork_attachments || []).length > 0 ? (
+                        <div className="stack gap-sm">
+                          {selected.paperwork_attachments.map((attachment) => (
+                            <a
+                              key={attachment.id}
+                              href={`/api/admin/booking-requests/${selected.id}/attachments/${attachment.id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="link-chip"
+                            >
+                              {attachment.original_name}
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="muted small-text">No uploaded paperwork.</p>
+                      )}
+                    </div>
                   </div>
                   <div className="detail-section">
                     <h4>Admin Notes</h4>
-                    <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add confirmation notes..." />
+                    <textarea
+                      value={notes}
+                      onChange={(e) => {
+                        setNotes(e.target.value);
+                        setNotesDirty(true);
+                      }}
+                      placeholder="Add internal notes, confirmation details, or follow-up reminders..."
+                    />
+                    <div className="detail-actions detail-actions--secondary">
+                      <button className="btn btn-tertiary" type="button" onClick={saveNotes} disabled={!notesDirty}>
+                        Save notes
+                      </button>
+                      {notesDirty && <span className="small-text muted">Unsaved note changes</span>}
+                    </div>
                   </div>
                   {selected.status === 'pending_confirmation' && (
                     <div className="detail-section">
@@ -482,17 +702,18 @@ function BookingRequestsPage() {
                     </div>
                   )}
                   <div className="detail-actions">
-                    <button className="btn btn-success" onClick={() => performAction('confirm')}>
-                      Confirm
-                    </button>
-                    <button className="btn btn-warn" onClick={() => performAction('decline')}>
-                      Decline
-                    </button>
-                    <button className="btn btn-muted" onClick={() => performAction('cancel')}>
-                      Cancel
-                    </button>
+                    {getBookingActions(selected.status).map((action) => (
+                      <button
+                        key={action.key}
+                        className={`btn ${action.className}`}
+                        type="button"
+                        onClick={() => performAction(action.key)}
+                      >
+                        {action.label}
+                      </button>
+                    ))}
                   </div>
-                  {feedback && <p className="muted">{feedback}</p>}
+                  {feedback && <p className={`save-feedback ${feedback.tone === 'error' ? 'is-error' : 'is-success'}`}>{feedback.message}</p>}
                 </div>
               ) : (
                 <div className="muted">Select a booking to view full details.</div>
@@ -507,15 +728,129 @@ function BookingRequestsPage() {
 
 const WEEKDAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+function normalizeAdminTimeInput(value) {
+  const raw = String(value || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!raw) {
+    return null;
+  }
+
+  let match = raw.match(/^(\d{1,2})(\d{2})$/);
+  if (match) {
+    return normalizeAdminTimeParts(Number(match[1]), Number(match[2]), null);
+  }
+
+  match = raw.match(/^(\d{1,2})(?::?(\d{2}))?(AM|PM)$/);
+  if (match) {
+    return normalizeAdminTimeParts(Number(match[1]), Number(match[2] || 0), match[3]);
+  }
+
+  match = raw.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (match) {
+    return normalizeAdminTimeParts(Number(match[1]), Number(match[2]), null);
+  }
+
+  match = raw.match(/^(\d{1,2})$/);
+  if (match) {
+    return normalizeAdminTimeParts(Number(match[1]), 0, null);
+  }
+
+  return null;
+}
+
+function normalizeAdminTimeParts(hour, minutes, suffix) {
+  if (minutes < 0 || minutes > 59) {
+    return null;
+  }
+
+  let nextHour = hour;
+  if (suffix) {
+    if (hour < 1 || hour > 12) {
+      return null;
+    }
+    if (suffix === 'AM') {
+      nextHour = hour === 12 ? 0 : hour;
+    } else {
+      nextHour = hour === 12 ? 12 : hour + 12;
+    }
+  } else if (hour < 0 || hour > 23) {
+    return null;
+  }
+
+  return `${String(nextHour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
+}
+
+function sortScheduleTimes(times) {
+  return Array.from(new Set((times || []).map((time) => normalizeAdminTimeInput(time)).filter(Boolean))).sort();
+}
+
+function formatScheduleTime(value) {
+  const normalized = normalizeAdminTimeInput(value);
+  if (!normalized) {
+    return value;
+  }
+
+  const [hourRaw, minuteRaw] = normalized.split(':');
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+  const meridiem = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${String(minute).padStart(2, '0')} ${meridiem}`;
+}
+
+function timeValueToMinutes(value) {
+  const normalized = normalizeAdminTimeInput(value);
+  if (!normalized) {
+    return null;
+  }
+
+  const [hourRaw, minuteRaw] = normalized.split(':');
+  return Number(hourRaw) * 60 + Number(minuteRaw);
+}
+
+function minutesToScheduleValue(totalMinutes) {
+  const hour = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
+}
+
+function buildScheduleTimeOptions(slotMinutes, start = '07:00', end = '20:00') {
+  const startMinutes = timeValueToMinutes(start);
+  const endMinutes = timeValueToMinutes(end);
+  if (startMinutes === null || endMinutes === null || endMinutes < startMinutes) {
+    return [];
+  }
+
+  const options = [];
+  for (let cursor = startMinutes; cursor <= endMinutes; cursor += slotMinutes) {
+    options.push(minutesToScheduleValue(cursor));
+  }
+
+  return options;
+}
+
+function toggleScheduleTime(times, value) {
+  const normalized = normalizeAdminTimeInput(value);
+  if (!normalized) {
+    return sortScheduleTimes(times);
+  }
+
+  return times.includes(normalized)
+    ? times.filter((time) => time !== normalized)
+    : sortScheduleTimes([...(times || []), normalized]);
+}
+
 function SchedulePage() {
   const { user } = useAuth();
   const [templates, setTemplates] = useState([]);
   const [overrides, setOverrides] = useState([]);
   const [settings, setSettings] = useState({ booking_hold_minutes: 1440, booking_pending_expire_hours: 24 });
   const [timeDrafts, setTimeDrafts] = useState({});
-  const [overrideForm, setOverrideForm] = useState({ id: null, date: '', is_closed: false, times: '' });
+  const [overrideTimeDraft, setOverrideTimeDraft] = useState('');
+  const [overrideForm, setOverrideForm] = useState({ id: null, date: '', is_closed: false, times: [] });
   const [slotMinutes, setSlotMinutes] = useState(30);
   const [builder, setBuilder] = useState({ start: '09:00', end: '17:00', weekdays: [1, 2, 3, 4, 5], replaceExisting: true });
+  const [feedback, setFeedback] = useState(null);
+  const timeOptions = useMemo(() => buildScheduleTimeOptions(slotMinutes), [slotMinutes]);
 
   const load = useCallback(async () => {
     const [tpl, ov] = await Promise.all([api.get('/schedule/templates'), api.get('/schedule/overrides')]);
@@ -526,7 +861,7 @@ function SchedulePage() {
         return {
           weekday,
           is_enabled: Number(match.is_enabled ?? 1),
-          times: JSON.parse(match.times_json || '[]'),
+          times: sortScheduleTimes(JSON.parse(match.times_json || '[]')),
         };
       }
       return {
@@ -539,6 +874,7 @@ function SchedulePage() {
     setSettings(tpl.data.data.settings);
     setSlotMinutes(tpl.data.data.slot_minutes ?? 30);
     setOverrides(ov.data.data.overrides);
+    setFeedback(null);
   }, []);
 
   useEffect(() => {
@@ -556,24 +892,20 @@ function SchedulePage() {
   };
 
   const buildBlocks = useCallback(() => {
-    const start = builder.start;
-    const end = builder.end;
-    if (!start || !end) {
+    const startMinutes = timeValueToMinutes(builder.start);
+    const endMinutes = timeValueToMinutes(builder.end);
+    if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
       return [];
     }
-    const startDate = new Date(`1970-01-01T${start}`);
-    const endDate = new Date(`1970-01-01T${end}`);
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate <= startDate) {
-      return [];
-    }
+
     const blocks = [];
-    let cursor = startDate.getTime();
-    while (cursor < endDate.getTime()) {
-      blocks.push(new Date(cursor).toISOString().slice(11, 16));
-      cursor += slotMinutes * 60 * 1000;
+    let cursor = startMinutes;
+    while (cursor < endMinutes) {
+      blocks.push(minutesToScheduleValue(cursor));
+      cursor += slotMinutes;
     }
     return Array.from(new Set(blocks));
-  }, [builder.start, builder.end, slotMinutes]);
+  }, [builder.end, builder.start, slotMinutes]);
 
   const applyBuilder = () => {
     const generated = buildBlocks();
@@ -592,15 +924,16 @@ function SchedulePage() {
         }
         const nextTimes = builder.replaceExisting
           ? generated
-          : Array.from(new Set([...(tpl.times || []), ...generated])).sort();
+          : sortScheduleTimes([...(tpl.times || []), ...generated]);
         return { ...tpl, times: nextTimes };
       }),
     );
+    setFeedback({ tone: 'success', message: `Generated ${generated.length} time button${generated.length === 1 ? '' : 's'} for the selected weekdays.` });
   };
 
   const updateTemplateTimes = (weekday, nextTimes) => {
     setTemplates((prev) =>
-      prev.map((tpl) => (tpl.weekday === weekday ? { ...tpl, times: nextTimes } : tpl)),
+      prev.map((tpl) => (tpl.weekday === weekday ? { ...tpl, times: sortScheduleTimes(nextTimes) } : tpl)),
     );
   };
 
@@ -608,10 +941,15 @@ function SchedulePage() {
     const draft = (timeDrafts[weekday] || '').trim();
     if (!draft) return;
     const times = templates.find((tpl) => tpl.weekday === weekday)?.times || [];
-    if (!times.includes(draft)) {
-      updateTemplateTimes(weekday, [...times, draft]);
+    const normalized = normalizeAdminTimeInput(draft);
+    if (!normalized) {
+      setFeedback({ tone: 'error', message: `Could not understand "${draft}". Try 1100, 11:30am, or 2pm.` });
+      return;
     }
+
+    updateTemplateTimes(weekday, [...times, normalized]);
     setTimeDrafts((prev) => ({ ...prev, [weekday]: '' }));
+    setFeedback({ tone: 'success', message: `${WEEKDAY_LABELS[weekday]} now includes ${formatScheduleTime(normalized)}.` });
   };
 
   const removeTime = (weekday, time) => {
@@ -622,30 +960,43 @@ function SchedulePage() {
     );
   };
 
+  const toggleTemplateTime = (weekday, time) => {
+    const times = templates.find((tpl) => tpl.weekday === weekday)?.times || [];
+    updateTemplateTimes(weekday, toggleScheduleTime(times, time));
+  };
+
   const saveTemplates = async () => {
-    await api.post('/schedule/templates', {
-      templates: templates.map((template) => ({
-        weekday: template.weekday,
-        times: template.times,
-        is_enabled: template.is_enabled,
-      })),
-      settings,
-    });
-    load();
+    try {
+      await api.post('/schedule/templates', {
+        templates: templates.map((template) => ({
+          weekday: template.weekday,
+          times: template.times,
+          is_enabled: template.is_enabled,
+        })),
+        settings,
+      });
+      setFeedback({ tone: 'success', message: 'Schedule saved.' });
+      load();
+    } catch (error) {
+      setFeedback({ tone: 'error', message: error.response?.data?.error?.message || 'Unable to save the schedule right now.' });
+    }
   };
 
   const submitOverride = async (e) => {
     e.preventDefault();
-    await api.post('/schedule/overrides', {
-      date: overrideForm.date,
-      is_closed: overrideForm.is_closed ? 1 : 0,
-      times: overrideForm.times
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean),
-    });
-    setOverrideForm({ id: null, date: '', is_closed: false, times: '' });
-    load();
+    try {
+      await api.post('/schedule/overrides', {
+        date: overrideForm.date,
+        is_closed: overrideForm.is_closed ? 1 : 0,
+        times: overrideForm.is_closed ? [] : overrideForm.times,
+      });
+      setOverrideForm({ id: null, date: '', is_closed: false, times: [] });
+      setOverrideTimeDraft('');
+      setFeedback({ tone: 'success', message: 'Date override saved.' });
+      load();
+    } catch (error) {
+      setFeedback({ tone: 'error', message: error.response?.data?.error?.message || 'Unable to save that date override.' });
+    }
   };
 
   const editOverride = (override) => {
@@ -653,8 +1004,9 @@ function SchedulePage() {
       id: override.id,
       date: override.date,
       is_closed: Boolean(override.is_closed),
-      times: (JSON.parse(override.times_json || '[]') || []).join(', '),
+      times: sortScheduleTimes(JSON.parse(override.times_json || '[]') || []),
     });
+    setOverrideTimeDraft('');
   };
 
   const deleteOverride = async (id) => {
@@ -665,9 +1017,26 @@ function SchedulePage() {
 
   const canDeleteOverride = user?.role === 'super_admin';
 
+  const addOverrideTime = () => {
+    const normalized = normalizeAdminTimeInput(overrideTimeDraft);
+    if (!normalized) {
+      setFeedback({ tone: 'error', message: `Could not understand "${overrideTimeDraft}". Try 1100, 11:30am, or 2pm.` });
+      return;
+    }
+
+    setOverrideForm((prev) => ({ ...prev, times: sortScheduleTimes([...(prev.times || []), normalized]) }));
+    setOverrideTimeDraft('');
+    setFeedback({ tone: 'success', message: `Override now includes ${formatScheduleTime(normalized)}.` });
+  };
+
+  const toggleOverrideTime = (time) => {
+    setOverrideForm((prev) => ({ ...prev, times: toggleScheduleTime(prev.times || [], time) }));
+  };
+
   return (
     <div>
       <h1>Schedule Setup</h1>
+      {feedback && <p className={`save-feedback ${feedback.tone === 'error' ? 'is-error' : 'is-success'}`}>{feedback.message}</p>}
       <div className="card">
         <h3>Standard Schedule Builder</h3>
         <p className="muted">Generate {slotMinutes}-minute time buttons and apply them to multiple weekdays at once.</p>
@@ -707,7 +1076,7 @@ function SchedulePage() {
       </div>
       <div className="card">
         <h3>Weekday Templates</h3>
-        <p className="muted">Add time buttons for each weekday. Disabled weekdays will not appear on the public calendar.</p>
+        <p className="muted">Click time buttons to toggle each day’s availability. Typed entries are normalized automatically, so 1100 becomes 11:00 AM.</p>
         <div className="stack gap-md">
           {templates.map((tpl) => (
             <div key={tpl.weekday} className="template-row">
@@ -729,19 +1098,31 @@ function SchedulePage() {
               <div className="time-chip-row">
                 {tpl.times?.map((time) => (
                   <button key={time} type="button" className="time-chip" onClick={() => removeTime(tpl.weekday, time)}>
-                    {time} ×
+                    {formatScheduleTime(time)} ×
                   </button>
                 ))}
-                {(tpl.times?.length ?? 0) === 0 && <span className="muted small-text">No times yet</span>}
+                {(tpl.times?.length ?? 0) === 0 && <span className="muted small-text">No appointment times added</span>}
+              </div>
+              <div className="time-option-grid">
+                {timeOptions.map((time) => (
+                  <button
+                    key={`${tpl.weekday}-${time}`}
+                    type="button"
+                    className={`time-chip ${tpl.times?.includes(time) ? 'is-selected' : ''}`}
+                    onClick={() => toggleTemplateTime(tpl.weekday, time)}
+                  >
+                    {formatScheduleTime(time)}
+                  </button>
+                ))}
               </div>
               <div className="time-add-row">
                 <input
-                  placeholder="HH:MM"
+                  placeholder="Type 1100, 11:30am, or 2pm"
                   value={timeDrafts[tpl.weekday] || ''}
                   onChange={(e) => setTimeDrafts((prev) => ({ ...prev, [tpl.weekday]: e.target.value }))}
                 />
                 <button type="button" className="btn btn-tertiary" onClick={() => addTime(tpl.weekday)}>
-                  Add time
+                  Add custom time
                 </button>
               </div>
             </div>
@@ -776,25 +1157,49 @@ function SchedulePage() {
         </button>
       </div>
 
-  <div className="card" style={{ marginTop: '1rem' }}>
+      <div className="card" style={{ marginTop: '1rem' }}>
         <h3>Date Overrides</h3>
-        <p className="muted">Override a specific date to close bookings or provide custom times.</p>
+        <p className="muted">Close a specific date for emergencies or holidays, or assign a one-off schedule without editing the whole weekday template.</p>
         <form onSubmit={submitOverride} className="override-form">
           <input type="date" value={overrideForm.date} onChange={(e) => setOverrideForm((prev) => ({ ...prev, date: e.target.value }))} required />
           <label>
             <input type="checkbox" checked={overrideForm.is_closed} onChange={(e) => setOverrideForm((prev) => ({ ...prev, is_closed: e.target.checked }))} /> Closed
           </label>
-          <input
-            placeholder="Times (e.g. 09:00, 10:00)"
-            value={overrideForm.times}
-            onChange={(e) => setOverrideForm((prev) => ({ ...prev, times: e.target.value }))}
-            disabled={overrideForm.is_closed}
-          />
           <button className="btn">{overrideForm.id ? 'Update override' : 'Save override'}</button>
         </form>
+        {!overrideForm.is_closed && (
+          <div className="override-editor">
+            <div className="time-chip-row">
+              {(overrideForm.times || []).map((time) => (
+                <button key={time} type="button" className="time-chip" onClick={() => toggleOverrideTime(time)}>
+                  {formatScheduleTime(time)} ×
+                </button>
+              ))}
+              {(overrideForm.times?.length ?? 0) === 0 && <span className="muted small-text">No appointment times selected</span>}
+            </div>
+            <div className="time-option-grid">
+              {timeOptions.map((time) => (
+                <button
+                  key={`override-${time}`}
+                  type="button"
+                  className={`time-chip ${overrideForm.times?.includes(time) ? 'is-selected' : ''}`}
+                  onClick={() => toggleOverrideTime(time)}
+                >
+                  {formatScheduleTime(time)}
+                </button>
+              ))}
+            </div>
+            <div className="time-add-row">
+              <input placeholder="Type 1100, 11:30am, or 2pm" value={overrideTimeDraft} onChange={(e) => setOverrideTimeDraft(e.target.value)} />
+              <button type="button" className="btn btn-tertiary" onClick={addOverrideTime}>
+                Add custom time
+              </button>
+            </div>
+          </div>
+        )}
         <div className="override-table">
           {overrides.map((override) => {
-            const displayTimes = (JSON.parse(override.times_json || '[]') || []).join(', ');
+            const displayTimes = sortScheduleTimes(JSON.parse(override.times_json || '[]') || []).map(formatScheduleTime).join(', ');
             return (
               <div key={override.id} className="override-row">
                 <div>
@@ -821,108 +1226,492 @@ function SchedulePage() {
   );
 }
 
-function HappyClientsPage() {
+function ServicesPage() {
   const defaultForm = {
     id: null,
-    title: '',
-    blurb: '',
-    before_media: null,
-    after_media: null,
-    tags: '',
+    name: '',
+    short_summary: '',
+    description: '',
+    duration_minutes: 60,
+    price_label: '',
+    breed_weight_note: '',
     sort_order: 0,
-    is_published: true,
+    is_active: true,
   };
 
   const [items, setItems] = useState([]);
   const [form, setForm] = useState(defaultForm);
+  const [feedback, setFeedback] = useState(null);
 
   const load = useCallback(async () => {
-    const response = await api.get('/happy-clients');
-    setItems(response.data.data.items);
+    const response = await api.get('/services');
+    setItems(response.data.data.items || []);
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const save = async (e) => {
-    e.preventDefault();
-    await api.post('/happy-clients', {
-      id: form.id || undefined,
-      title: form.title,
-      blurb: form.blurb,
-      sort_order: Number(form.sort_order) || 0,
-      is_published: form.is_published ? 1 : 0,
-      before_media_id: form.before_media?.id ?? null,
-      after_media_id: form.after_media?.id ?? null,
-      tags: form.tags
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter(Boolean),
-    });
-    setForm(defaultForm);
-    load();
+  const save = async (event) => {
+    event.preventDefault();
+    try {
+      await api.post('/services', {
+        ...form,
+        duration_minutes: Number(form.duration_minutes) || 30,
+        sort_order: Number(form.sort_order) || 0,
+        is_active: form.is_active ? 1 : 0,
+      });
+      setForm(defaultForm);
+      setFeedback({ tone: 'success', message: 'Service saved.' });
+      load();
+    } catch (err) {
+      setFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to save service.' });
+    }
   };
 
   const edit = (item) => {
+    setFeedback(null);
     setForm({
       id: item.id,
-      title: item.title,
-      blurb: item.blurb ?? '',
-      before_media: item.before_media ?? null,
-      after_media: item.after_media ?? null,
-      tags: (item.tags_list || []).join(', '),
-      sort_order: item.sort_order ?? 0,
-      is_published: item.is_published === 1,
+      name: item.name,
+      short_summary: item.short_summary || '',
+      description: item.description || '',
+      duration_minutes: item.duration_minutes || 60,
+      price_label: item.price_label || '',
+      breed_weight_note: item.breed_weight_note || '',
+      sort_order: item.sort_order || 0,
+      is_active: Boolean(item.is_active),
     });
   };
 
   return (
     <div>
-      <h1>Happy Clients</h1>
+      <h1>Services</h1>
+      <p className="muted">Manage the live services used on the public site and in booking duration calculations.</p>
       <form className="card stack gap-sm" onSubmit={save}>
-        <input placeholder="Title" value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} required />
-        <textarea placeholder="Short blurb" value={form.blurb} onChange={(e) => setForm((prev) => ({ ...prev, blurb: e.target.value }))} />
         <div className="grid two-col gap-sm">
-          <input
-            type="number"
-            min="0"
-            placeholder="Sort order"
-            value={form.sort_order}
-            onChange={(e) => setForm((prev) => ({ ...prev, sort_order: e.target.value }))}
-          />
-          <label className="toggle">
-            <input type="checkbox" checked={form.is_published} onChange={(e) => setForm((prev) => ({ ...prev, is_published: e.target.checked }))} /> Published
+          <label className="field-block">
+            <span className="field-label">Service name</span>
+            <input id="service-name" placeholder="Full service name" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} required />
+          </label>
+          <label className="field-block">
+            <span className="field-label">Duration in minutes</span>
+            <input
+              id="service-duration"
+              type="number"
+              min="15"
+              step="15"
+              placeholder="60"
+              value={form.duration_minutes}
+              onChange={(e) => setForm((prev) => ({ ...prev, duration_minutes: e.target.value }))}
+            />
           </label>
         </div>
-        <input placeholder="Tags (comma separated)" value={form.tags} onChange={(e) => setForm((prev) => ({ ...prev, tags: e.target.value }))} />
-        <MediaPicker label="Before photo" media={form.before_media} onChange={(media) => setForm((prev) => ({ ...prev, before_media: media }))} />
-        <MediaPicker label="After photo" media={form.after_media} onChange={(media) => setForm((prev) => ({ ...prev, after_media: media }))} />
+        <label className="field-block">
+          <span className="field-label">Short summary</span>
+          <textarea
+            id="service-summary"
+            placeholder="Short summary for accordions and cards"
+            value={form.short_summary}
+            onChange={(e) => setForm((prev) => ({ ...prev, short_summary: e.target.value }))}
+          />
+        </label>
+        <div className="field-block">
+          <span className="field-label">Expanded description</span>
+          <RichTextEditor value={form.description} onChange={(value) => setForm((prev) => ({ ...prev, description: value }))} />
+        </div>
+        <div className="grid two-col gap-sm">
+          <label className="field-block">
+            <span className="field-label">Pricing label</span>
+            <input id="service-price-label" placeholder="Starts at $65" value={form.price_label} onChange={(e) => setForm((prev) => ({ ...prev, price_label: e.target.value }))} />
+          </label>
+          <label className="field-block">
+            <span className="field-label">Breed or weight note</span>
+            <input
+              id="service-breed-note"
+              placeholder="Optional note for sizing or coat needs"
+              value={form.breed_weight_note}
+              onChange={(e) => setForm((prev) => ({ ...prev, breed_weight_note: e.target.value }))}
+            />
+          </label>
+        </div>
+        <div className="grid two-col gap-sm">
+          <label className="field-block">
+            <span className="field-label">Display order</span>
+            <input
+              id="service-sort-order"
+              type="number"
+              placeholder="0"
+              value={form.sort_order}
+              onChange={(e) => setForm((prev) => ({ ...prev, sort_order: e.target.value }))}
+            />
+          </label>
+          <label className="toggle">
+            <input type="checkbox" checked={form.is_active} onChange={(e) => setForm((prev) => ({ ...prev, is_active: e.target.checked }))} /> Active
+          </label>
+        </div>
         <div className="form-actions">
-          <button className="btn">{form.id ? 'Update Entry' : 'Add Entry'}</button>
+          <button className="btn">{form.id ? 'Update Service' : 'Save Service'}</button>
           {form.id && (
             <button type="button" className="btn btn-link" onClick={() => setForm(defaultForm)}>
               Cancel edit
             </button>
           )}
+          {feedback && <p role={feedback.tone === 'error' ? 'alert' : 'status'} className={`save-feedback ${feedback.tone === 'error' ? 'is-error' : 'is-success'}`}>{feedback.message}</p>}
         </div>
       </form>
+
+      <div className="card-grid">
+        {items.map((item) => (
+          <div key={item.id} className="card">
+            <div className="booking-card__header">
+              <strong>{item.name}</strong>
+              <span className={`status-badge ${item.is_active ? 'status-confirmed' : 'status-expired'}`}>{item.is_active ? 'Active' : 'Hidden'}</span>
+            </div>
+            <p className="muted">{item.short_summary}</p>
+            <p className="small-text">
+              {item.duration_minutes} min · {item.price_label || 'Pricing note not set'}
+            </p>
+            <p className="small-text muted">{item.breed_weight_note || 'No breed/weight note'}</p>
+            <p className="small-text muted">Display order: {item.sort_order ?? 0}</p>
+            <button type="button" className="btn btn-tertiary" onClick={() => edit(item)}>
+              Edit service
+            </button>
+          </div>
+        ))}
+        {items.length === 0 && <div className="card">No services configured yet. Add a service here to make it available on the site and in booking requests.</div>}
+      </div>
+    </div>
+  );
+}
+
+function FeaturedReviewsPage() {
+  const defaultForm = {
+    id: null,
+    reviewer_name: '',
+    review_text: '',
+    star_rating: 5,
+    source_label: 'Google',
+    source_url: '',
+    display_order: 0,
+    is_featured: true,
+  };
+
+  const [items, setItems] = useState([]);
+  const [form, setForm] = useState(defaultForm);
+  const [feedback, setFeedback] = useState(null);
+
+  const load = useCallback(async () => {
+    const response = await api.get('/reviews');
+    setItems(response.data.data.items || []);
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const save = async (event) => {
+    event.preventDefault();
+    try {
+      await api.post('/reviews', {
+        ...form,
+        star_rating: Number(form.star_rating) || 5,
+        display_order: Number(form.display_order) || 0,
+        is_featured: form.is_featured ? 1 : 0,
+      });
+      setForm(defaultForm);
+      setFeedback({ tone: 'success', message: 'Featured review saved.' });
+      load();
+    } catch (err) {
+      setFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to save featured review.' });
+    }
+  };
+
+  const edit = (item) => {
+    setFeedback(null);
+    setForm({
+      id: item.id,
+      reviewer_name: item.reviewer_name,
+      review_text: item.review_text,
+      star_rating: item.star_rating || 5,
+      source_label: item.source_label || 'Google',
+      source_url: item.source_url || '',
+      display_order: item.display_order || 0,
+      is_featured: Boolean(item.is_featured),
+    });
+  };
+
+  return (
+    <div>
+      <h1>Featured Reviews</h1>
+      <p className="muted">Feature real review excerpts here. This does not create a public review submission form.</p>
+      <form className="card stack gap-sm" onSubmit={save}>
+        <div className="grid two-col gap-sm">
+          <label className="field-block">
+            <span className="field-label">Reviewer name</span>
+            <input
+              id="reviewer-name"
+              placeholder="Name shown publicly"
+              value={form.reviewer_name}
+              onChange={(e) => setForm((prev) => ({ ...prev, reviewer_name: e.target.value }))}
+              required
+            />
+          </label>
+          <label className="field-block">
+            <span className="field-label">Star rating</span>
+            <select id="review-star-rating" value={form.star_rating} onChange={(e) => setForm((prev) => ({ ...prev, star_rating: e.target.value }))}>
+              {[5, 4, 3, 2, 1].map((rating) => (
+                <option key={rating} value={rating}>
+                  {rating} stars
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <label className="field-block">
+          <span className="field-label">Review excerpt</span>
+          <textarea
+            id="review-excerpt"
+            placeholder="Short excerpt approved for the public site"
+            value={form.review_text}
+            onChange={(e) => setForm((prev) => ({ ...prev, review_text: e.target.value }))}
+            required
+          />
+        </label>
+        <div className="grid two-col gap-sm">
+          <label className="field-block">
+            <span className="field-label">Source label</span>
+            <input id="review-source-label" placeholder="Google" value={form.source_label} onChange={(e) => setForm((prev) => ({ ...prev, source_label: e.target.value }))} />
+          </label>
+          <label className="field-block">
+            <span className="field-label">Source URL</span>
+            <input id="review-source-url" placeholder="Optional review link" value={form.source_url} onChange={(e) => setForm((prev) => ({ ...prev, source_url: e.target.value }))} />
+          </label>
+        </div>
+        <div className="grid two-col gap-sm">
+          <label className="field-block">
+            <span className="field-label">Display order</span>
+            <input
+              id="review-display-order"
+              type="number"
+              placeholder="0"
+              value={form.display_order}
+              onChange={(e) => setForm((prev) => ({ ...prev, display_order: e.target.value }))}
+            />
+          </label>
+          <label className="toggle">
+            <input type="checkbox" checked={form.is_featured} onChange={(e) => setForm((prev) => ({ ...prev, is_featured: e.target.checked }))} /> Featured
+          </label>
+        </div>
+        <div className="form-actions">
+          <button className="btn">{form.id ? 'Update Review' : 'Save Review'}</button>
+          {form.id && (
+            <button type="button" className="btn btn-link" onClick={() => setForm(defaultForm)}>
+              Cancel edit
+            </button>
+          )}
+          {feedback && <p role={feedback.tone === 'error' ? 'alert' : 'status'} className={`save-feedback ${feedback.tone === 'error' ? 'is-error' : 'is-success'}`}>{feedback.message}</p>}
+        </div>
+      </form>
+
+      <div className="card-grid">
+        {items.map((item) => (
+          <div key={item.id} className="card">
+            <div className="booking-card__header">
+              <strong>{item.reviewer_name}</strong>
+              <span className="small-text">{'★'.repeat(item.star_rating)}</span>
+            </div>
+            <p>{item.review_text}</p>
+            <p className="small-text muted">
+              {item.source_label}
+              {item.source_url ? ' · Linked' : ''}
+            </p>
+            <p className="small-text muted">
+              Display order: {item.display_order ?? 0} · {item.is_featured ? 'Visible' : 'Hidden'}
+            </p>
+            <button type="button" className="btn btn-tertiary" onClick={() => edit(item)}>
+              Edit review
+            </button>
+          </div>
+        ))}
+        {items.length === 0 && <div className="card">No featured reviews added yet. Add real review excerpts here when you are ready to feature them.</div>}
+      </div>
+    </div>
+  );
+}
+
+function GalleryPage() {
+  const defaultForm = {
+    id: null,
+    title: '',
+    caption: '',
+    item_type: 'groomed_pet',
+    primary_media: null,
+    secondary_media: null,
+    sort_order: 0,
+    is_published: true,
+  };
+
+  const [items, setItems] = useState([]);
+  const [form, setForm] = useState(defaultForm);
+  const [feedback, setFeedback] = useState(null);
+
+  const load = useCallback(async () => {
+    const response = await api.get('/gallery-items');
+    setItems(response.data.data.items || []);
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const save = async (event) => {
+    event.preventDefault();
+    try {
+      await api.post('/gallery-items', {
+        id: form.id || undefined,
+        title: form.title,
+        caption: form.caption,
+        item_type: form.item_type,
+        primary_media_id: form.primary_media?.id ?? null,
+        secondary_media_id: form.secondary_media?.id ?? null,
+        sort_order: Number(form.sort_order) || 0,
+        is_published: form.is_published ? 1 : 0,
+      });
+      setForm(defaultForm);
+      setFeedback({ tone: 'success', message: 'Gallery item saved.' });
+      load();
+    } catch (err) {
+      setFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to save gallery item.' });
+    }
+  };
+
+  const edit = (item) => {
+    setFeedback(null);
+    setForm({
+      id: item.id,
+      title: item.title,
+      caption: item.caption || '',
+      item_type: item.item_type || 'groomed_pet',
+      primary_media: item.primary_media || null,
+      secondary_media: item.secondary_media || null,
+      sort_order: item.sort_order || 0,
+      is_published: Boolean(item.is_published),
+    });
+  };
+
+  return (
+    <div>
+      <h1>Gallery</h1>
+      <p className="muted">Choose the media shown in the public gallery, before/after blocks, and trust-building photo sections.</p>
+      <form className="card stack gap-sm" onSubmit={save}>
+        <div className="grid two-col gap-sm">
+          <label className="field-block">
+            <span className="field-label">Title</span>
+            <input id="gallery-title" placeholder="Public title for this item" value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} required />
+          </label>
+          <label className="field-block">
+            <span className="field-label">Item type</span>
+            <select id="gallery-item-type" value={form.item_type} onChange={(e) => setForm((prev) => ({ ...prev, item_type: e.target.value }))}>
+              <option value="groomed_pet">Groomed Pet</option>
+              <option value="before_after">Before / After</option>
+              <option value="facility">Facility</option>
+              <option value="boutique">Boutique</option>
+            </select>
+          </label>
+        </div>
+        <label className="field-block">
+          <span className="field-label">Caption</span>
+          <textarea id="gallery-caption" placeholder="Optional supporting caption" value={form.caption} onChange={(e) => setForm((prev) => ({ ...prev, caption: e.target.value }))} />
+        </label>
+        <MediaPicker label="Primary image" media={form.primary_media} onChange={(media) => setForm((prev) => ({ ...prev, primary_media: media }))} />
+        <MediaPicker label="Secondary image (optional)" media={form.secondary_media} onChange={(media) => setForm((prev) => ({ ...prev, secondary_media: media }))} />
+        <div className="grid two-col gap-sm">
+          <label className="field-block">
+            <span className="field-label">Display order</span>
+            <input
+              id="gallery-sort-order"
+              type="number"
+              placeholder="0"
+              value={form.sort_order}
+              onChange={(e) => setForm((prev) => ({ ...prev, sort_order: e.target.value }))}
+            />
+          </label>
+          <label className="toggle">
+            <input type="checkbox" checked={form.is_published} onChange={(e) => setForm((prev) => ({ ...prev, is_published: e.target.checked }))} /> Published
+          </label>
+        </div>
+        <div className="form-actions">
+          <button className="btn">{form.id ? 'Update Item' : 'Save Item'}</button>
+          {form.id && (
+            <button type="button" className="btn btn-link" onClick={() => setForm(defaultForm)}>
+              Cancel edit
+            </button>
+          )}
+          {feedback && <p role={feedback.tone === 'error' ? 'alert' : 'status'} className={`save-feedback ${feedback.tone === 'error' ? 'is-error' : 'is-success'}`}>{feedback.message}</p>}
+        </div>
+      </form>
+
       <div className="card-grid">
         {items.map((item) => (
           <div key={item.id} className="card">
             <div className="happy-preview">
-              {item.before_media && <img src={item.before_media.fallback_url} alt="Before" />}
-              {item.after_media && <img src={item.after_media.fallback_url} alt="After" />}
+              {item.primary_media && <img src={item.primary_media.fallback_url || item.primary_media.original_url} alt={item.title} />}
+              {item.secondary_media && <img src={item.secondary_media.fallback_url || item.secondary_media.original_url} alt={item.title} />}
             </div>
             <strong>{item.title}</strong>
-            <p className="muted">{item.blurb}</p>
-            <p className="small-text">Tags: {(item.tags_list || []).join(', ') || '—'}</p>
+            <p className="muted">{item.caption}</p>
+            <p className="small-text">
+              {item.item_type} · {item.is_published ? 'Published' : 'Hidden'}
+            </p>
+            <p className="small-text muted">Display order: {item.sort_order ?? 0}</p>
             <button type="button" className="btn btn-tertiary" onClick={() => edit(item)}>
-              Edit entry
+              Edit item
             </button>
           </div>
         ))}
-        {items.length === 0 && <div className="card">No happy clients added yet.</div>}
+        {items.length === 0 && <div className="card">No gallery items yet. Add published media items to show photos on the public site.</div>}
+      </div>
+    </div>
+  );
+}
+
+function ContactMessagesPage() {
+  const [items, setItems] = useState([]);
+
+  const load = useCallback(async () => {
+    const response = await api.get('/contact-messages');
+    setItems(response.data.data.items || []);
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1>Contact Inbox</h1>
+        <div className="page-toolbar">
+          <button className="btn btn-tertiary" onClick={load}>
+            Refresh
+          </button>
+        </div>
+      </div>
+      <p className="muted">General contact messages live here only. Booking requests stay in the booking queue.</p>
+      <div className="booking-list">
+        {items.map((item) => (
+          <div key={item.id} className="card">
+            <div className="booking-card__header">
+              <strong>{item.name}</strong>
+              <span className="small-text muted">{formatDateTime(item.created_at)}</span>
+            </div>
+            <p className="small-text">{item.email}</p>
+            {item.phone && <p className="small-text">{item.phone}</p>}
+            <p>{item.message}</p>
+          </div>
+        ))}
+        {items.length === 0 && <div className="card">No contact messages yet. Messages from the public contact form will appear here.</div>}
       </div>
     </div>
   );
@@ -942,6 +1731,7 @@ function RetailPage() {
 
   const [items, setItems] = useState([]);
   const [form, setForm] = useState(defaultForm);
+  const [feedback, setFeedback] = useState(null);
 
   const load = useCallback(async () => {
     const response = await api.get('/retail');
@@ -954,21 +1744,28 @@ function RetailPage() {
 
   const save = async (e) => {
     e.preventDefault();
-    await api.post('/retail', {
-      id: form.id || undefined,
-      name: form.name,
-      description: form.description,
-      price_cents: form.price_cents ? Math.round(Number(form.price_cents) * 100) : null,
-      media_id: form.media?.id ?? null,
-      is_featured: form.is_featured ? 1 : 0,
-      is_published: form.is_published ? 1 : 0,
-      sort_order: Number(form.sort_order) || 0,
-    });
-    setForm(defaultForm);
-    load();
+    setFeedback(null);
+    try {
+      await api.post('/retail', {
+        id: form.id || undefined,
+        name: form.name,
+        description: form.description,
+        price_cents: form.price_cents ? Math.round(Number(form.price_cents) * 100) : null,
+        media_id: form.media?.id ?? null,
+        is_featured: form.is_featured ? 1 : 0,
+        is_published: form.is_published ? 1 : 0,
+        sort_order: Number(form.sort_order) || 0,
+      });
+      setForm(defaultForm);
+      setFeedback({ tone: 'success', message: 'Retail item saved.' });
+      load();
+    } catch (err) {
+      setFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to save retail item.' });
+    }
   };
 
   const edit = (item) => {
+    setFeedback(null);
     setForm({
       id: item.id,
       name: item.name,
@@ -985,23 +1782,37 @@ function RetailPage() {
     <div>
       <h1>Retail Items</h1>
       <form className="card stack gap-sm" onSubmit={save}>
-        <input placeholder="Product name" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} required />
-        <textarea placeholder="Description" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
+        <label className="field-block">
+          <span className="field-label">Product name</span>
+          <input id="retail-name" placeholder="Name shown publicly" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} required />
+        </label>
+        <label className="field-block">
+          <span className="field-label">Description</span>
+          <textarea id="retail-description" placeholder="Optional supporting description" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
+        </label>
         <div className="grid two-col gap-sm">
-          <input
-            placeholder="Price (USD)"
-            value={form.price_cents}
-            onChange={(e) => setForm((prev) => ({ ...prev, price_cents: e.target.value }))}
-            type="number"
-            step="0.01"
-            min="0"
-          />
-          <input
-            type="number"
-            placeholder="Sort order"
-            value={form.sort_order}
-            onChange={(e) => setForm((prev) => ({ ...prev, sort_order: e.target.value }))}
-          />
+          <label className="field-block">
+            <span className="field-label">Price (USD)</span>
+            <input
+              id="retail-price"
+              placeholder="Leave blank if price is not published"
+              value={form.price_cents}
+              onChange={(e) => setForm((prev) => ({ ...prev, price_cents: e.target.value }))}
+              type="number"
+              step="0.01"
+              min="0"
+            />
+          </label>
+          <label className="field-block">
+            <span className="field-label">Display order</span>
+            <input
+              id="retail-sort-order"
+              type="number"
+              placeholder="0"
+              value={form.sort_order}
+              onChange={(e) => setForm((prev) => ({ ...prev, sort_order: e.target.value }))}
+            />
+          </label>
         </div>
         <div className="grid two-col gap-sm">
           <label className="toggle">
@@ -1019,6 +1830,7 @@ function RetailPage() {
               Cancel edit
             </button>
           )}
+          {feedback && <p role={feedback.tone === 'error' ? 'alert' : 'status'} className={`save-feedback ${feedback.tone === 'error' ? 'is-error' : 'is-success'}`}>{feedback.message}</p>}
         </div>
       </form>
       <div className="card-grid">
@@ -1035,30 +1847,78 @@ function RetailPage() {
             </button>
           </div>
         ))}
-        {items.length === 0 && <div className="card">No retail items yet.</div>}
+        {items.length === 0 && <div className="card">No retail items added yet.</div>}
       </div>
     </div>
   );
 }
 
 function ContentPage() {
+  const { setDirtyState, clearDirty } = useAdminDirtyState();
   const [settings, setSettings] = useState(null);
   const [sections, setSections] = useState(null);
+  const [savedSnapshot, setSavedSnapshot] = useState('');
   const [status, setStatus] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    api.get('/content/site').then((response) => {
-      setSettings(response.data.data.settings);
-      setSections(response.data.data.sections);
-    });
-  }, []);
+  const currentSnapshot = useMemo(() => {
+    if (!settings || !sections) {
+      return '';
+    }
 
-  if (!settings || !sections) {
-    return <div className="card">Loading content...</div>;
-  }
+    return JSON.stringify({ settings, sections });
+  }, [sections, settings]);
+
+  const isDirty = Boolean(savedSnapshot && currentSnapshot && currentSnapshot !== savedSnapshot);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const load = async () => {
+      try {
+        const response = await api.get('/content/site');
+        if (ignore) {
+          return;
+        }
+
+        const nextSettings = response.data.data.settings || {};
+        const nextSections = response.data.data.sections || {};
+        const snapshot = JSON.stringify({ settings: nextSettings, sections: nextSections });
+
+        setSettings(nextSettings);
+        setSections(nextSections);
+        setSavedSnapshot(snapshot);
+        setStatus(null);
+      } catch (err) {
+        if (!ignore) {
+          setStatus({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to load site content.' });
+        }
+      }
+    };
+
+    load();
+
+    return () => {
+      ignore = true;
+      clearDirty();
+    };
+  }, [clearDirty]);
+
+  useEffect(() => {
+    setDirtyState({
+      isDirty,
+      message: 'You have unsaved text and site info changes. Leave without saving?',
+    });
+  }, [isDirty, setDirtyState]);
+
+  useEffect(() => {
+    if (isDirty && status?.tone === 'success') {
+      setStatus(null);
+    }
+  }, [isDirty, status]);
 
   const updateSection = (key, updates) => {
+    setStatus(null);
     setSections((prev) => ({
       ...prev,
       [key]: { ...(prev?.[key] || {}), ...updates },
@@ -1069,21 +1929,72 @@ function ContentPage() {
     updateSection(key, { items });
   };
 
-  const save = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    await api.post('/content/site', { settings, sections });
-    setSaving(false);
-    setStatus('Saved!');
-    setTimeout(() => setStatus(null), 3000);
+  const restoreLastSaved = () => {
+    if (!savedSnapshot) {
+      return;
+    }
+
+    if (!window.confirm('Discard unsaved changes and restore the last saved version?')) {
+      return;
+    }
+
+    const parsed = JSON.parse(savedSnapshot);
+    setSettings(parsed.settings || {});
+    setSections(parsed.sections || {});
+    clearDirty();
+    setStatus({ tone: 'success', message: 'Unsaved changes discarded.' });
   };
+
+  const save = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    setStatus(null);
+
+    try {
+      await api.post('/content/site', { settings, sections });
+      setSavedSnapshot(currentSnapshot);
+      clearDirty();
+      setStatus({ tone: 'success', message: 'Site content saved.' });
+    } catch (err) {
+      setStatus({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to save content.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!settings || !sections) {
+    return <div className="card">{status?.message || 'Loading site content…'}</div>;
+  }
 
   return (
     <div>
-      <h1>Text & Site Info</h1>
+      <div className="page-header">
+        <div>
+          <h1>Text & Site Info</h1>
+          <p className="muted">Manage public-site copy, contact details, and section messaging without changing the site structure.</p>
+        </div>
+      </div>
+
       <form className="stack gap-md" onSubmit={save}>
-        <div className="card">
-          <h3>Business Details</h3>
+        <div className="editor-savebar card">
+          <div>
+            <strong>{isDirty ? 'Unsaved changes' : 'All changes saved'}</strong>
+            <p className="muted small-text">This page controls live public-site text and settings.</p>
+          </div>
+          <div className="editor-savebar__actions">
+            {status && <p className={`save-feedback ${status.tone === 'error' ? 'is-error' : 'is-success'}`}>{status.message}</p>}
+            {isDirty && (
+              <button type="button" className="btn btn-tertiary" onClick={restoreLastSaved}>
+                Discard unsaved changes
+              </button>
+            )}
+            <button className="btn" disabled={saving}>
+              {saving ? 'Saving…' : 'Save Content'}
+            </button>
+          </div>
+        </div>
+
+        <EditorSection title="Business Details" description="Phone, hours, address, map links, and public trust profile settings." initiallyOpen>
           <div className="grid two-col gap-sm">
             <label className="field-block">
               <span className="field-label">Business name</span>
@@ -1110,6 +2021,22 @@ function ContentPage() {
               <input value={settings.hours} onChange={(e) => setSettings((prev) => ({ ...prev, hours: e.target.value }))} />
             </label>
             <label className="field-block">
+              <span className="field-label">Maps URL</span>
+              <input value={settings.maps_url || ''} onChange={(e) => setSettings((prev) => ({ ...prev, maps_url: e.target.value }))} />
+            </label>
+            <label className="field-block">
+              <span className="field-label">Google reviews URL</span>
+              <input value={settings.google_reviews_url || ''} onChange={(e) => setSettings((prev) => ({ ...prev, google_reviews_url: e.target.value }))} />
+            </label>
+            <label className="field-block">
+              <span className="field-label">Google rating</span>
+              <input value={settings.google_review_rating || ''} onChange={(e) => setSettings((prev) => ({ ...prev, google_review_rating: e.target.value }))} />
+            </label>
+            <label className="field-block">
+              <span className="field-label">Google review count</span>
+              <input value={settings.google_review_count || ''} onChange={(e) => setSettings((prev) => ({ ...prev, google_review_count: e.target.value }))} />
+            </label>
+            <label className="field-block">
               <span className="field-label">Facebook handle</span>
               <input value={settings.social_facebook || ''} onChange={(e) => setSettings((prev) => ({ ...prev, social_facebook: e.target.value }))} />
             </label>
@@ -1118,10 +2045,18 @@ function ContentPage() {
               <input value={settings.social_instagram || ''} onChange={(e) => setSettings((prev) => ({ ...prev, social_instagram: e.target.value }))} />
             </label>
           </div>
-        </div>
+        </EditorSection>
 
-        <div className="card">
-          <h3>Hero & Booking</h3>
+        <EditorSection title="Hero" description="First-screen headline, supporting copy, and primary CTA labels." initiallyOpen>
+          <SectionEnabledToggle
+            label="Show hero section"
+            value={sections.hero?.enabled !== false}
+            onChange={(enabled) => updateSection('hero', { enabled })}
+          />
+          <label className="field-block">
+            <span className="field-label">Hero eyebrow</span>
+            <input value={sections.hero?.eyebrow || ''} onChange={(e) => updateSection('hero', { eyebrow: e.target.value })} />
+          </label>
           <label className="field-block">
             <span className="field-label">Hero headline</span>
             <input value={sections.hero?.headline || ''} onChange={(e) => updateSection('hero', { headline: e.target.value })} />
@@ -1140,23 +2075,112 @@ function ContentPage() {
               <input value={sections.hero?.cta_secondary || ''} onChange={(e) => updateSection('hero', { cta_secondary: e.target.value })} />
             </label>
           </div>
+        </EditorSection>
+
+        <EditorSection title="Trust & Booking Messaging" description="Trust strip copy, booking intro text, and request-state messaging." initiallyOpen>
+          <SectionEnabledToggle
+            label="Show trust strip"
+            value={sections.trust?.enabled !== false}
+            onChange={(enabled) => updateSection('trust', { enabled })}
+          />
+          <label className="field-block">
+            <span className="field-label">Trust section title</span>
+            <input value={sections.trust?.title || ''} onChange={(e) => updateSection('trust', { title: e.target.value })} />
+          </label>
+          <div className="field-block">
+            <span className="field-label">Trust intro</span>
+            <RichTextEditor value={sections.trust?.intro || ''} onChange={(value) => updateSection('trust', { intro: value })} />
+          </div>
+          <ListEditor
+            items={sections.trust?.points || []}
+            onChange={(points) => updateSection('trust', { points })}
+            fields={[
+              { name: 'title', label: 'Point title' },
+              { name: 'text', label: 'Point text' },
+            ]}
+          />
+          <SectionEnabledToggle
+            label="Show booking section"
+            value={sections.booking?.enabled !== false}
+            onChange={(enabled) => updateSection('booking', { enabled })}
+          />
+          <div className="field-block">
+            <span className="field-label">Booking section title</span>
+            <input value={sections.booking?.title || ''} onChange={(e) => updateSection('booking', { title: e.target.value })} />
+          </div>
           <div className="field-block">
             <span className="field-label">Booking intro text</span>
             <RichTextEditor value={sections.booking?.intro || ''} onChange={(value) => updateSection('booking', { intro: value })} />
           </div>
-        </div>
+          <div className="field-block">
+            <span className="field-label">Booking notice</span>
+            <RichTextEditor value={sections.booking?.notice || ''} onChange={(value) => updateSection('booking', { notice: value })} />
+          </div>
+          <div className="field-block">
+            <span className="field-label">Availability helper</span>
+            <RichTextEditor value={sections.booking?.availability_note || ''} onChange={(value) => updateSection('booking', { availability_note: value })} />
+          </div>
+        </EditorSection>
 
-        <div className="card">
-          <h3>Services</h3>
+        <EditorSection title="Services" description="Service section intro and pricing/disclaimer copy.">
+          <SectionEnabledToggle
+            label="Show services section"
+            value={sections.services?.enabled !== false}
+            onChange={(enabled) => updateSection('services', { enabled })}
+          />
+          <div className="field-block">
+            <span className="field-label">Section title</span>
+            <input value={sections.services?.title || ''} onChange={(e) => updateSection('services', { title: e.target.value })} />
+          </div>
           <div className="field-block">
             <span className="field-label">Intro copy</span>
             <RichTextEditor value={sections.services?.intro || ''} onChange={(value) => updateSection('services', { intro: value })} />
           </div>
-          <ServiceCardsEditor cards={sections.services?.cards || []} onChange={(cards) => updateSection('services', { cards })} />
-        </div>
+          <div className="field-block">
+            <span className="field-label">Pricing disclaimer</span>
+            <RichTextEditor value={sections.services?.disclaimer || ''} onChange={(value) => updateSection('services', { disclaimer: value })} />
+          </div>
+        </EditorSection>
 
-        <div className="card">
-          <h3>About Section</h3>
+        <EditorSection title="Gallery & Reviews" description="Section headings and support copy for photo and trust modules.">
+          <SectionEnabledToggle
+            label="Show gallery section"
+            value={sections.gallery?.enabled !== false}
+            onChange={(enabled) => updateSection('gallery', { enabled })}
+          />
+          <label className="field-block">
+            <span className="field-label">Gallery title</span>
+            <input value={sections.gallery?.title || ''} onChange={(e) => updateSection('gallery', { title: e.target.value })} />
+          </label>
+          <div className="field-block">
+            <span className="field-label">Gallery intro</span>
+            <RichTextEditor value={sections.gallery?.intro || ''} onChange={(value) => updateSection('gallery', { intro: value })} />
+          </div>
+          <SectionEnabledToggle
+            label="Show reviews section"
+            value={sections.reviews?.enabled !== false}
+            onChange={(enabled) => updateSection('reviews', { enabled })}
+          />
+          <label className="field-block">
+            <span className="field-label">Reviews section title</span>
+            <input value={sections.reviews?.title || ''} onChange={(e) => updateSection('reviews', { title: e.target.value })} />
+          </label>
+          <div className="field-block">
+            <span className="field-label">Reviews intro</span>
+            <RichTextEditor value={sections.reviews?.intro || ''} onChange={(value) => updateSection('reviews', { intro: value })} />
+          </div>
+          <label className="field-block">
+            <span className="field-label">Reviews CTA label</span>
+            <input value={sections.reviews?.cta_text || ''} onChange={(e) => updateSection('reviews', { cta_text: e.target.value })} />
+          </label>
+        </EditorSection>
+
+        <EditorSection title="About" description="Care philosophy and reassuring neighborhood-boutique messaging.">
+          <SectionEnabledToggle
+            label="Show about section"
+            value={sections.about?.enabled !== false}
+            onChange={(enabled) => updateSection('about', { enabled })}
+          />
           <label className="field-block">
             <span className="field-label">Section title</span>
             <input value={sections.about?.title || ''} onChange={(e) => updateSection('about', { title: e.target.value })} />
@@ -1165,10 +2189,18 @@ function ContentPage() {
             <span className="field-label">Body copy</span>
             <RichTextEditor value={sections.about?.body || ''} onChange={(value) => updateSection('about', { body: value })} />
           </div>
-        </div>
+        </EditorSection>
 
-        <div className="card">
-          <h3>FAQ</h3>
+        <EditorSection title="FAQ" description="Scannable answers shown on the public FAQ section.">
+          <SectionEnabledToggle
+            label="Show FAQ section"
+            value={sections.faq?.enabled !== false}
+            onChange={(enabled) => updateSection('faq', { enabled })}
+          />
+          <label className="field-block">
+            <span className="field-label">Section title</span>
+            <input value={sections.faq?.title || ''} onChange={(e) => updateSection('faq', { title: e.target.value })} />
+          </label>
           <ListEditor
             items={sections.faq?.items || []}
             onChange={(items) => updateList('faq', items)}
@@ -1177,10 +2209,18 @@ function ContentPage() {
               { name: 'answer', label: 'Answer', rich: true },
             ]}
           />
-        </div>
+        </EditorSection>
 
-        <div className="card">
-          <h3>Policies</h3>
+        <EditorSection title="Policies" description="Service policies, expectations, and care notes.">
+          <SectionEnabledToggle
+            label="Show policies section"
+            value={sections.policies?.enabled !== false}
+            onChange={(enabled) => updateSection('policies', { enabled })}
+          />
+          <label className="field-block">
+            <span className="field-label">Section title</span>
+            <input value={sections.policies?.title || ''} onChange={(e) => updateSection('policies', { title: e.target.value })} />
+          </label>
           <ListEditor
             items={sections.policies?.items || []}
             onChange={(items) => updateList('policies', items)}
@@ -1189,26 +2229,81 @@ function ContentPage() {
               { name: 'body', label: 'Policy Body', rich: true },
             ]}
           />
-        </div>
+        </EditorSection>
 
-        <div className="card">
-          <h3>Location & Contact</h3>
+        <EditorSection title="Location & Contact" description="Contact section labels, helpful notes, and local guidance.">
+          <SectionEnabledToggle
+            label="Show location note"
+            value={sections.location?.enabled !== false}
+            onChange={(enabled) => updateSection('location', { enabled })}
+          />
+          <label className="field-block">
+            <span className="field-label">Location title</span>
+            <input value={sections.location?.title || ''} onChange={(e) => updateSection('location', { title: e.target.value })} />
+          </label>
           <div className="field-block">
             <span className="field-label">Location description</span>
             <RichTextEditor value={sections.location?.note || ''} onChange={(value) => updateSection('location', { note: value })} />
           </div>
+          <SectionEnabledToggle
+            label="Show contact section"
+            value={sections.contact?.enabled !== false}
+            onChange={(enabled) => updateSection('contact', { enabled })}
+          />
+          <label className="field-block">
+            <span className="field-label">Contact title</span>
+            <input value={sections.contact?.title || ''} onChange={(e) => updateSection('contact', { title: e.target.value })} />
+          </label>
           <div className="field-block">
             <span className="field-label">Contact helper text</span>
             <RichTextEditor value={sections.contact?.note || ''} onChange={(value) => updateSection('contact', { note: value })} />
           </div>
-        </div>
+        </EditorSection>
 
-        <div className="form-actions">
-          <button className="btn" disabled={saving}>
-            {saving ? 'Saving…' : 'Save Content'}
-          </button>
-          {status && <p className="muted">{status}</p>}
-        </div>
+        <EditorSection title="Footer" description="Short footer tagline shown alongside the site quick links.">
+          <label className="field-block">
+            <span className="field-label">Footer tagline</span>
+            <input value={sections.footer?.tagline || ''} onChange={(e) => updateSection('footer', { tagline: e.target.value })} />
+          </label>
+        </EditorSection>
+
+        <EditorSection title="Legal Pages" description="Manage privacy and terms content plus whether those links appear publicly.">
+          <SectionEnabledToggle
+            label="Show privacy page"
+            value={sections.privacy?.enabled !== false}
+            onChange={(enabled) => updateSection('privacy', { enabled })}
+          />
+          <label className="field-block">
+            <span className="field-label">Privacy page title</span>
+            <input value={sections.privacy?.title || ''} onChange={(e) => updateSection('privacy', { title: e.target.value })} />
+          </label>
+          <ListEditor
+            items={sections.privacy?.items || []}
+            onChange={(items) => updateList('privacy', items)}
+            fields={[
+              { name: 'title', label: 'Privacy heading' },
+              { name: 'body', label: 'Privacy body', rich: true },
+            ]}
+          />
+
+          <SectionEnabledToggle
+            label="Show terms page"
+            value={sections.terms?.enabled !== false}
+            onChange={(enabled) => updateSection('terms', { enabled })}
+          />
+          <label className="field-block">
+            <span className="field-label">Terms page title</span>
+            <input value={sections.terms?.title || ''} onChange={(e) => updateSection('terms', { title: e.target.value })} />
+          </label>
+          <ListEditor
+            items={sections.terms?.items || []}
+            onChange={(items) => updateList('terms', items)}
+            fields={[
+              { name: 'title', label: 'Terms heading' },
+              { name: 'body', label: 'Terms body', rich: true },
+            ]}
+          />
+        </EditorSection>
       </form>
     </div>
   );
@@ -1281,6 +2376,9 @@ function MediaPage() {
   };
 
   const destroy = async (id) => {
+    if (!window.confirm('Delete this media item? This can remove it from gallery, reviews, or other public sections that reference it.')) {
+      return;
+    }
     await api.delete(`/media/${id}`);
     load();
   };
@@ -1301,22 +2399,37 @@ function MediaPage() {
     <div>
       <h1>Media Library</h1>
       <form className="card" onSubmit={upload}>
-        <input type="file" onChange={(e) => setFile(e.target.files?.[0])} />
-        <input placeholder="Alt text" value={metadata.alt_text} onChange={(e) => setMetadata((prev) => ({ ...prev, alt_text: e.target.value }))} />
-        <input placeholder="Title (optional)" value={metadata.title} onChange={(e) => setMetadata((prev) => ({ ...prev, title: e.target.value }))} />
-        <textarea placeholder="Caption (optional)" value={metadata.caption} onChange={(e) => setMetadata((prev) => ({ ...prev, caption: e.target.value }))} />
-        <select value={metadata.category} onChange={(e) => setMetadata((prev) => ({ ...prev, category: e.target.value }))}>
-          <option value="default">Default</option>
-          <option value="gallery">Gallery</option>
-          <option value="retail">Retail</option>
-        </select>
+        <label className="field-block">
+          <span className="field-label">File</span>
+          <input type="file" onChange={(e) => setFile(e.target.files?.[0])} />
+        </label>
+        <label className="field-block">
+          <span className="field-label">Alt text</span>
+          <input value={metadata.alt_text} onChange={(e) => setMetadata((prev) => ({ ...prev, alt_text: e.target.value }))} />
+        </label>
+        <label className="field-block">
+          <span className="field-label">Title</span>
+          <input value={metadata.title} onChange={(e) => setMetadata((prev) => ({ ...prev, title: e.target.value }))} />
+        </label>
+        <label className="field-block">
+          <span className="field-label">Caption</span>
+          <textarea value={metadata.caption} onChange={(e) => setMetadata((prev) => ({ ...prev, caption: e.target.value }))} />
+        </label>
+        <label className="field-block">
+          <span className="field-label">Library category</span>
+          <select value={metadata.category} onChange={(e) => setMetadata((prev) => ({ ...prev, category: e.target.value }))}>
+            <option value="default">Default</option>
+            <option value="gallery">Gallery</option>
+            <option value="retail">Retail</option>
+          </select>
+        </label>
         <button className="btn">Upload</button>
         {uploadProgress > 0 && (
           <div style={{ marginTop: '0.5rem', background: '#eee', borderRadius: '8px', height: '8px', overflow: 'hidden' }}>
             <div style={{ width: `${uploadProgress}%`, background: '#1f2937', height: '8px' }} />
           </div>
         )}
-        {uploadStatus && <p>{uploadStatus}</p>}
+        {uploadStatus && <p role={uploadStatus.toLowerCase().includes('failed') ? 'alert' : 'status'}>{uploadStatus}</p>}
       </form>
       <div className="media-filter card">
         <label className="field-label">Filter by upload type</label>
@@ -1409,7 +2522,8 @@ function AuditLogPage() {
 function AdminUsersPage() {
   const { user } = useAuth();
   const [items, setItems] = useState([]);
-  const [form, setForm] = useState({ email: '', password: '', role: 'manager', is_enabled: true });
+  const [form, setForm] = useState({ username: '', email: '', password: '', role: 'manager', is_enabled: true });
+  const [status, setStatus] = useState(null);
 
   const load = useCallback(async () => {
     const response = await api.get('/users');
@@ -1428,31 +2542,72 @@ function AdminUsersPage() {
 
   const save = async (e) => {
     e.preventDefault();
-    await api.post('/users', form);
-    setForm({ email: '', password: '', role: 'manager', is_enabled: true });
-    load();
+    setStatus(null);
+    try {
+      await api.post('/users', form);
+      setForm({ username: '', email: '', password: '', role: 'manager', is_enabled: true });
+      setStatus({ tone: 'success', message: 'Admin user saved.' });
+      load();
+    } catch (err) {
+      setStatus({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to save admin user.' });
+    }
   };
 
   return (
     <div>
       <h1>Admin Users</h1>
       <form className="card" onSubmit={save}>
-        <input placeholder="Email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} />
-        <input placeholder="Password" type="password" value={form.password} onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))} />
-        <select value={form.role} onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value }))}>
-          <option value="manager">Manager</option>
-          <option value="scheduler">Scheduler</option>
-          <option value="content_editor">Content Editor</option>
-          <option value="super_admin">Super Admin</option>
-        </select>
+        <div className="grid two-col gap-sm">
+          <div className="field-block">
+            <label htmlFor="admin-user-username">Username</label>
+            <input
+              id="admin-user-username"
+              placeholder="Optional username for login"
+              value={form.username}
+              onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label htmlFor="admin-user-email">Email</label>
+            <input
+              id="admin-user-email"
+              type="email"
+              placeholder="name@example.com"
+              value={form.email}
+              onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+            />
+          </div>
+        </div>
+        <div className="grid two-col gap-sm">
+          <div className="field-block">
+            <label htmlFor="admin-user-password">Password</label>
+            <input
+              id="admin-user-password"
+              placeholder="Create a password"
+              type="password"
+              value={form.password}
+              onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
+            />
+          </div>
+          <div className="field-block">
+            <label htmlFor="admin-user-role">Role</label>
+            <select id="admin-user-role" value={form.role} onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value }))}>
+              <option value="manager">Manager</option>
+              <option value="scheduler">Scheduler</option>
+              <option value="content_editor">Content Editor</option>
+              <option value="super_admin">Super Admin</option>
+            </select>
+          </div>
+        </div>
         <label>
           <input type="checkbox" checked={form.is_enabled} onChange={(e) => setForm((prev) => ({ ...prev, is_enabled: e.target.checked }))} /> Enabled
         </label>
         <button className="btn">Save User</button>
+        {status && <p role={status.tone === 'error' ? 'alert' : 'status'} className={status.tone === 'error' ? 'muted danger' : 'muted'}>{status.message}</p>}
       </form>
       {items.map((item) => (
         <div key={item.id} className="card" style={{ marginTop: '0.75rem' }}>
-          <strong>{item.email}</strong> – {item.role}
+          <strong>{item.username || item.email}</strong> {item.username ? <span className="small-text">({item.email})</span> : null} – {item.role} · {item.is_enabled ? 'Enabled' : 'Disabled'}
         </div>
       ))}
     </div>
@@ -1475,24 +2630,24 @@ function SystemPage() {
   }
 
   if (!data) {
-    return <div className="card">Loading diagnostics...</div>;
+    return <div className="card">Loading system checks…</div>;
   }
 
   const rows = [
     { label: 'PHP Version', ok: true, value: data.php_version },
-    { label: 'GD Extension', ok: data.extensions?.gd, tip: 'Enable GD in php.ini or via GoDaddy PHP selector.' },
-    { label: 'Imagick Extension', ok: data.extensions?.imagick, tip: 'Enable Imagick via hosting control panel.' },
-    { label: 'WebP Support', ok: data.webp_support, tip: 'Ensure GD or Imagick built with WebP.' },
-    { label: 'Database Connectivity', ok: data.db_ok, tip: 'Check DB credentials in backend/.env and grant privileges.' },
-    { label: 'SendGrid Config', ok: data.sendgrid_configured, tip: 'Set SENDGRID_API_KEY and sender info inside backend/.env.' },
+    { label: 'GD Extension', ok: data.extensions?.gd, tip: 'Enable the GD extension in your PHP settings.' },
+    { label: 'Imagick Extension', ok: data.extensions?.imagick, tip: 'Enable Imagick in your hosting control panel if it is available.' },
+    { label: 'WebP Support', ok: data.webp_support, tip: 'Make sure either GD or Imagick supports WebP.' },
+    { label: 'Database Connectivity', ok: data.db_ok, tip: 'Check the database credentials and confirm the user has access.' },
+    { label: 'SendGrid Config', ok: data.sendgrid_configured, tip: 'Add the SendGrid API key and sender details to your environment settings.' },
   ];
 
   const pathTips = {
-    upload_dir_writable: 'Set uploads/ to 775 via cPanel.',
-    originals_writable: 'Ensure uploads/originals is writable.',
-    variants_optimized_writable: 'Ensure uploads/variants/optimized is writable.',
-    variants_webp_writable: 'Ensure uploads/variants/webp is writable.',
-    manifests_writable: 'Ensure uploads/manifests is writable.',
+    upload_dir_writable: 'Make the uploads folder writable in cPanel. A 775 permission mask usually works.',
+    originals_writable: 'Make sure uploads/originals is writable.',
+    variants_optimized_writable: 'Make sure uploads/variants/optimized is writable.',
+    variants_webp_writable: 'Make sure uploads/variants/webp is writable.',
+    manifests_writable: 'Make sure uploads/manifests is writable.',
   };
 
   Object.entries(data.paths_writable ?? {}).forEach(([key, ok]) => {
@@ -1506,7 +2661,7 @@ function SystemPage() {
   return (
     <div>
       <h1>System Diagnostics</h1>
-      <p>These checks confirm that uploads, image processing, and email delivery are ready for GoDaddy deployment.</p>
+      <p>Use these checks to confirm that uploads, image processing, database access, and email are ready on the current environment.</p>
       <div className="card">
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <tbody>
@@ -1583,6 +2738,7 @@ function ManualBookingModal({ defaults, onClose, onCreated, scheduleSettings }) 
   const [status, setStatus] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [settings, setSettings] = useState(scheduleSettings ?? null);
+  const dialogTitleId = useId();
 
   useEffect(() => {
     setForm(createInitialForm());
@@ -1620,8 +2776,8 @@ function ManualBookingModal({ defaults, onClose, onCreated, scheduleSettings }) 
     };
   }, [form.date]);
 
-  const holdMinutes = Number(settings?.booking_hold_minutes ?? 1440);
-  const holdHours = Math.round(holdMinutes / 60);
+  const holdMinutes = Number(settings?.booking_hold_minutes ?? 30);
+  const holdWindowLabel = holdMinutes >= 60 ? `${Math.ceil(holdMinutes / 60)} hour${Math.ceil(holdMinutes / 60) === 1 ? '' : 's'}` : `${holdMinutes} minutes`;
 
   const updateForm = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -1658,13 +2814,13 @@ function ManualBookingModal({ defaults, onClose, onCreated, scheduleSettings }) 
   };
 
   return (
-    <div className="modal">
+    <div className="modal" role="presentation">
       <div className="modal__backdrop" onClick={onClose} />
-      <div className="modal__content manual-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal__content manual-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={dialogTitleId}>
         <div className="modal__header">
           <div>
-            <h3>Create Manual Reservation</h3>
-            <p className="muted small-text">Holds the selected slot for {holdHours} hours while you follow up.</p>
+            <h3 id={dialogTitleId}>Create Manual Reservation</h3>
+            <p className="muted small-text">Holds the selected slot for {holdWindowLabel} while you follow up.</p>
           </div>
           <button type="button" className="btn btn-link" onClick={onClose}>
             Close
@@ -1724,7 +2880,7 @@ function ManualBookingModal({ defaults, onClose, onCreated, scheduleSettings }) 
           <div className="manual-form-grid">
             <label className="field-block">
               <span className="field-label">Dog name</span>
-              <input value={form.dog_name} onChange={(e) => updateForm('dog_name', e.target.value)} />
+              <input value={form.dog_name} onChange={(e) => updateForm('dog_name', e.target.value)} required />
             </label>
             <label className="field-block">
               <span className="field-label">Dog notes</span>
@@ -1756,7 +2912,7 @@ function ManualBookingModal({ defaults, onClose, onCreated, scheduleSettings }) 
               Cancel
             </button>
           </div>
-          {status && <p className="muted small-text">{status}</p>}
+          {status && <p role="status" className="muted small-text">{status}</p>}
         </form>
       </div>
     </div>
@@ -1767,6 +2923,7 @@ function StatusBadge({ status }) {
   const labels = {
     pending_confirmation: 'Pending',
     confirmed: 'Confirmed',
+    completed: 'Completed',
     declined: 'Declined',
     cancelled: 'Cancelled',
     expired: 'Expired',
@@ -1774,12 +2931,41 @@ function StatusBadge({ status }) {
   return <span className={`status-badge status-${status}`}>{labels[status] ?? status}</span>;
 }
 
+function getBookingActions(status) {
+  if (status === 'pending_confirmation') {
+    return [
+      { key: 'confirm', label: 'Confirm', className: 'btn-success' },
+      { key: 'decline', label: 'Decline', className: 'btn-warn' },
+      { key: 'cancel', label: 'Cancel', className: 'btn-muted' },
+    ];
+  }
+
+  if (status === 'confirmed') {
+    return [
+      { key: 'complete', label: 'Complete', className: 'btn-tertiary' },
+      { key: 'cancel', label: 'Cancel', className: 'btn-muted' },
+    ];
+  }
+
+  return [];
+}
+
 function parseServices(json) {
   if (!json) return [];
   try {
     const parsed = JSON.parse(json);
     if (Array.isArray(parsed)) {
-      return parsed;
+      return parsed
+        .map((entry) => {
+          if (typeof entry === 'string') {
+            return entry;
+          }
+          if (entry && typeof entry === 'object') {
+            return entry.name || entry.title || '';
+          }
+          return '';
+        })
+        .filter(Boolean);
     }
     if (typeof parsed === 'object') {
       return Object.values(parsed).filter(Boolean);
@@ -1798,15 +2984,58 @@ function summarizeServices(json) {
   return services.join(', ');
 }
 
-function RichTextEditor({ value, onChange }) {
-  const modules = useMemo(
-    () => ({
-      toolbar: [['bold', 'italic', 'underline'], [{ list: 'ordered' }, { list: 'bullet' }], ['link'], ['clean']],
-    }),
-    [],
-  );
+function summarizePets(pets = []) {
+  if (!Array.isArray(pets) || pets.length === 0) {
+    return '';
+  }
 
-  return <ReactQuill theme="snow" value={value} onChange={onChange} modules={modules} />;
+  return pets
+    .map((pet) => {
+      if (!pet || typeof pet !== 'object') {
+        return '';
+      }
+      const base = pet.pet_name || pet.name || '';
+      const weight = pet.approximate_weight || pet.weight || '';
+      if (!base) {
+        return '';
+      }
+      return weight ? `${base} (${weight})` : base;
+    })
+    .filter(Boolean)
+    .join(', ');
+}
+
+function RichTextEditor({ value, onChange }) {
+  return (
+    <Suspense fallback={<div className="rich-text-loading muted small-text">Loading editor…</div>}>
+      <RichTextEditorImpl value={value} onChange={onChange} />
+    </Suspense>
+  );
+}
+
+function EditorSection({ title, description, children, initiallyOpen = false }) {
+  const [isOpen, setIsOpen] = useState(initiallyOpen);
+
+  return (
+    <details className="editor-section card" open={isOpen} onToggle={(event) => setIsOpen(event.currentTarget.open)}>
+      <summary>
+        <div>
+          <strong>{title}</strong>
+          {description && <p className="muted small-text">{description}</p>}
+        </div>
+      </summary>
+      <div className="editor-section__body stack gap-sm">{children}</div>
+    </details>
+  );
+}
+
+function SectionEnabledToggle({ label, value, onChange }) {
+  return (
+    <label className="section-toggle">
+      <input type="checkbox" checked={value} onChange={(event) => onChange(event.target.checked)} />
+      <span>{label}</span>
+    </label>
+  );
 }
 
 function ListEditor({ items, onChange, fields }) {
@@ -1836,14 +3065,19 @@ function ListEditor({ items, onChange, fields }) {
         <div key={index} className="list-editor-row">
           {fields.map((field) =>
             field.rich ? (
-              <RichTextEditor key={field.name} value={item[field.name] || ''} onChange={(value) => updateItem(index, field.name, value)} />
+              <div key={field.name} className="field-block">
+                <span className="field-label">{field.label}</span>
+                <RichTextEditor value={item[field.name] || ''} onChange={(value) => updateItem(index, field.name, value)} />
+              </div>
             ) : (
-              <input
-                key={field.name}
-                placeholder={field.label}
-                value={item[field.name] || ''}
-                onChange={(e) => updateItem(index, field.name, e.target.value)}
-              />
+              <label key={field.name} className="field-block">
+                <span className="field-label">{field.label}</span>
+                <input
+                  placeholder={field.label}
+                  value={item[field.name] || ''}
+                  onChange={(e) => updateItem(index, field.name, e.target.value)}
+                />
+              </label>
             ),
           )}
           <button type="button" className="btn btn-link danger" onClick={() => removeItem(index)}>
@@ -1858,72 +3092,27 @@ function ListEditor({ items, onChange, fields }) {
   );
 }
 
-function ServiceCardsEditor({ cards, onChange }) {
-  const updateCard = (index, key, value) => {
-    const next = [...cards];
-    next[index] = { ...next[index], [key]: value };
-    onChange(next);
-  };
-
-  const addCard = () => {
-    onChange([
-      ...cards,
-      {
-        title: '',
-        price: '',
-        description: '',
-        bullets: [],
-      },
-    ]);
-  };
-
-  const removeCard = (index) => {
-    const next = [...cards];
-    next.splice(index, 1);
-    onChange(next);
-  };
-
-  const updateBullets = (index, value) => {
-    updateCard(
-      index,
-      'bullets',
-      value
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean),
-    );
-  };
-
-  return (
-    <div className="stack gap-sm">
-      {cards.map((card, index) => (
-        <div key={index} className="card muted-card">
-          <div className="grid two-col gap-sm">
-            <input placeholder="Service title" value={card.title} onChange={(e) => updateCard(index, 'title', e.target.value)} />
-            <input placeholder="Price" value={card.price} onChange={(e) => updateCard(index, 'price', e.target.value)} />
-          </div>
-          <RichTextEditor value={card.description || ''} onChange={(value) => updateCard(index, 'description', value)} />
-          <textarea
-            placeholder="Bullets (one per line)"
-            value={(card.bullets || []).join('\n')}
-            onChange={(e) => updateBullets(index, e.target.value)}
-          />
-          <button type="button" className="btn btn-link danger" onClick={() => removeCard(index)}>
-            Remove service
-          </button>
-        </div>
-      ))}
-      <button type="button" className="btn btn-tertiary" onClick={addCard}>
-        Add service
-      </button>
-    </div>
-  );
-}
-
 function MediaPicker({ label, media, onChange }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const dialogId = useId();
+  const dialogTitleId = useId();
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [open]);
 
   const loadMedia = async () => {
     setLoading(true);
@@ -1950,7 +3139,14 @@ function MediaPicker({ label, media, onChange }) {
         <p className="muted small-text">No image selected</p>
       )}
       <div className="media-picker__actions">
-        <button type="button" className="btn btn-tertiary" onClick={openModal}>
+        <button
+          type="button"
+          className="btn btn-tertiary"
+          onClick={openModal}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-controls={dialogId}
+        >
           Choose image
         </button>
         {media && (
@@ -1960,12 +3156,12 @@ function MediaPicker({ label, media, onChange }) {
         )}
       </div>
       {open && (
-        <div className="media-modal">
+        <div className="media-modal" role="presentation">
           <div className="media-modal__backdrop" onClick={() => setOpen(false)} />
-          <div className="media-modal__content">
+          <div className="media-modal__content" id={dialogId} role="dialog" aria-modal="true" aria-labelledby={dialogTitleId}>
             <div className="media-modal__header">
-              <h3>Select media</h3>
-              <button type="button" className="btn btn-link" onClick={() => setOpen(false)}>
+              <h3 id={dialogTitleId}>Select media</h3>
+              <button type="button" className="btn btn-link" onClick={() => setOpen(false)} aria-label={`Close ${label.toLowerCase()} picker`}>
                 Close
               </button>
             </div>

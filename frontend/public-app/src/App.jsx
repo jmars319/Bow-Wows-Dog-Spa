@@ -1,45 +1,72 @@
-import { useCallback, useEffect, useMemo, useState, createContext, useContext } from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { createContext, useContext, useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import axios from 'axios';
-import { format } from 'date-fns';
 import logoPrimaryPng from './assets/logos/logo-primary.png';
 import logoPrimaryWebp from './assets/logos/logo-primary.webp';
 
-const SiteContentContext = createContext({ data: null, loading: true });
+const SiteContentContext = createContext({ data: null, loading: true, error: null });
+const CANONICAL_ORIGIN = 'https://bowwowsdogspa.com';
+const DEFAULT_SEO_TITLE = "Bow Wow's Dog Spa | Calm Dog Grooming in Midway & Winston-Salem";
+const DEFAULT_SEO_DESCRIPTION =
+  'Calm, comfort-first dog grooming and spa care serving Midway, Winston-Salem, and nearby Triad families.';
+const DEFAULT_OG_IMAGE = `${CANONICAL_ORIGIN}/share-logo.png`;
 
 const SECTION_LINKS = [
   { id: 'hero', label: 'Home' },
   { id: 'services', label: 'Services' },
   { id: 'booking', label: 'Booking' },
-  { id: 'gallery', label: 'Happy Clients' },
-  { id: 'retail', label: 'Retail' },
+  { id: 'gallery', label: 'Gallery' },
+  { id: 'reviews', label: 'Reviews' },
   { id: 'about', label: 'About' },
+  { id: 'contact', label: 'Contact' },
   { id: 'faq', label: 'FAQ' },
   { id: 'policies', label: 'Policies' },
-  { id: 'location', label: 'Location' },
-  { id: 'contact', label: 'Contact' },
 ];
 
 function SiteContentProvider({ children }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    const response = await axios.get('/api/public/site');
-    setData(response.data.data);
-    setLoading(false);
-  }, []);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let ignore = false;
 
-  return (
-    <SiteContentContext.Provider value={{ data, loading, reload: load }}>
-      {children}
-    </SiteContentContext.Provider>
-  );
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await axios.get('/api/public/site');
+        const payload = response?.data;
+        if (!payload || typeof payload !== 'object' || !payload.data || typeof payload.data !== 'object') {
+          throw new Error(
+            import.meta.env.DEV
+              ? 'Public site data did not return valid JSON. Check /api/public/site and the backend connection.'
+              : 'We could not load the site content right now.',
+          );
+        }
+
+        if (!ignore) {
+          setData(payload.data);
+        }
+      } catch (err) {
+        if (!ignore) {
+          setData(null);
+          setError(err?.response?.data?.error?.message || err?.message || 'Unable to load site content.');
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    };
+
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  return <SiteContentContext.Provider value={{ data, loading, error }}>{children}</SiteContentContext.Provider>;
 }
 
 function useSiteContent() {
@@ -48,12 +75,16 @@ function useSiteContent() {
 
 function App() {
   return (
-    <BrowserRouter basename="/current">
+    <BrowserRouter>
       <SiteContentProvider>
         <Routes>
           <Route path="/" element={<PublicPage />} />
-          <Route path="/privacy" element={<SimplePage title="Privacy Policy" blockKey="privacy" />} />
-          <Route path="/terms" element={<SimplePage title="Terms &amp; Conditions" blockKey="terms" />} />
+          <Route path="/preview" element={<Navigate to="/" replace />} />
+          <Route path="/preview/*" element={<Navigate to="/" replace />} />
+          <Route path="/current" element={<Navigate to="/" replace />} />
+          <Route path="/current/*" element={<Navigate to="/" replace />} />
+          <Route path="/privacy" element={<SimplePage fallbackTitle="Privacy Policy" blockKey="privacy" />} />
+          <Route path="/terms" element={<SimplePage fallbackTitle="Terms & Conditions" blockKey="terms" />} />
         </Routes>
       </SiteContentProvider>
     </BrowserRouter>
@@ -61,292 +92,1195 @@ function App() {
 }
 
 function PublicPage() {
-  const { data, loading } = useSiteContent();
-  const [bookingDate, setBookingDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [availability, setAvailability] = useState([]);
-  const [selectedTime, setSelectedTime] = useState(null);
-  const [holdToken, setHoldToken] = useState(null);
-  const [bookingForm, setBookingForm] = useState({
-    customer_name: '',
-    email: '',
-    phone: '',
-    dog_name: '',
-    dog_notes: '',
-    services: [],
-  });
-  const [bookingStatus, setBookingStatus] = useState(null);
-  const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', message: '' });
-  const [contactStatus, setContactStatus] = useState(null);
-  const [holdState, setHoldState] = useState({ loading: false, error: null });
-  const [showTop, setShowTop] = useState(false);
-
-  const derivedContent = useMemo(() => {
-    const content = data?.sections ?? {};
-    const settings = data?.settings ?? {};
-    const happyClients = data?.happy_clients ?? [];
-    const retailItems = data?.retail ?? [];
-    const sectionVisibility = computeSectionVisibility(content, settings, happyClients, retailItems);
-    const navSections = SECTION_LINKS.filter((section) => sectionVisibility[section.id]);
-
-    return {
-      content,
-      settings,
-      happyClients,
-      retailItems,
-      sectionVisibility,
-      navSections,
-    };
-  }, [data]);
+  const { data, loading, error } = useSiteContent();
+  const [showNav, setShowNav] = useState(false);
 
   useEffect(() => {
-    const handler = () => setShowTop(window.scrollY > 400);
-    window.addEventListener('scroll', handler);
-    return () => window.removeEventListener('scroll', handler);
+    const onScroll = () => setShowNav(window.scrollY > 32);
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  if (loading) {
+    return (
+      <div className="site-shell">
+        <section className="section">
+          <div className="container centered-block">
+            <BrandLockup />
+            <p>Loading Bow Wow’s Dog Spa…</p>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="site-shell">
+        <section className="section">
+          <div className="container centered-block">
+            <BrandLockup />
+            <p className="status-text status-text--error">{error || 'Unable to load the site right now.'}</p>
+            {import.meta.env.DEV && (
+              <p className="muted-text">
+                In local dev, verify the backend is returning valid JSON from <code>/api/public/site</code>.
+              </p>
+            )}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  const sections = data.sections || {};
+  const settings = data.settings || {};
+  const services = Array.isArray(data.services) ? data.services : [];
+  const galleryItems = Array.isArray(data.gallery_items) ? data.gallery_items : [];
+  const featuredReviews = Array.isArray(data.featured_reviews) ? data.featured_reviews : [];
+  const visibleSections = computeVisibleSections(sections, services, galleryItems, featuredReviews, settings);
+  const legalSections = computeLegalSections(sections);
+  const navSections = SECTION_LINKS.filter((item) => visibleSections[item.id]);
+  const primaryCta = resolvePrimaryCta(visibleSections, settings);
+  const secondaryCta = resolveSecondaryCta(visibleSections, settings, primaryCta);
+  const brandHref = visibleSections.hero ? '#hero' : navSections[0] ? `#${navSections[0].id}` : '/';
+
   useEffect(() => {
-    const fetchAvailability = async () => {
-      const response = await axios.get('/api/public/schedule', { params: { date: bookingDate } });
-      setAvailability(response.data.data.availability);
-    };
-    fetchAvailability().catch(() => setAvailability([]));
-  }, [bookingDate]);
-
-  if (loading || !data) {
-    return (
-      <div className="section" style={{ textAlign: 'center' }}>
-        <p>Loading Bow Wow’s Dog Spa...</p>
-      </div>
-    );
-  }
-
-  const { content, settings, happyClients, retailItems, sectionVisibility, navSections } = derivedContent;
-
-  const beginHold = async (time) => {
-    setHoldState({ loading: true, error: null });
-    try {
-      const response = await axios.post('/api/public/booking-hold', { date: bookingDate, time });
-      setHoldToken(response.data.data.hold_token);
-      setSelectedTime(time);
-    } catch (err) {
-      setHoldState({ loading: false, error: err.response?.data?.error?.message ?? 'Unable to reserve slot.' });
-      return;
-    }
-    setHoldState({ loading: false, error: null });
-  };
-
-  const submitBooking = async (event) => {
-    event.preventDefault();
-    try {
-      const payload = {
-        ...bookingForm,
-        date: bookingDate,
-        time: selectedTime,
-        hold_token: holdToken,
-      };
-      await axios.post('/api/public/booking-request', payload);
-      setBookingStatus('Thanks! Our team will confirm shortly.');
-      setBookingForm({ customer_name: '', email: '', phone: '', dog_name: '', dog_notes: '', services: [] });
-      setSelectedTime(null);
-      setHoldToken(null);
-    } catch (err) {
-      setBookingStatus(err.response?.data?.error?.message ?? 'Unable to submit request.');
-    }
-  };
-
-  const submitContact = async (event) => {
-    event.preventDefault();
-    try {
-      await axios.post('/api/public/contact', contactForm);
-      setContactStatus('Message received! We’ll reply soon.');
-      setContactForm({ name: '', email: '', phone: '', message: '' });
-    } catch (err) {
-      setContactStatus(err.response?.data?.error?.message ?? 'Unable to send message.');
-    }
-  };
+    applySeo(buildHomeSeo(settings, sections, galleryItems));
+    applyStructuredData(buildLocalBusinessSchema(settings, galleryItems));
+  }, [settings, sections, galleryItems]);
 
   return (
-    <>
-      <Navbar sections={navSections} businessName={settings.business_name} />
+    <div className="site-shell">
+      <Header
+        settings={settings}
+        sections={navSections}
+        legalSections={legalSections}
+        compact={showNav}
+        primaryCta={primaryCta}
+        brandHref={brandHref}
+      />
       <main>
-        {sectionVisibility.hero && (
-          <HeroSection
-            content={content.hero}
-            settings={settings}
-            hasBooking={sectionVisibility.booking}
-            showServices={sectionVisibility.services}
-          />
+        {visibleSections.hero && (
+          <HeroSection settings={settings} content={sections.hero || {}} primaryCta={primaryCta} secondaryCta={secondaryCta} />
         )}
-        {sectionVisibility.services && <ServicesSection content={content.services} />}
-        {sectionVisibility.booking && (
-          <BookingSection
-            content={content.booking}
-            bookingDate={bookingDate}
-            setBookingDate={setBookingDate}
-            availability={availability}
-            selectedTime={selectedTime}
-            beginHold={beginHold}
-            holdState={holdState}
-            bookingForm={bookingForm}
-            setBookingForm={setBookingForm}
-            submitBooking={submitBooking}
-            bookingStatus={bookingStatus}
-          />
+        {visibleSections.trust && <TrustStrip settings={settings} content={sections.trust || {}} />}
+        {visibleSections.services && (
+          <ServicesSection content={sections.services || {}} services={services} settings={settings} primaryCta={primaryCta} />
         )}
-        {sectionVisibility.gallery && <GallerySection items={happyClients} content={content.gallery} />}
-        {sectionVisibility.retail && <RetailSection items={retailItems} content={content.retail} />}
-        {sectionVisibility.about && <AboutSection content={content.about} />}
-        {sectionVisibility.faq && <FaqSection items={content.faq?.items || []} />}
-        {sectionVisibility.policies && <PoliciesSection items={content.policies?.items || []} />}
-        {sectionVisibility.location && <LocationSection content={content.location} settings={settings} />}
-        {sectionVisibility.contact && (
-          <ContactSection
-            settings={settings}
-            content={content.contact}
-            contactForm={contactForm}
-            setContactForm={setContactForm}
-            submitContact={submitContact}
-            contactStatus={contactStatus}
-          />
+        {visibleSections.booking && <BookingSection settings={settings} content={sections.booking || {}} services={services} />}
+        {visibleSections.gallery && <GallerySection content={sections.gallery || {}} items={galleryItems} />}
+        {visibleSections.reviews && (
+          <ReviewsSection settings={settings} content={sections.reviews || {}} items={featuredReviews} primaryCta={primaryCta} />
         )}
+        {visibleSections.about && <AboutSection content={sections.about || {}} settings={settings} />}
+        {visibleSections.contact && <ContactSection content={sections.contact || {}} location={sections.location || {}} settings={settings} />}
+        {visibleSections.faq && <FaqSection content={sections.faq || {}} items={sections.faq?.items || []} />}
+        {visibleSections.policies && <PoliciesSection content={sections.policies || {}} items={sections.policies?.items || []} />}
       </main>
-      <Footer sections={navSections} settings={settings} />
-      {showTop && (
-        <button className="btn btn-primary" style={backToTopStyles} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-          ↑ Top
-        </button>
-      )}
-    </>
+      <Footer sections={navSections} legalSections={legalSections} settings={settings} content={sections.footer || {}} primaryCta={primaryCta} />
+      <MobileActionBar settings={settings} primaryCta={primaryCta} />
+    </div>
   );
 }
 
-const backToTopStyles = {
-  position: 'fixed',
-  bottom: '1.5rem',
-  right: '1.5rem',
-  zIndex: 50,
-};
-
-function SimplePage({ title, blockKey }) {
-  const { data, loading } = useSiteContent();
-
-  if (loading || !data) {
-    return (
-      <div className="section">
-        <p>Loading...</p>
-      </div>
-    );
-  }
-
-  const block = data.sections[blockKey];
-  const items = Array.isArray(block?.items) ? block.items : Array.isArray(block) ? block : [];
-
-  return (
-    <>
-      <div className="section">
-        <div className="container">
-          <Link to="/">← Back to site</Link>
-          <h1>{title}</h1>
-          {items.map((entry, index) => (
-            <article key={index} style={{ marginBottom: '1rem' }}>
-              {entry.title && <h3>{entry.title}</h3>}
-              <p>{entry.body || entry.text || ''}</p>
-            </article>
-          ))}
-        </div>
-      </div>
-      <Footer sections={[]} settings={data.settings} />
-    </>
-  );
-}
-
-function Navbar({ sections, businessName }) {
+function Header({ settings, sections, legalSections, compact, primaryCta, brandHref }) {
   const [open, setOpen] = useState(false);
+  const phoneHref = settings.phone ? toPhoneHref(settings.phone) : null;
+
   return (
-    <header style={navStyles}>
-      <div className="container" style={navContainer}>
-        <div className="nav-brand">
-          <a href="#hero" className="brand-link">
-            <BrandLogo />
-            <span>{businessName}</span>
-          </a>
-        </div>
-        <nav className="nav-links">
-          <button onClick={() => setOpen(!open)} style={menuButton}>
+    <header className={`site-header ${compact ? 'site-header--compact' : ''}`}>
+      <div className="container site-header__inner">
+        <a href={brandHref} className="brand-link" onClick={() => setOpen(false)}>
+          <BrandLockup compact={compact} />
+        </a>
+
+        <nav className="site-nav">
+          <button
+            type="button"
+            className="menu-toggle"
+            onClick={() => setOpen((value) => !value)}
+            aria-expanded={open}
+            aria-controls="site-nav-drawer"
+            aria-label={open ? 'Close site navigation' : 'Open site navigation'}
+          >
             Menu
           </button>
-          <div style={{ display: open ? 'block' : 'none' }} className="nav-drawer">
+          <div id="site-nav-drawer" className={`site-nav__drawer ${open ? 'is-open' : ''}`} aria-hidden={!open}>
             {sections.map((section) => (
-              <a key={section.id} href={`#${section.id}`} onClick={() => setOpen(false)} style={navLink}>
+              <a key={section.id} href={`#${section.id}`} onClick={() => setOpen(false)}>
                 {section.label}
               </a>
             ))}
-            <Link to="/privacy" style={navLink}>
-              Privacy
-            </Link>
-            <Link to="/terms" style={navLink}>
-              Terms
-            </Link>
+            {legalSections?.privacy && (
+              <Link to="/privacy" onClick={() => setOpen(false)}>
+                Privacy
+              </Link>
+            )}
+            {legalSections?.terms && (
+              <Link to="/terms" onClick={() => setOpen(false)}>
+                Terms
+              </Link>
+            )}
           </div>
-          <div className="nav-desktop" style={{ display: 'none' }}>
+          <div className="site-nav__desktop">
             {sections.map((section) => (
-              <a key={section.id} href={`#${section.id}`} style={navLink}>
+              <a key={section.id} href={`#${section.id}`}>
                 {section.label}
               </a>
             ))}
           </div>
         </nav>
+
+        <div className="header-actions">
+          {phoneHref && (
+            <a className="btn btn-outline" href={phoneHref}>
+              Call
+            </a>
+          )}
+          {primaryCta && primaryCta.kind !== 'phone' && (
+            <a className="btn btn-primary" href={primaryCta.href}>
+              {primaryCta.label}
+            </a>
+          )}
+        </div>
       </div>
     </header>
   );
 }
 
-const navStyles = {
-  position: 'sticky',
-  top: 0,
-  zIndex: 20,
-  background: 'var(--color-background-primary)',
-  borderBottom: '1px solid var(--color-border-subtle)',
-  padding: '0.75rem 0',
-  overflow: 'visible',
-};
+function HeroSection({ settings, content, primaryCta, secondaryCta }) {
+  const phoneHref = settings.phone ? toPhoneHref(settings.phone) : null;
+  const servingAreaLabel = escapeHtml(settings.serving_area || 'Midway and the Winston-Salem area');
+  const heroSubheading =
+    content.subheading ||
+    `<p>Gentle grooming, spa baths, and comfort-focused care for dogs in ${servingAreaLabel}.</p><p>Request an appointment online and hear back within 24 hours.</p>`;
+  const valuePoints = [
+    settings.serving_area,
+    'Appointment-based care',
+    'Comfort-focused grooming',
+  ].filter(Boolean);
 
-const navContainer = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-};
-
-const menuButton = {
-  border: '1px solid var(--color-accent-primary)',
-  borderRadius: '999px',
-  padding: '0.35rem 0.85rem',
-  background: 'transparent',
-  color: 'var(--color-accent-primary)',
-};
-
-const navLink = {
-  marginRight: '1rem',
-  display: 'inline-block',
-  padding: '0.35rem 0',
-};
-
-function HeroSection({ content, settings, hasBooking, showServices }) {
-  const primaryHref = hasBooking ? '#booking' : '#contact';
   return (
-    <section id="hero" className="section" style={{ paddingTop: '6rem', textAlign: 'center' }}>
-      <div className="container">
-        <p style={{ textTransform: 'uppercase', letterSpacing: '0.2em', color: 'var(--color-accent-primary)' }}>{settings.serving_area}</p>
-        <h1 style={{ fontSize: '3rem', margin: '0.5rem 0', color: 'var(--color-text-primary)' }}>{content?.headline}</h1>
-        <div style={{ fontSize: '1.1rem', color: 'var(--color-text-secondary)', maxWidth: '640px', margin: '0 auto 1.5rem' }} dangerouslySetInnerHTML={{ __html: content?.subheading || '' }} />
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-          <a className="btn btn-primary" href={primaryHref}>
-            {content?.cta_text || (hasBooking ? 'Request Appointment' : 'Contact Us')}
-          </a>
-          {showServices && (
-            <a className="btn btn-outline" href="#services">
-              {content?.cta_secondary || 'Explore Services'}
+    <section id="hero" className="hero-section">
+      <div className="container hero-grid">
+        <div className="hero-copy">
+          {textHasContent(content.eyebrow) && <p className="eyebrow">{content.eyebrow}</p>}
+          <h1>{content.headline || 'Calm grooming care and a boutique dog spa experience.'}</h1>
+          <div className="hero-subheading" dangerouslySetInnerHTML={{ __html: heroSubheading }} />
+          <div className="hero-actions">
+            {primaryCta && (
+              <a className="btn btn-primary" href={primaryCta.href}>
+                {primaryCta.kind === 'booking' ? content.cta_text || primaryCta.label : primaryCta.label}
+              </a>
+            )}
+            {secondaryCta && (
+              <a className="btn btn-outline" href={secondaryCta.href}>
+                {textHasContent(content.cta_secondary) ? content.cta_secondary : secondaryCta.label}
+              </a>
+            )}
+            {!secondaryCta && phoneHref && (
+              <a className="btn btn-outline" href={phoneHref}>
+                Call {settings.phone}
+              </a>
+            )}
+          </div>
+          {textHasContent(content.cta_secondary) && phoneHref && (
+            <a className="text-link hero-support-link" href={phoneHref}>
+              Call {settings.phone}
             </a>
+          )}
+          <div className="pill-row">
+            {valuePoints.map((point) => (
+              <span key={point} className="pill">
+                {point}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="hero-card">
+          <div className="hero-card__label">Why families book here</div>
+          <ul className="feature-list">
+            <li>Clear services and starting prices</li>
+            <li>Easy mobile-first appointment requests</li>
+            <li>Thoughtful handling for first-timers and sensitive dogs</li>
+          </ul>
+          <div className="hero-contact-card">
+            <span>Need help first?</span>
+            {settings.phone && <a href={phoneHref}>Call {settings.phone}</a>}
+            {settings.hours && <p>{settings.hours}</p>}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TrustStrip({ settings, content }) {
+  const points = Array.isArray(content.points) ? content.points : [];
+  const hasGoogleSummary = textHasContent(settings.google_review_rating) && textHasContent(settings.google_review_count);
+
+  return (
+    <section id="trust" className="section section--soft">
+      <div className="container">
+        <div className="section-heading section-heading--tight">
+          <p className="eyebrow">Trust signals</p>
+          <h2>{content.title || 'Why local families choose Bow Wow’s'}</h2>
+          {textHasContent(content.intro) && <div className="section-intro" dangerouslySetInnerHTML={{ __html: content.intro }} />}
+        </div>
+
+        <div className="trust-grid">
+          <div className="trust-summary-card">
+            <div className="stars">★★★★★</div>
+            {hasGoogleSummary ? (
+              <>
+                <strong>{settings.google_review_rating} / 5 on Google</strong>
+                <p>{settings.google_review_count} reviews</p>
+              </>
+            ) : (
+              <>
+                <strong>Thoughtful neighborhood grooming</strong>
+                <p>Honest scheduling, gentle handling, and boutique-level attention.</p>
+              </>
+            )}
+            {textHasContent(settings.google_reviews_url) && (
+              <a className="text-link" href={settings.google_reviews_url} target="_blank" rel="noreferrer">
+                View the full Google profile
+              </a>
+            )}
+          </div>
+
+          <div className="proof-strip">
+            {points.map((point, index) => (
+              <article key={point.title || index} className="proof-card">
+                <h3>{point.title}</h3>
+                <p>{point.text}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ServicesSection({ content, services, settings, primaryCta }) {
+  return (
+    <section id="services" className="section">
+      <div className="container">
+        <div className="section-heading">
+          <p className="eyebrow">Services & pricing</p>
+          <h2>{content.title || 'Clear service options with transparent starting prices'}</h2>
+          {textHasContent(content.intro) && <div className="section-intro" dangerouslySetInnerHTML={{ __html: content.intro }} />}
+        </div>
+
+        <div className="accordion-list">
+          {services.map((service) => (
+            <details key={service.id} className="accordion-card">
+              <summary>
+                <div>
+                  <h3>{service.name}</h3>
+                  <p>{service.short_summary}</p>
+                </div>
+                <div className="service-meta">
+                  {service.price_label && <span>{service.price_label}</span>}
+                  <span>{formatDuration(service.duration_minutes)}</span>
+                </div>
+              </summary>
+              <div className="accordion-body">
+                {textHasContent(service.description) && <div dangerouslySetInnerHTML={{ __html: service.description }} />}
+                {textHasContent(service.breed_weight_note) && <p className="muted-text">{service.breed_weight_note}</p>}
+                {primaryCta && (
+                  <a className="btn btn-outline" href={primaryCta.href}>
+                    {primaryCta.kind === 'booking' ? 'Request This Service' : primaryCta.label}
+                  </a>
+                )}
+              </div>
+            </details>
+          ))}
+        </div>
+
+        {textHasContent(content.disclaimer) && (
+          <div className="section-note" dangerouslySetInnerHTML={{ __html: content.disclaimer }} />
+        )}
+
+        <div className="section-cta">
+          <div>
+            <strong>Ready to request a time?</strong>
+            <p>Pick the services first and we’ll show only appointment windows that fit your dog count and visit length.</p>
+          </div>
+          <div className="section-cta__actions">
+            {primaryCta && primaryCta.kind !== 'phone' && (
+              <a className="btn btn-primary" href={primaryCta.href}>
+                {primaryCta.label}
+              </a>
+            )}
+            {settings.phone && (
+              <a className="btn btn-outline" href={toPhoneHref(settings.phone)}>
+                Call {settings.phone}
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function BookingSection({ settings, content, services }) {
+  const [step, setStep] = useState(1);
+  const [selectedServiceIds, setSelectedServiceIds] = useState([]);
+  const [dogCount, setDogCount] = useState(1);
+  const [bookingDate, setBookingDate] = useState(todayString());
+  const [availability, setAvailability] = useState([]);
+  const [availabilityMeta, setAvailabilityMeta] = useState({ duration_minutes: 0 });
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [holdToken, setHoldToken] = useState(null);
+  const [nextAvailableSuggestion, setNextAvailableSuggestion] = useState(null);
+  const [slotError, setSlotError] = useState(null);
+  const [flowStatus, setFlowStatus] = useState(null);
+  const [submitStatus, setSubmitStatus] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({
+    owner_name: '',
+    phone: '',
+    email: '',
+    vet_name: '',
+    vet_phone: '',
+    notes: '',
+    paperwork_notes: '',
+    paperwork_upload: null,
+    dogs: [createDog()],
+  });
+
+  const selectedServices = services.filter((service) => selectedServiceIds.includes(service.id));
+  const durationSummary = selectedServices.reduce((sum, service) => sum + Number(service.duration_minutes || 0), 0) * dogCount;
+  const appointmentNotice = content.notice || 'Our team will review it and confirm within 24 hours.';
+  const availabilityMessage = content.availability_note || 'Available times update based on selected services and number of dogs.';
+  const selectedServicesLabel = selectedServices.map((service) => service.name).join(', ');
+  const maxReachableStep = selectedSlot ? (canIntakeContinue(form) ? 4 : 3) : (selectedServiceIds.length > 0 ? 2 : 1);
+
+  useEffect(() => {
+    setForm((current) => {
+      const nextDogs = [...current.dogs];
+      while (nextDogs.length < dogCount) {
+        nextDogs.push(createDog());
+      }
+      while (nextDogs.length > dogCount) {
+        nextDogs.pop();
+      }
+      return { ...current, dogs: nextDogs };
+    });
+  }, [dogCount]);
+
+  useEffect(() => {
+    if (selectedServiceIds.length === 0) {
+      setAvailability([]);
+      setAvailabilityMeta({ duration_minutes: 0 });
+      setSelectedSlot(null);
+      setHoldToken(null);
+      setNextAvailableSuggestion(null);
+      setSlotError(null);
+      return;
+    }
+
+    let ignore = false;
+
+    const loadAvailability = async () => {
+      setLoadingAvailability(true);
+      setSlotError(null);
+      try {
+        const response = await axios.get('/api/public/schedule', {
+          params: {
+            date: bookingDate,
+            service_ids: selectedServiceIds,
+            pet_count: dogCount,
+            hold_token: holdToken || undefined,
+          },
+        });
+
+        if (!ignore) {
+          setAvailability(response.data.data.availability || []);
+          setAvailabilityMeta({
+            duration_minutes: response.data.data.duration_minutes || durationSummary || 0,
+          });
+          setNextAvailableSuggestion(response.data.data.next_available || null);
+        }
+      } catch (error) {
+        if (!ignore) {
+          setAvailability([]);
+          setNextAvailableSuggestion(null);
+          setSlotError(error.response?.data?.error?.message || 'Unable to load availability right now.');
+        }
+      } finally {
+        if (!ignore) {
+          setLoadingAvailability(false);
+        }
+      }
+    };
+
+    loadAvailability();
+    return () => {
+      ignore = true;
+    };
+  }, [bookingDate, dogCount, durationSummary, holdToken, selectedServiceIds]);
+
+  useEffect(() => {
+    if (!selectedSlot || loadingAvailability) {
+      return;
+    }
+
+    const slotStillVisible = availability.some((slot) => slot.time === selectedSlot.time);
+    if (!slotStillVisible) {
+      setSelectedSlot(null);
+      setHoldToken(null);
+      setSlotError('Available times updated. Please choose a new time that matches the current services and dog count.');
+      setStep(2);
+    }
+  }, [availability, loadingAvailability, selectedSlot]);
+
+  const toggleService = (serviceId) => {
+    setFlowStatus(null);
+    setSubmitStatus(null);
+    setSelectedSlot(null);
+    setHoldToken(null);
+    setNextAvailableSuggestion(null);
+    setSelectedServiceIds((current) =>
+      current.includes(serviceId) ? current.filter((id) => id !== serviceId) : [...current, serviceId],
+    );
+  };
+
+  const formatSuggestionSummary = (suggestion) => {
+    if (!suggestion) {
+      return '';
+    }
+
+    const dateLabel = suggestion.date_label || formatDateLong(suggestion.date);
+    return `${dateLabel} at ${suggestion.label}`;
+  };
+
+  const jumpToNextAvailable = async () => {
+    if (!nextAvailableSuggestion) {
+      return;
+    }
+
+    setFlowStatus(null);
+    setSubmitStatus(null);
+    setSelectedSlot(null);
+    setHoldToken(null);
+
+    if (nextAvailableSuggestion.date && nextAvailableSuggestion.date !== bookingDate) {
+      setBookingDate(nextAvailableSuggestion.date);
+      setSlotError(`Showing the nearest available opening: ${formatSuggestionSummary(nextAvailableSuggestion)}.`);
+      return;
+    }
+
+    await chooseSlot(nextAvailableSuggestion);
+  };
+
+  const chooseSlot = async (slot) => {
+    setSlotError(null);
+    setFlowStatus(null);
+    setSubmitStatus(null);
+    try {
+      const response = await axios.post('/api/public/booking-hold', {
+        date: bookingDate,
+        time: slot.time,
+        selected_services: selectedServiceIds,
+        pet_count: dogCount,
+        previous_hold_token: holdToken,
+      });
+
+      setSelectedSlot(slot);
+      setHoldToken(response.data.data.hold_token);
+      setNextAvailableSuggestion(null);
+      setStep(3);
+    } catch (error) {
+      const message = error.response?.data?.error?.message || 'That time is no longer available.';
+      const nextAvailable = error.response?.data?.error?.next_available || null;
+      setNextAvailableSuggestion(nextAvailable);
+      if (nextAvailable?.date && nextAvailable.date !== bookingDate) {
+        setBookingDate(nextAvailable.date);
+      }
+      setSlotError(nextAvailable ? `${message} Nearest available: ${formatSuggestionSummary(nextAvailable)}.` : message);
+    }
+  };
+
+  const updateDog = (index, key, value) => {
+    setFlowStatus(null);
+    setForm((current) => ({
+      ...current,
+      dogs: current.dogs.map((dog, dogIndex) => (dogIndex === index ? { ...dog, [key]: value } : dog)),
+    }));
+  };
+
+  const addAnotherDog = () => {
+    setDogCount((count) => count + 1);
+    setSelectedSlot(null);
+    setHoldToken(null);
+    setNextAvailableSuggestion(null);
+    setFlowStatus(null);
+    setSubmitStatus(null);
+    setSlotError('Dog count changed. Please choose a new time so availability matches the total appointment length.');
+    setStep(2);
+  };
+
+  const changeStep = (nextStep) => {
+    setFlowStatus(null);
+    setSubmitStatus(null);
+
+    if (nextStep <= step) {
+      setStep(nextStep);
+      return;
+    }
+
+    if (nextStep >= 2 && selectedServiceIds.length === 0) {
+      setStep(1);
+      setFlowStatus({ tone: 'error', message: 'Select at least one service before continuing.' });
+      return;
+    }
+
+    if (nextStep >= 3 && !selectedSlot) {
+      setStep(2);
+      setFlowStatus({ tone: 'error', message: 'Choose an available time before moving to intake details.' });
+      return;
+    }
+
+    if (nextStep >= 4 && !canIntakeContinue(form)) {
+      setStep(3);
+      setFlowStatus({ tone: 'error', message: 'Complete the owner details plus each dog’s name and approximate weight before reviewing.' });
+      return;
+    }
+
+    setStep(nextStep);
+  };
+
+  const submitBooking = async (event) => {
+    event.preventDefault();
+    setSubmitting(true);
+    setFlowStatus(null);
+    setSubmitStatus(null);
+
+    try {
+      const payload = new FormData();
+      payload.append('owner_name', form.owner_name);
+      payload.append('phone', form.phone);
+      payload.append('email', form.email);
+      payload.append('vet_name', form.vet_name);
+      payload.append('vet_phone', form.vet_phone);
+      payload.append('notes', form.notes);
+      payload.append('paperwork_notes', form.paperwork_notes);
+      payload.append('date', bookingDate);
+      payload.append('time', selectedSlot?.time || '');
+      payload.append('hold_token', holdToken || '');
+      payload.append('pet_count', String(dogCount));
+      payload.append('selected_services', JSON.stringify(selectedServiceIds));
+      payload.append('dogs', JSON.stringify(form.dogs));
+      if (form.paperwork_upload) {
+        payload.append('paperwork_upload', form.paperwork_upload);
+      }
+
+      await axios.post('/api/public/booking-request', payload, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      setSubmitStatus({
+        tone: 'success',
+        message: 'Request submitted. Our team will review it and confirm within 24 hours.',
+      });
+      setStep(1);
+      setSelectedServiceIds([]);
+      setDogCount(1);
+      setBookingDate(todayString());
+      setAvailability([]);
+      setSelectedSlot(null);
+      setHoldToken(null);
+      setNextAvailableSuggestion(null);
+      setForm({
+        owner_name: '',
+        phone: '',
+        email: '',
+        vet_name: '',
+        vet_phone: '',
+        notes: '',
+        paperwork_notes: '',
+        paperwork_upload: null,
+        dogs: [createDog()],
+      });
+    } catch (error) {
+      const message = error.response?.data?.error?.message || 'Unable to submit your request right now.';
+      const nextAvailable = error.response?.data?.error?.next_available || null;
+      if (requiresNewSlot(message)) {
+        setSelectedSlot(null);
+        setHoldToken(null);
+        setNextAvailableSuggestion(nextAvailable);
+        if (nextAvailable?.date && nextAvailable.date !== bookingDate) {
+          setBookingDate(nextAvailable.date);
+        }
+        setStep(2);
+      }
+      setSubmitStatus({
+        tone: 'error',
+        message: nextAvailable ? `${message} Nearest available: ${formatSuggestionSummary(nextAvailable)}.` : message,
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const canContinueToSlots = selectedServiceIds.length > 0;
+  const canContinueToReview = canIntakeContinue(form);
+
+  return (
+    <section id="booking" className="section section--booking">
+      <div className="container">
+        <div className="section-heading">
+          <p className="eyebrow">Request appointment</p>
+          <h2>{content.title || 'Simple, service-aware booking built for phones'}</h2>
+          {textHasContent(content.intro) && <div className="section-intro" dangerouslySetInnerHTML={{ __html: content.intro }} />}
+        </div>
+
+        <div className="booking-layout">
+          <div className="booking-card">
+            <BookingSteps step={step} onStepChange={changeStep} maxStep={maxReachableStep} />
+
+            <div className="booking-stage">
+              {flowStatus && (
+                <p role={flowStatus.tone === 'error' ? 'alert' : 'status'} className={`status-text ${flowStatus.tone === 'error' ? 'status-text--error' : 'status-text--success'}`}>
+                  {flowStatus.message}
+                </p>
+              )}
+
+              {step === 1 && (
+                <>
+                  <div className="booking-stage__header">
+                    <h3>Step 1: Select services</h3>
+                    <p>Choose one or more services, then tell us how many dogs you’re bringing.</p>
+                  </div>
+
+                  <div className="service-selector-grid">
+                    {services.map((service) => (
+                      <button
+                        key={service.id}
+                        type="button"
+                        className={`service-chip-card ${selectedServiceIds.includes(service.id) ? 'is-active' : ''}`}
+                        onClick={() => toggleService(service.id)}
+                        aria-pressed={selectedServiceIds.includes(service.id)}
+                      >
+                        <span>{service.name}</span>
+                        <strong>{service.price_label || formatDuration(service.duration_minutes)}</strong>
+                        <small>{formatDuration(service.duration_minutes)}</small>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="dog-count-card">
+                    <div>
+                      <strong>How many dogs are in this request?</strong>
+                      <p>We use this to calculate the right appointment length before you pick a time.</p>
+                    </div>
+                    <div className="dog-count-controls">
+                      <button
+                        type="button"
+                        aria-label="Remove one dog from this request"
+                        onClick={() => {
+                          setDogCount((count) => Math.max(1, count - 1));
+                          setSelectedSlot(null);
+                          setHoldToken(null);
+                          setNextAvailableSuggestion(null);
+                          setFlowStatus(null);
+                          setSubmitStatus(null);
+                        }}
+                      >
+                        −
+                      </button>
+                      <span>{dogCount}</span>
+                      <button
+                        type="button"
+                        aria-label="Add one dog to this request"
+                        onClick={() => {
+                          setDogCount((count) => count + 1);
+                          setSelectedSlot(null);
+                          setHoldToken(null);
+                          setNextAvailableSuggestion(null);
+                          setFlowStatus(null);
+                          setSubmitStatus(null);
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="booking-summary-banner">
+                    <strong>Estimated appointment length:</strong> {formatDuration(availabilityMeta.duration_minutes || durationSummary || 30)}
+                  </div>
+
+                  {!canContinueToSlots && (
+                    <p className="muted-text">Select at least one service to unlock available times.</p>
+                  )}
+
+                  <div className="step-actions">
+                    <button className="btn btn-primary" type="button" onClick={() => changeStep(2)}>
+                      Continue to available times
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {step === 2 && (
+                <>
+                  <div className="booking-stage__header">
+                    <h3>Step 2: Select date & time</h3>
+                    <p>{availabilityMessage}</p>
+                  </div>
+
+                  <div className="booking-summary-banner booking-summary-banner--notice">
+                    <strong>This is a request, not an instant booking.</strong> {appointmentNotice}
+                  </div>
+
+                  <div className="date-picker-card">
+                    <label htmlFor="booking-date">Preferred date</label>
+                    <input
+                      id="booking-date"
+                      type="date"
+                      value={bookingDate}
+                      min={todayString()}
+                      onChange={(event) => {
+                        setBookingDate(event.target.value);
+                        setSelectedSlot(null);
+                        setHoldToken(null);
+                        setNextAvailableSuggestion(null);
+                        setSubmitStatus(null);
+                        setFlowStatus(null);
+                      }}
+                    />
+                  </div>
+
+                  <div className="booking-summary-banner">
+                    <strong>Total duration:</strong> {formatDuration(availabilityMeta.duration_minutes || durationSummary || 30)} for {dogCount} dog{dogCount === 1 ? '' : 's'}
+                    {selectedServicesLabel && <span className="summary-inline-copy"> · {selectedServicesLabel}</span>}
+                  </div>
+
+                  {loadingAvailability ? (
+                    <p className="muted-text">Loading available times…</p>
+                  ) : (
+                    <div className="slot-grid">
+                      {availability.map((slot) => (
+                        <button
+                          key={slot.time}
+                          type="button"
+                          className={`slot-button ${selectedSlot?.time === slot.time ? 'is-active' : ''}`}
+                          onClick={() => chooseSlot(slot)}
+                          aria-pressed={selectedSlot?.time === slot.time}
+                        >
+                          <span>{slot.label}</span>
+                          <small>{slot.range_label}</small>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {!loadingAvailability && availability.length === 0 && (
+                    <div className="empty-state">
+                      <p>No appointment times are currently open for those services on that date.</p>
+                      {nextAvailableSuggestion && (
+                        <div className="next-available-card">
+                          <strong>Nearest available opening</strong>
+                          <p>{formatSuggestionSummary(nextAvailableSuggestion)}</p>
+                          <button className="btn btn-primary" type="button" onClick={jumpToNextAvailable}>
+                            {nextAvailableSuggestion.date === bookingDate ? `Use ${nextAvailableSuggestion.label}` : `Jump to ${nextAvailableSuggestion.date_label || formatDateLong(nextAvailableSuggestion.date)}`}
+                          </button>
+                        </div>
+                      )}
+                      {settings.phone && (
+                        <a className="text-link" href={toPhoneHref(settings.phone)}>
+                          Call for help finding the best next opening
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  {slotError && <p role="alert" className="status-text status-text--error">{slotError}</p>}
+
+                  <div className="step-actions">
+                    <button className="btn btn-outline" type="button" onClick={() => changeStep(1)}>
+                      Back
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {step === 3 && (
+                <>
+                  <div className="booking-stage__header">
+                    <h3>Step 3: Intake details</h3>
+                    <p>Share owner, dog, vet, and paperwork details. We keep the form focused and easy on mobile.</p>
+                  </div>
+
+                  <div className="booking-summary-banner">
+                    <strong>Selected appointment:</strong> {formatDateLong(bookingDate)} · {selectedSlot?.range_label || selectedSlot?.label}
+                  </div>
+
+                  <form className="booking-form-grid" onSubmit={(event) => event.preventDefault()}>
+                    <div className="field-group">
+                      <label htmlFor="booking-owner-name">Owner name</label>
+                      <input id="booking-owner-name" value={form.owner_name} onChange={(event) => setForm((current) => ({ ...current, owner_name: event.target.value }))} required />
+                    </div>
+                    <div className="field-group">
+                      <label htmlFor="booking-owner-phone">Phone</label>
+                      <input id="booking-owner-phone" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} required />
+                    </div>
+                    <div className="field-group">
+                      <label htmlFor="booking-owner-email">Email</label>
+                      <input id="booking-owner-email" type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} required />
+                    </div>
+                    <div className="field-group">
+                      <label htmlFor="booking-vet-name">Vet name</label>
+                      <input id="booking-vet-name" value={form.vet_name} onChange={(event) => setForm((current) => ({ ...current, vet_name: event.target.value }))} />
+                    </div>
+                    <div className="field-group">
+                      <label htmlFor="booking-vet-phone">Vet phone</label>
+                      <input id="booking-vet-phone" value={form.vet_phone} onChange={(event) => setForm((current) => ({ ...current, vet_phone: event.target.value }))} />
+                    </div>
+                  </form>
+
+                  <div className="dog-intake-list">
+                    {form.dogs.map((dog, index) => (
+                      <article key={`dog-${index}`} className="dog-intake-card">
+                        <div className="booking-card__header">
+                          <h4>Dog {index + 1}</h4>
+                        </div>
+                        <div className="booking-form-grid">
+                          <div className="field-group">
+                            <label htmlFor={`booking-dog-name-${index}`}>Name</label>
+                            <input id={`booking-dog-name-${index}`} value={dog.pet_name} onChange={(event) => updateDog(index, 'pet_name', event.target.value)} required />
+                          </div>
+                          <div className="field-group">
+                            <label htmlFor={`booking-dog-breed-${index}`}>Breed</label>
+                            <input id={`booking-dog-breed-${index}`} value={dog.breed} onChange={(event) => updateDog(index, 'breed', event.target.value)} />
+                          </div>
+                          <div className="field-group">
+                            <label htmlFor={`booking-dog-weight-${index}`}>Approximate weight</label>
+                            <input id={`booking-dog-weight-${index}`} value={dog.approximate_weight} onChange={(event) => updateDog(index, 'approximate_weight', event.target.value)} required />
+                          </div>
+                          <div className="field-group field-group--wide">
+                            <label htmlFor={`booking-dog-temperament-${index}`}>Temperament notes</label>
+                            <textarea id={`booking-dog-temperament-${index}`} value={dog.temperament_notes} onChange={(event) => updateDog(index, 'temperament_notes', event.target.value)} />
+                          </div>
+                          <div className="field-group field-group--wide">
+                            <label htmlFor={`booking-dog-medical-${index}`}>Medical or grooming notes</label>
+                            <textarea id={`booking-dog-medical-${index}`} value={dog.medical_or_grooming_notes} onChange={(event) => updateDog(index, 'medical_or_grooming_notes', event.target.value)} />
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+
+                  <button type="button" className="btn btn-outline add-dog-button" onClick={addAnotherDog}>
+                    Add another dog
+                  </button>
+
+                  <div className="booking-form-grid">
+                    <div className="field-group field-group--wide">
+                      <label htmlFor="booking-request-notes">Additional request notes</label>
+                      <textarea id="booking-request-notes" value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} />
+                    </div>
+                    <div className="field-group field-group--wide upload-card">
+                      <label htmlFor="booking-paperwork-upload">Upload paperwork (PDF, JPG, PNG)</label>
+                      <input
+                        id="booking-paperwork-upload"
+                        type="file"
+                        accept=".pdf,image/jpeg,image/png"
+                        aria-describedby="booking-paperwork-help"
+                        onChange={(event) => {
+                          setFlowStatus(null);
+                          setSubmitStatus(null);
+                          setForm((current) => ({ ...current, paperwork_upload: event.target.files?.[0] || null }));
+                        }}
+                      />
+                      <small id="booking-paperwork-help">Accepted file types: PDF, JPG, PNG. If you do not upload a file, you can summarize the paperwork below.</small>
+                      {form.paperwork_upload && (
+                        <div className="file-chip-row">
+                          <span className="file-chip">{form.paperwork_upload.name}</span>
+                          <button
+                            type="button"
+                            className="text-link"
+                            onClick={() => setForm((current) => ({ ...current, paperwork_upload: null }))}
+                          >
+                            Remove file
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="field-group field-group--wide">
+                      <label htmlFor="booking-paperwork-summary">Paperwork summary</label>
+                      <textarea id="booking-paperwork-summary" value={form.paperwork_notes} onChange={(event) => setForm((current) => ({ ...current, paperwork_notes: event.target.value }))} />
+                    </div>
+                  </div>
+
+                  <div className="step-actions">
+                    <button className="btn btn-outline" type="button" onClick={() => changeStep(2)}>
+                      Back
+                    </button>
+                    <button className="btn btn-primary" type="button" onClick={() => changeStep(4)}>
+                      Review request
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {step === 4 && (
+                <form onSubmit={submitBooking}>
+                  <div className="booking-stage__header">
+                    <h3>Step 4: Review & submit</h3>
+                    <p>This is a request. {appointmentNotice}</p>
+                  </div>
+
+                  <div className="booking-summary-banner booking-summary-banner--notice">
+                    <strong>Request review window:</strong> Our team reviews requests and confirms within 24 hours.
+                  </div>
+
+                  <div className="review-grid">
+                    <article className="review-card">
+                      <h4>Selected services</h4>
+                      <ul>
+                        {selectedServices.map((service) => (
+                          <li key={service.id}>
+                            {service.name} · {formatDuration(service.duration_minutes)}
+                          </li>
+                        ))}
+                      </ul>
+                    </article>
+                    <article className="review-card">
+                      <h4>Requested time</h4>
+                      <p>{formatDateLong(bookingDate)}</p>
+                      <p>{selectedSlot?.range_label || selectedSlot?.label}</p>
+                      <p className="muted-text">
+                        {formatDuration(availabilityMeta.duration_minutes || durationSummary || 30)} total for {dogCount} dog{dogCount === 1 ? '' : 's'}
+                      </p>
+                    </article>
+                    <article className="review-card">
+                      <h4>Owner details</h4>
+                      <p>{form.owner_name}</p>
+                      <p>{form.phone}</p>
+                      <p>{form.email}</p>
+                    </article>
+                    <article className="review-card">
+                      <h4>Dogs</h4>
+                      <ul>
+                        {form.dogs.map((dog, index) => (
+                          <li key={`${dog.pet_name}-${index}`}>
+                            {dog.pet_name} {dog.breed ? `· ${dog.breed}` : ''} {dog.approximate_weight ? `· ${dog.approximate_weight}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    </article>
+                    <article className="review-card">
+                      <h4>Paperwork</h4>
+                      <p>{form.paperwork_upload?.name || 'No file uploaded'}</p>
+                      <p className="muted-text">{form.paperwork_notes || 'No paperwork summary added.'}</p>
+                    </article>
+                  </div>
+
+                  <div className="step-actions">
+                    <button className="btn btn-outline" type="button" onClick={() => changeStep(3)}>
+                      Back
+                    </button>
+                    <button className="btn btn-primary" type="submit" disabled={submitting}>
+                      {submitting ? 'Submitting…' : 'Submit appointment request'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+
+            {submitStatus && (
+              <p role={submitStatus.tone === 'error' ? 'alert' : 'status'} className={`status-text ${submitStatus.tone === 'error' ? 'status-text--error' : 'status-text--success'}`}>
+                {submitStatus.message}
+              </p>
+            )}
+          </div>
+
+          <aside className="booking-sidebar">
+            <div className="sidebar-card">
+              <h3>What to expect</h3>
+              <ul className="feature-list">
+                <li>Choose services first so only valid time buttons appear.</li>
+                <li>Requests are reviewed by staff before they are confirmed.</li>
+                <li>We’ll follow up within 24 hours by email or phone.</li>
+              </ul>
+            </div>
+            <div className="sidebar-card sidebar-card--accent">
+              <h3>Need immediate help?</h3>
+              {settings.phone ? (
+                <a className="text-link" href={toPhoneHref(settings.phone)}>
+                  Call {settings.phone}
+                </a>
+              ) : (
+                <p>Use the contact form below and we’ll help you choose the right visit.</p>
+              )}
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function GallerySection({ content, items }) {
+  return (
+    <section id="gallery" className="section">
+      <div className="container">
+        <div className="section-heading">
+          <p className="eyebrow">Visual trust</p>
+          <h2>{content.title || 'Fresh from the spa'}</h2>
+          {textHasContent(content.intro) && <div className="section-intro" dangerouslySetInnerHTML={{ __html: content.intro }} />}
+        </div>
+
+        <div className="gallery-grid">
+          {items.map((item) => (
+            <article key={item.id} className={`gallery-card gallery-card--${item.item_type || 'groomed_pet'}`}>
+              {item.item_type === 'before_after' && item.primary_media && item.secondary_media ? (
+                <div className="before-after-grid">
+                  <figure>
+                    <ResponsivePicture media={item.primary_media} alt={`${item.title} before`} />
+                    <figcaption>Before</figcaption>
+                  </figure>
+                  <figure>
+                    <ResponsivePicture media={item.secondary_media} alt={`${item.title} after`} />
+                    <figcaption>After</figcaption>
+                  </figure>
+                </div>
+              ) : (
+                <ResponsivePicture media={item.primary_media || item.secondary_media} alt={item.title} />
+              )}
+              <div className="gallery-card__body">
+                <h3>{item.title}</h3>
+                {item.caption && <p>{item.caption}</p>}
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ReviewsSection({ settings, content, items, primaryCta }) {
+  const reviewUrl = settings.google_reviews_url;
+
+  return (
+    <section id="reviews" className="section section--soft">
+      <div className="container">
+        <div className="section-heading">
+          <p className="eyebrow">Reviews & trust</p>
+          <h2>{content.title || 'Google reviews and neighborhood trust'}</h2>
+          {textHasContent(content.intro) && <div className="section-intro" dangerouslySetInnerHTML={{ __html: content.intro }} />}
+        </div>
+
+        <div className="reviews-shell">
+          <div className="reviews-summary">
+            {textHasContent(settings.google_review_rating) && textHasContent(settings.google_review_count) ? (
+              <>
+                <div className="stars">★★★★★</div>
+                <strong>
+                  {settings.google_review_rating} / 5 from {settings.google_review_count} Google reviews
+                </strong>
+              </>
+            ) : (
+              <strong>Featured excerpts from real customer feedback</strong>
+            )}
+            <p>
+              We do not host an open on-site review form. Featured quotes here are sourced from real reviews, and the full review history lives on Google.
+            </p>
+            {reviewUrl && (
+              <a className="btn btn-outline" href={reviewUrl} target="_blank" rel="noreferrer">
+                {content.cta_text || 'See All Google Reviews'}
+              </a>
+            )}
+          </div>
+
+          <div className="review-cards">
+            {items.map((item) => (
+              <article key={item.id} className="review-card">
+                <div className="review-card__meta">
+                  <strong>{item.reviewer_name}</strong>
+                  <span>{'★'.repeat(item.star_rating)}</span>
+                </div>
+                <p>{item.review_text}</p>
+                <small>
+                  {item.source_label}
+                  {item.source_url && (
+                    <>
+                      {' '}
+                      ·{' '}
+                      <a href={item.source_url} target="_blank" rel="noreferrer">
+                        Source
+                      </a>
+                    </>
+                  )}
+                </small>
+              </article>
+            ))}
+
+            {items.length === 0 && (
+              <article className="review-card">
+                <p>More customer feedback is available on our Google profile.</p>
+              </article>
+            )}
+          </div>
+        </div>
+
+        <div className="section-cta section-cta--soft">
+          <div>
+            <strong>Ready when you are.</strong>
+            <p>See a service you need? Send a request now and we’ll confirm the right appointment window within 24 hours.</p>
+          </div>
+          <div className="section-cta__actions">
+            {primaryCta && primaryCta.kind !== 'phone' && (
+              <a className="btn btn-primary" href={primaryCta.href}>
+                {primaryCta.label}
+              </a>
+            )}
+            {settings.phone && (
+              <a className="btn btn-outline" href={toPhoneHref(settings.phone)}>
+                Call {settings.phone}
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function AboutSection({ content, settings }) {
+  return (
+    <section id="about" className="section">
+      <div className="container about-grid">
+        <div className="section-heading section-heading--tight">
+          <p className="eyebrow">Care philosophy</p>
+          <h2>{content.title || 'Comfort-first care'}</h2>
+          <div className="section-intro" dangerouslySetInnerHTML={{ __html: content.body || '' }} />
+        </div>
+        <div className="about-aside">
+          <div className="sidebar-card">
+            <h3>Quick highlights</h3>
+            <ul className="feature-list">
+              <li>Calm, appointment-based scheduling</li>
+              <li>Clear intake notes and service planning</li>
+              <li>Helpful follow-up by phone or email</li>
+            </ul>
+          </div>
+          {settings.hours && (
+            <div className="sidebar-card sidebar-card--accent">
+              <h3>Hours</h3>
+              <p>{settings.hours}</p>
+            </div>
           )}
         </div>
       </div>
@@ -354,119 +1288,88 @@ function HeroSection({ content, settings, hasBooking, showServices }) {
   );
 }
 
-function ServicesSection({ content = {} }) {
-  const cards = Array.isArray(content.cards) && content.cards.length > 0 ? content.cards : null;
-  const fallback = [
-    { title: 'Grooming', body: content?.grooming },
-    { title: 'Spa Baths', body: content?.baths },
-    { title: 'Play Styles', body: content?.play },
-  ].filter((service) => textHasContent(service.body));
+function ContactSection({ content, location, settings }) {
+  const [form, setForm] = useState({ name: '', email: '', phone: '', message: '' });
+  const [status, setStatus] = useState(null);
+  const phoneHref = settings.phone ? toPhoneHref(settings.phone) : null;
 
-  const services = cards || fallback;
+  const submitContact = async (event) => {
+    event.preventDefault();
+    setStatus(null);
 
-  if (!services || services.length === 0) {
-    return null;
-  }
+    try {
+      await axios.post('/api/public/contact', form);
+      setStatus({ tone: 'success', message: 'Message received. We’ll reply soon.' });
+      setForm({ name: '', email: '', phone: '', message: '' });
+    } catch (error) {
+      setStatus({ tone: 'error', message: error.response?.data?.error?.message || 'Unable to send your message right now.' });
+    }
+  };
 
   return (
-    <section id="services" className="section">
+    <section id="contact" className="section section--contact">
       <div className="container">
-        <h2>Services</h2>
-        {textHasContent(content?.intro) && <div className="muted" dangerouslySetInnerHTML={{ __html: content?.intro }} />}
-        <div className="card-grid">
-          {services.map((service, index) => (
-            <article key={service.title ?? index} style={cardStyle}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3>{service.title}</h3>
-                {service.price && <span style={{ fontWeight: 600 }}>{service.price}</span>}
-              </div>
-              {service.description ? (
-                <div dangerouslySetInnerHTML={{ __html: service.description }} />
-              ) : (
-                <p>{service.body}</p>
-              )}
-              {Array.isArray(service.bullets) && service.bullets.length > 0 && (
-                <ul>
-                  {service.bullets.map((bullet, bulletIdx) => (
-                    <li key={bulletIdx}>{bullet}</li>
-                  ))}
-                </ul>
-              )}
-            </article>
-          ))}
+        <div className="section-heading">
+          <p className="eyebrow">Contact & location</p>
+          <h2>{content.title || 'Contact Bow Wow’s'}</h2>
+          {textHasContent(content.note) && <div className="section-intro" dangerouslySetInnerHTML={{ __html: content.note }} />}
         </div>
-      </div>
-    </section>
-  );
-}
 
-const cardStyle = {
-  background: 'var(--color-surface-card)',
-  borderRadius: '18px',
-  padding: '1.5rem',
-  boxShadow: '0 12px 30px rgba(47, 58, 58, 0.08)',
-  border: '1px solid var(--color-border-subtle)',
-};
-
-function BookingSection({
-  content,
-  bookingDate,
-  setBookingDate,
-  availability,
-  selectedTime,
-  beginHold,
-  holdState,
-  bookingForm,
-  setBookingForm,
-  submitBooking,
-  bookingStatus,
-}) {
-  return (
-    <section id="booking" className="section" style={{ background: 'var(--color-accent-primary-soft)' }}>
-      <div className="container">
-        <h2>Request Appointment</h2>
-        <div className="muted" dangerouslySetInnerHTML={{ __html: content?.intro || 'Choose a date & time. Booking requests are pending until our team confirms by email.' }} />
-        <div style={{ display: 'grid', gap: '2rem', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
-          <div>
-            <label className="field">
-              Date
-              <input type="date" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} />
-            </label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '1rem' }}>
-              {availability.map((slot) => (
-                <button
-                  key={slot.time}
-                  className="btn btn-outline"
-                  type="button"
-                  disabled={holdState.loading && selectedTime === slot.time}
-                  onClick={() => beginHold(slot.time)}
-                  style={{
-                    borderColor: selectedTime === slot.time ? 'var(--color-accent-primary)' : 'var(--color-border-subtle)',
-                    background: selectedTime === slot.time ? 'var(--color-accent-primary)' : 'transparent',
-                    color: selectedTime === slot.time ? 'var(--color-text-inverse)' : 'var(--color-text-primary)',
-                  }}
-                >
-                  {slot.label}
-                </button>
-              ))}
-            </div>
-            {holdState.error && <p style={{ color: 'var(--color-error)' }}>{holdState.error}</p>}
+        <div className="contact-grid">
+          <div className="contact-card-list">
+            {settings.phone && (
+              <a className="contact-card" href={phoneHref}>
+                <span>Phone</span>
+                <strong>{settings.phone}</strong>
+              </a>
+            )}
+            {settings.email && (
+              <a className="contact-card" href={`mailto:${settings.email}`}>
+                <span>Email</span>
+                <strong>{settings.email}</strong>
+              </a>
+            )}
+            {settings.address && (
+              <a className="contact-card" href={settings.maps_url || '#contact'} target={settings.maps_url ? '_blank' : undefined} rel="noreferrer">
+                <span>Location</span>
+                <strong>{settings.address}</strong>
+              </a>
+            )}
+            {settings.hours && (
+              <div className="contact-card">
+                <span>Hours</span>
+                <strong>{settings.hours}</strong>
+              </div>
+            )}
+            {textHasContent(location.note) && (
+              <div className="contact-card contact-card--note">
+                <span>{location.title || 'Location & hours'}</span>
+                <div dangerouslySetInnerHTML={{ __html: location.note }} />
+              </div>
+            )}
           </div>
-          <form onSubmit={submitBooking} style={formCard}>
-            <input
-              required
-              placeholder="Your name"
-              value={bookingForm.customer_name}
-              onChange={(e) => setBookingForm((prev) => ({ ...prev, customer_name: e.target.value }))}
-            />
-            <input required placeholder="Email" type="email" value={bookingForm.email} onChange={(e) => setBookingForm((prev) => ({ ...prev, email: e.target.value }))} />
-            <input required placeholder="Phone" value={bookingForm.phone} onChange={(e) => setBookingForm((prev) => ({ ...prev, phone: e.target.value }))} />
-            <input placeholder="Dog name" value={bookingForm.dog_name} onChange={(e) => setBookingForm((prev) => ({ ...prev, dog_name: e.target.value }))} />
-            <textarea placeholder="Notes or preferences" value={bookingForm.dog_notes} onChange={(e) => setBookingForm((prev) => ({ ...prev, dog_notes: e.target.value }))} />
-            <button className="btn btn-primary" disabled={!selectedTime}>
-              Submit request
+
+          <form className="contact-form-card" onSubmit={submitContact}>
+            <div className="field-group">
+              <label htmlFor="contact-name">Name</label>
+              <input id="contact-name" required value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
+            </div>
+            <div className="field-group">
+              <label htmlFor="contact-email">Email</label>
+              <input id="contact-email" type="email" required value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} />
+            </div>
+            <div className="field-group">
+              <label htmlFor="contact-phone">Phone</label>
+              <input id="contact-phone" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} />
+            </div>
+            <div className="field-group">
+              <label htmlFor="contact-message">Message</label>
+              <textarea id="contact-message" required value={form.message} onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))} />
+            </div>
+            <button className="btn btn-primary" type="submit">
+              Send Message
             </button>
-            {bookingStatus && <p style={{ marginTop: '0.5rem' }}>{bookingStatus}</p>}
+            {status && <p role={status.tone === 'error' ? 'alert' : 'status'} className={`status-text ${status.tone === 'error' ? 'status-text--error' : 'status-text--success'}`}>{status.message}</p>}
           </form>
         </div>
       </div>
@@ -474,110 +1377,46 @@ function BookingSection({
   );
 }
 
-const formCard = {
-  background: 'var(--color-surface-card)',
-  borderRadius: '16px',
-  padding: '1.5rem',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.75rem',
-  border: '1px solid var(--color-border-subtle)',
-};
-
-function GallerySection({ items = [], content = {} }) {
-  if (!items.length) {
-    return null;
-  }
-
-  return (
-    <section id="gallery" className="section">
-      <div className="container">
-        <h2>{content?.title || 'Happy Clients'}</h2>
-        <div className="card-grid">
-          {items.map((item) => {
-            const featured = item.before_media || item.after_media;
-            return (
-              <article key={item.id} style={cardStyle}>
-                <ResponsivePicture media={featured} alt={item.title} className="media-thumb" />
-                <h3>{item.title}</h3>
-                <p>{item.blurb}</p>
-              </article>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function RetailSection({ items = [], content = {} }) {
-  if (!items.length) {
-    return null;
-  }
-
-  return (
-    <section id="retail" className="section" style={{ background: 'var(--color-background-secondary)' }}>
-      <div className="container">
-        <h2>{content?.title || 'Retail Boutique'}</h2>
-        {textHasContent(content?.body) && <div className="muted" dangerouslySetInnerHTML={{ __html: content.body }} />}
-        <div className="card-grid">
-          {items.map((item) => (
-            <article key={item.id} style={cardStyle}>
-              <ResponsivePicture media={item.media} alt={item.name} className="media-thumb" />
-              <h3>{item.name}</h3>
-              <div dangerouslySetInnerHTML={{ __html: item.description || '' }} />
-              {item.price_cents && <strong>${(item.price_cents / 100).toFixed(2)}</strong>}
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function AboutSection({ content }) {
-  return (
-    <section id="about" className="section">
-      <div className="container">
-        <h2>{content?.title || 'About'}</h2>
-        <div dangerouslySetInnerHTML={{ __html: content?.body || '' }} />
-      </div>
-    </section>
-  );
-}
-
-function FaqSection({ items = [] }) {
-  if (!items.length) {
-    return null;
-  }
+function FaqSection({ content, items }) {
   return (
     <section id="faq" className="section">
       <div className="container">
-        <h2>FAQ</h2>
-        {items.map((faq, index) => (
-          <details key={index} style={{ marginBottom: '1rem', background: 'var(--color-surface-card)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--color-border-subtle)' }}>
-            <summary style={{ fontWeight: 600 }}>{faq.question}</summary>
-            <div dangerouslySetInnerHTML={{ __html: faq.answer || '' }} />
-          </details>
-        ))}
+        <div className="section-heading section-heading--tight">
+          <p className="eyebrow">FAQ</p>
+          <h2>{content.title || 'Helpful answers before you book'}</h2>
+        </div>
+
+        <div className="accordion-list">
+          {items.map((item, index) => (
+            <details key={index} className="accordion-card">
+              <summary>
+                <div>
+                  <h3>{item.question}</h3>
+                </div>
+              </summary>
+              <div className="accordion-body" dangerouslySetInnerHTML={{ __html: item.answer || '' }} />
+            </details>
+          ))}
+        </div>
       </div>
     </section>
   );
 }
 
-function PoliciesSection({ items = [] }) {
-  if (!items.length) {
-    return null;
-  }
+function PoliciesSection({ content, items }) {
   return (
-    <section id="policies" className="section" style={{ background: 'var(--color-accent-secondary-soft)' }}>
+    <section id="policies" className="section section--soft">
       <div className="container">
-        <h2>Policies</h2>
-        <div className="card-grid">
-          {items.map((policy, index) => (
-            <article key={index} style={cardStyle}>
-              <h3>{policy.title}</h3>
-              <div dangerouslySetInnerHTML={{ __html: policy.body || '' }} />
+        <div className="section-heading section-heading--tight">
+          <p className="eyebrow">Policies</p>
+          <h2>{content.title || 'Simple expectations and care notes'}</h2>
+        </div>
+
+        <div className="policy-grid">
+          {items.map((item, index) => (
+            <article key={index} className="policy-card">
+              <h3>{item.title}</h3>
+              <div dangerouslySetInnerHTML={{ __html: item.body || '' }} />
             </article>
           ))}
         </div>
@@ -586,153 +1425,544 @@ function PoliciesSection({ items = [] }) {
   );
 }
 
-function LocationSection({ content = {}, settings }) {
+function Footer({ sections, legalSections, settings, content, primaryCta }) {
   return (
-    <section id="location" className="section">
-      <div className="container">
-        <h2>Location &amp; Hours</h2>
-        <p>{settings.address}</p>
-        <p>{settings.hours}</p>
-        <div className="muted" dangerouslySetInnerHTML={{ __html: content?.note || settings.serving_area }} />
-      </div>
-    </section>
-  );
-}
-
-function ContactSection({ settings, contactForm, setContactForm, submitContact, contactStatus, content = {} }) {
-  return (
-    <section id="contact" className="section">
-      <div className="container">
-        <h2>Contact</h2>
-        <div style={{ display: 'grid', gap: '2rem', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
-          <div>
-            <p>Call us: {settings.phone}</p>
-            <p>Email: {settings.email}</p>
-            <p>Visit: {settings.address}</p>
-            {textHasContent(content?.note) && <div className="muted" dangerouslySetInnerHTML={{ __html: content.note }} />}
-          </div>
-          <form onSubmit={submitContact} style={formCard}>
-            <input required placeholder="Name" value={contactForm.name} onChange={(e) => setContactForm((prev) => ({ ...prev, name: e.target.value }))} />
-            <input required placeholder="Email" type="email" value={contactForm.email} onChange={(e) => setContactForm((prev) => ({ ...prev, email: e.target.value }))} />
-            <input placeholder="Phone" value={contactForm.phone} onChange={(e) => setContactForm((prev) => ({ ...prev, phone: e.target.value }))} />
-            <textarea required placeholder="Message" value={contactForm.message} onChange={(e) => setContactForm((prev) => ({ ...prev, message: e.target.value }))} />
-            <button className="btn btn-outline">Send</button>
-            {contactStatus && <p>{contactStatus}</p>}
-          </form>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Footer({ sections, settings }) {
-  return (
-    <footer style={{ background: 'var(--color-text-primary)', color: 'var(--color-text-inverse)', padding: '3rem 1.5rem' }}>
-      <div className="container" style={{ display: 'grid', gap: '2rem', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+    <footer className="site-footer">
+      <div className="container footer-grid">
         <div>
-          <div className="footer-brand">
-            <BrandLogo className="brand-logo--small" />
-            <h3>Bow Wow’s Dog Spa</h3>
-          </div>
-          <p>{settings.address}</p>
-          <p>{settings.hours}</p>
-          <p>{settings.phone}</p>
+          <BrandLockup compact />
+          {textHasContent(content.tagline) && <p className="footer-tagline">{content.tagline}</p>}
+          {settings.address && <p>{settings.address}</p>}
+          {settings.phone && (
+            <p>
+              <a href={toPhoneHref(settings.phone)}>{settings.phone}</a>
+            </p>
+          )}
+          {settings.hours && <p>{settings.hours}</p>}
+          {primaryCta && primaryCta.kind !== 'phone' && (
+            <a className="btn btn-primary footer-cta" href={primaryCta.href}>
+              {primaryCta.label}
+            </a>
+          )}
         </div>
+
         <div>
           <h4>Quick links</h4>
           {sections.map((section) => (
-            <div key={section.id}>
-              <a href={`#${section.id}`} style={{ color: 'var(--color-text-inverse)' }}>
-                {section.label}
-              </a>
-            </div>
+            <a key={section.id} href={`#${section.id}`}>
+              {section.label}
+            </a>
           ))}
         </div>
+
         <div>
           <h4>Resources</h4>
-          <Link to="/privacy" style={{ color: 'var(--color-text-inverse)', display: 'block' }}>
-            Privacy Policy
-          </Link>
-          <Link to="/terms" style={{ color: 'var(--color-text-inverse)', display: 'block' }}>
-            Terms &amp; Conditions
-          </Link>
-          <a href="/admin/login" style={{ color: 'var(--color-text-inverse)', display: 'block', marginTop: '0.5rem' }}>
-            Admin Login
-          </a>
+          {legalSections?.privacy && <Link to="/privacy">Privacy Policy</Link>}
+          {legalSections?.terms && <Link to="/terms">Terms & Conditions</Link>}
+          <a href="/admin/login">Admin Login</a>
         </div>
       </div>
+      <div className="container footer-credit">Site by JAMARQ</div>
     </footer>
   );
 }
 
-function BrandLogo({ className = '' }) {
+function MobileActionBar({ settings, primaryCta }) {
+  const phoneHref = settings.phone ? toPhoneHref(settings.phone) : null;
+
   return (
-    <picture className={`brand-logo ${className}`.trim()}>
-      <source srcSet={logoPrimaryWebp} type="image/webp" />
-      <img src={logoPrimaryPng} alt="Bow Wow's Dog Spa logo" loading="lazy" />
-    </picture>
+    <div className="mobile-action-bar">
+      {phoneHref && (
+        <a className="btn btn-outline" href={phoneHref}>
+          Call
+        </a>
+      )}
+      {primaryCta && primaryCta.kind !== 'phone' && (
+        <a className="btn btn-primary" href={primaryCta.href}>
+          {primaryCta.label}
+        </a>
+      )}
+    </div>
   );
 }
 
-export default App;
+function SimplePage({ fallbackTitle, blockKey }) {
+  const { data, loading, error } = useSiteContent();
+  const section = data?.sections?.[blockKey] || {};
+  const items = section.items || [];
+  const title = section.title || fallbackTitle;
+  const legalSections = computeLegalSections(data?.sections || {});
+  const settings = data?.settings || {};
+  const galleryItems = Array.isArray(data?.gallery_items) ? data.gallery_items : [];
 
-function ResponsivePicture({ media, alt, className }) {
-  if (!media || (!media.optimized_srcset && !media.webp_srcset)) {
+  useEffect(() => {
+    if (loading || error || !data) {
+      return;
+    }
+
+    applySeo(buildSimpleSeo(blockKey, title, items, section.enabled !== false, settings));
+    applyStructuredData(buildLocalBusinessSchema(settings, galleryItems));
+  }, [blockKey, title, items, section.enabled, settings, galleryItems, loading, error, data]);
+
+  if (loading) {
+    return (
+      <div className="section">
+        <div className="container">
+          <p>Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="section">
+        <div className="container">
+          <p className="status-text status-text--error">{error || 'Unable to load this page right now.'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (section.enabled === false) {
+    return (
+      <>
+        <section className="section">
+          <div className="container simple-page">
+            <Link to="/">Back to site</Link>
+            <h1>{title}</h1>
+            <p className="muted-text">This page is currently unavailable.</p>
+          </div>
+        </section>
+        <Footer sections={[]} legalSections={legalSections} settings={settings} content={data.sections?.footer || {}} />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <section className="section">
+        <div className="container simple-page">
+          <Link to="/">Back to site</Link>
+          <h1>{title}</h1>
+          {items.map((item, index) => (
+            <article key={index} className="simple-page__item">
+              {item.title && <h3>{item.title}</h3>}
+              <div dangerouslySetInnerHTML={{ __html: item.body || item.text || '' }} />
+            </article>
+          ))}
+        </div>
+      </section>
+      <Footer sections={[]} legalSections={legalSections} settings={settings} content={data.sections?.footer || {}} />
+    </>
+  );
+}
+
+function BookingSteps({ step, onStepChange, maxStep = 1 }) {
+  const steps = [
+    { id: 1, label: 'Services' },
+    { id: 2, label: 'Time' },
+    { id: 3, label: 'Intake' },
+    { id: 4, label: 'Review' },
+  ];
+
+  return (
+    <div className="booking-steps">
+      {steps.map((entry) => (
+        <button
+          key={entry.id}
+          type="button"
+          className={`booking-step ${step === entry.id ? 'is-active' : ''} ${step > entry.id ? 'is-complete' : ''} ${entry.id > maxStep ? 'is-locked' : ''}`}
+          onClick={() => onStepChange(entry.id)}
+          aria-current={step === entry.id ? 'step' : undefined}
+          aria-disabled={entry.id > maxStep}
+        >
+          <span>{entry.id}</span>
+          <strong>{entry.label}</strong>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function BrandLockup({ compact = false }) {
+  return (
+    <div className={`brand-lockup ${compact ? 'brand-lockup--compact' : ''}`}>
+      <picture className="brand-logo">
+        <source srcSet={logoPrimaryWebp} type="image/webp" />
+        <img src={logoPrimaryPng} alt="Bow Wow's Dog Spa logo" />
+      </picture>
+      <div>
+        <strong>Bow Wow’s Dog Spa</strong>
+        <span>Trusted neighborhood boutique</span>
+      </div>
+    </div>
+  );
+}
+
+function ResponsivePicture({ media, alt }) {
+  if (!media) {
     return null;
   }
 
   return (
-    <picture className={className}>
+    <picture className="responsive-picture">
       {media.webp_srcset && <source type="image/webp" srcSet={media.webp_srcset} />}
       {media.optimized_srcset && <source srcSet={media.optimized_srcset} />}
-      <img src={media.fallback_url || media.original_url} alt={alt || media.alt_text || ''} loading="lazy" style={{ width: '100%', borderRadius: '12px' }} />
+      <img
+        src={media.fallback_url || media.original_url}
+        alt={alt || media.alt_text || media.title || "Bow Wow's Dog Spa gallery image"}
+        loading="lazy"
+      />
     </picture>
   );
+}
+
+function computeVisibleSections(content, services, galleryItems, featuredReviews, settings = {}) {
+  const hasReviewSignal =
+    Array.isArray(featuredReviews) && featuredReviews.length > 0
+      ? true
+      : [settings.google_review_rating, settings.google_review_count, settings.google_reviews_url].some(textHasContent);
+
+  return {
+    hero: isSectionEnabled(content.hero),
+    trust: isSectionEnabled(content.trust),
+    services: isSectionEnabled(content.services) && Array.isArray(services) && services.length > 0,
+    booking: isSectionEnabled(content.booking) && Array.isArray(services) && services.length > 0,
+    gallery: isSectionEnabled(content.gallery) && Array.isArray(galleryItems) && galleryItems.length > 0,
+    reviews: isSectionEnabled(content.reviews) && hasReviewSignal,
+    about: isSectionEnabled(content.about) && textHasContent(content.about?.body),
+    contact: isSectionEnabled(content.contact) || isSectionEnabled(content.location),
+    faq: isSectionEnabled(content.faq) && Array.isArray(content.faq?.items) && content.faq.items.length > 0,
+    policies: isSectionEnabled(content.policies) && Array.isArray(content.policies?.items) && content.policies.items.length > 0,
+  };
+}
+
+function computeLegalSections(content) {
+  return {
+    privacy: isSectionEnabled(content.privacy) && Array.isArray(content.privacy?.items) && content.privacy.items.length > 0,
+    terms: isSectionEnabled(content.terms) && Array.isArray(content.terms?.items) && content.terms.items.length > 0,
+  };
+}
+
+function resolvePrimaryCta(visibleSections, settings) {
+  if (visibleSections.booking) {
+    return { kind: 'booking', href: '#booking', label: 'Request Appointment' };
+  }
+
+  if (visibleSections.contact) {
+    return { kind: 'contact', href: '#contact', label: 'Contact Us' };
+  }
+
+  if (visibleSections.services) {
+    return { kind: 'services', href: '#services', label: 'View Services' };
+  }
+
+  if (textHasContent(settings.phone)) {
+    return { kind: 'phone', href: toPhoneHref(settings.phone), label: `Call ${settings.phone}` };
+  }
+
+  return null;
+}
+
+function resolveSecondaryCta(visibleSections, settings, primaryCta) {
+  if (visibleSections.services && primaryCta?.kind !== 'services') {
+    return { kind: 'services', href: '#services', label: 'View Services' };
+  }
+
+  if (visibleSections.contact && primaryCta?.kind !== 'contact') {
+    return { kind: 'contact', href: '#contact', label: 'Contact Us' };
+  }
+
+  if (textHasContent(settings.phone) && primaryCta?.kind !== 'phone') {
+    return { kind: 'phone', href: toPhoneHref(settings.phone), label: `Call ${settings.phone}` };
+  }
+
+  return null;
+}
+
+function buildHomeSeo(settings, sections, galleryItems) {
+  const businessName = textHasContent(settings.business_name) ? settings.business_name : "Bow Wow's Dog Spa";
+  const title = textHasContent(sections.hero?.headline)
+    ? `${stripHtml(sections.hero.headline)} | ${businessName}`
+    : `${businessName} | Calm Dog Grooming in Midway & Winston-Salem`;
+  const descriptionSource = sections.hero?.subheading || sections.services?.intro || sections.about?.body || '';
+  const description = truncateText(stripHtml(descriptionSource), 180) || DEFAULT_SEO_DESCRIPTION;
+
+  return {
+    title,
+    description,
+    path: '/',
+    image: pickSeoImage(galleryItems),
+    siteName: businessName,
+    robots: 'index,follow,max-image-preview:large',
+  };
+}
+
+function buildSimpleSeo(blockKey, title, items, enabled, settings) {
+  const businessName = textHasContent(settings.business_name) ? settings.business_name : "Bow Wow's Dog Spa";
+  const itemText = Array.isArray(items)
+    ? items
+        .map((item) => `${item?.title || ''} ${item?.body || item?.text || ''}`.trim())
+        .join(' ')
+    : '';
+  const description = enabled
+    ? truncateText(stripHtml(itemText), 180) || DEFAULT_SEO_DESCRIPTION
+    : `${title} is currently unavailable.`;
+
+  return {
+    title: `${title} | ${businessName}`,
+    description,
+    path: blockKey === 'privacy' ? '/privacy' : '/terms',
+    image: DEFAULT_OG_IMAGE,
+    siteName: businessName,
+    robots: enabled ? 'index,follow,max-image-preview:large' : 'noindex,nofollow',
+  };
+}
+
+function applySeo({ title, description, path, image, robots, siteName }) {
+  const url = toCanonicalUrl(path || '/');
+  const resolvedTitle = title || DEFAULT_SEO_TITLE;
+  const resolvedDescription = description || DEFAULT_SEO_DESCRIPTION;
+  const resolvedImage = image || DEFAULT_OG_IMAGE;
+
+  document.title = resolvedTitle;
+  setMetaTag('name', 'description', resolvedDescription);
+  setMetaTag('name', 'robots', robots || 'index,follow,max-image-preview:large');
+  setMetaTag('property', 'og:type', 'website');
+  setMetaTag('property', 'og:title', resolvedTitle);
+  setMetaTag('property', 'og:description', resolvedDescription);
+  setMetaTag('property', 'og:url', url);
+  setMetaTag('property', 'og:image', resolvedImage);
+  setMetaTag('property', 'og:site_name', siteName || "Bow Wow's Dog Spa");
+  setMetaTag('name', 'twitter:card', 'summary_large_image');
+  setMetaTag('name', 'twitter:title', resolvedTitle);
+  setMetaTag('name', 'twitter:description', resolvedDescription);
+  setMetaTag('name', 'twitter:image', resolvedImage);
+  setCanonicalLink(url);
+}
+
+function applyStructuredData(schema) {
+  const script = ensureHeadNode('script', {
+    id: 'site-structured-data',
+    type: 'application/ld+json',
+  });
+
+  if (!schema) {
+    script.textContent = '';
+    return;
+  }
+
+  script.textContent = JSON.stringify(schema);
+}
+
+function buildLocalBusinessSchema(settings, galleryItems) {
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'LocalBusiness',
+  };
+
+  const name = textHasContent(settings.business_name) ? settings.business_name : "Bow Wow's Dog Spa";
+  schema.name = name;
+  schema.url = toCanonicalUrl('/');
+
+  const image = pickSeoImage(galleryItems);
+  if (textHasContent(image)) {
+    schema.image = image;
+  }
+
+  if (textHasContent(settings.phone)) {
+    schema.telephone = settings.phone;
+  }
+
+  if (textHasContent(settings.address)) {
+    schema.address = {
+      '@type': 'PostalAddress',
+      streetAddress: settings.address,
+    };
+  }
+
+  const normalizedHours = normalizeOpeningHours(settings.hours);
+  if (normalizedHours.length > 0) {
+    schema.openingHours = normalizedHours;
+  }
+
+  return schema;
+}
+
+function normalizeOpeningHours(value) {
+  if (!textHasContent(value)) {
+    return [];
+  }
+
+  return String(value)
+    .split(/\r?\n+/)
+    .map((entry) => entry.trim())
+    .filter((entry) => /^[A-Z][a-z](?:-[A-Z][a-z])?\s+\d/.test(entry));
+}
+
+function pickSeoImage(galleryItems) {
+  if (Array.isArray(galleryItems)) {
+    for (const item of galleryItems) {
+      const media = item?.primary_media || item?.secondary_media;
+      const path = media?.fallback_url || media?.original_url || '';
+      if (textHasContent(path)) {
+        return toAbsoluteUrl(path);
+      }
+    }
+  }
+
+  return DEFAULT_OG_IMAGE;
+}
+
+function setCanonicalLink(href) {
+  const link = ensureHeadNode('link', { rel: 'canonical' });
+  link.setAttribute('href', href);
+}
+
+function setMetaTag(attribute, key, content) {
+  const tag = ensureHeadNode('meta', { [attribute]: key });
+  tag.setAttribute('content', content);
+}
+
+function ensureHeadNode(tagName, attributes) {
+  const selector = `${tagName}${Object.entries(attributes)
+    .map(([key, value]) => `[${key}="${escapeAttribute(value)}"]`)
+    .join('')}`;
+  let node = document.head.querySelector(selector);
+
+  if (!node) {
+    node = document.createElement(tagName);
+    Object.entries(attributes).forEach(([key, value]) => node.setAttribute(key, value));
+    document.head.appendChild(node);
+  }
+
+  return node;
+}
+
+function escapeAttribute(value) {
+  return String(value).replaceAll('"', '\\"');
+}
+
+function toCanonicalUrl(path) {
+  const normalizedPath = path === '/' ? '/' : `/${String(path || '').replace(/^\/+/, '')}`;
+  return `${CANONICAL_ORIGIN}${normalizedPath}`;
+}
+
+function toAbsoluteUrl(path) {
+  if (!textHasContent(path)) {
+    return '';
+  }
+
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+
+  return `${CANONICAL_ORIGIN}${String(path).startsWith('/') ? path : `/${path}`}`;
+}
+
+function stripHtml(value) {
+  return String(value || '')
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function truncateText(value, maxLength = 180) {
+  if (!textHasContent(value)) {
+    return '';
+  }
+
+  const normalized = String(value).trim();
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
+function createDog() {
+  return {
+    pet_name: '',
+    breed: '',
+    approximate_weight: '',
+    temperament_notes: '',
+    medical_or_grooming_notes: '',
+  };
 }
 
 function textHasContent(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-function listHasRichContent(items) {
-  if (!Array.isArray(items) || items.length === 0) {
-    return false;
+function isSectionEnabled(section) {
+  return section?.enabled !== false;
+}
+
+function todayString() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function canIntakeContinue(form) {
+  return Boolean(
+    form.owner_name &&
+      form.phone &&
+      form.email &&
+      Array.isArray(form.dogs) &&
+      form.dogs.length > 0 &&
+      form.dogs.every((dog) => dog.pet_name.trim() && dog.approximate_weight.trim()),
+  );
+}
+
+function toPhoneHref(value) {
+  return `tel:${String(value).replace(/[^\d+]/g, '')}`;
+}
+
+function requiresNewSlot(message) {
+  const normalized = String(message || '').toLowerCase();
+  return [
+    'no longer reserved',
+    'no longer available',
+    'selected time',
+    'choose another time',
+    'currently being requested',
+  ].some((needle) => normalized.includes(needle));
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function formatDuration(minutes) {
+  const total = Number(minutes) || 0;
+  const hours = Math.floor(total / 60);
+  const remainder = total % 60;
+  if (hours === 0) {
+    return `${remainder} min`;
+  }
+  if (remainder === 0) {
+    return `${hours} hr`;
+  }
+  return `${hours} hr ${remainder} min`;
+}
+
+function formatDateLong(value) {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) {
+    return value;
   }
 
-  return items.some((item) => {
-    if (!item || typeof item !== 'object') {
-      return false;
-    }
-    return Object.values(item).some((value) => textHasContent(value));
+  return date.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
   });
 }
 
-function isEnabled(section) {
-  if (!section || typeof section !== 'object') {
-    return true;
-  }
-  return section.enabled !== false;
-}
-
-function computeSectionVisibility(content = {}, settings = {}, happyClients = [], retailItems = []) {
-  const hero = isEnabled(content.hero) && (textHasContent(content.hero?.headline) || textHasContent(content.hero?.subheading));
-  const services =
-    isEnabled(content.services) &&
-    ['grooming', 'baths', 'play'].some((key) => textHasContent(content.services?.[key]));
-  const booking = isEnabled(content.booking);
-  const gallery = isEnabled(content.gallery) && happyClients.length > 0;
-  const retail = isEnabled(content.retail) && retailItems.length > 0;
-  const about = isEnabled(content.about) && (textHasContent(content.about?.title) || textHasContent(content.about?.body));
-  const faqItems = content.faq?.items ?? [];
-  const faq = isEnabled(content.faq) && listHasRichContent(faqItems);
-  const policyItems = content.policies?.items ?? [];
-  const policies = isEnabled(content.policies) && listHasRichContent(policyItems);
-  const location =
-    isEnabled(content.location) &&
-    (textHasContent(content.location?.note) || textHasContent(settings.address) || textHasContent(settings.hours));
-  const contact =
-    isEnabled(content.contact) &&
-    (textHasContent(settings.phone) || textHasContent(settings.email) || textHasContent(settings.address));
-
-  return { hero, services, booking, gallery, retail, about, faq, policies, location, contact };
-}
+export default App;

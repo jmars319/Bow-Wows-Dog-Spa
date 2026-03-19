@@ -1,0 +1,8 @@
+{
+  "name": "Bow Wow's Dog Spa",
+  "short_name": "Bow Wow's",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#FAF9F6",
+  "theme_color": "#8FB6B1"
+}

@@ -87,6 +87,20 @@ body {
   cursor: pointer;
 }
 
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #8fb6b1;
+  outline-offset: 3px;
+}
+
 input,
 select,
 textarea {
@@ -100,6 +114,10 @@ textarea {
 
 .muted {
   color: #6b6b6b;
+}
+
+.danger {
+  color: #b83232;
 }
 
 .small-text {
@@ -217,6 +235,11 @@ textarea {
   box-shadow: 0 12px 25px rgba(37, 99, 235, 0.25);
 }
 
+.booking-card--pending_confirmation {
+  border: 1px solid #f3d8a1;
+  box-shadow: 0 12px 24px rgba(146, 92, 0, 0.08);
+}
+
 .booking-card__header {
   display: flex;
   align-items: center;
@@ -243,6 +266,11 @@ textarea {
   color: #166534;
 }
 
+.status-badge.status-completed {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
 .status-badge.status-declined,
 .status-badge.status-cancelled,
 .status-badge.status-expired {
@@ -259,6 +287,27 @@ textarea {
 
 .detail-section {
   margin-bottom: 1rem;
+}
+
+.inline-note {
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: #f8f7f4;
+  border: 1px solid #ebe7df;
+}
+
+.booking-detail__notice {
+  background: #fff8ea;
+  border-color: #f2d18b;
+}
+
+.link-chip {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  background: #eef3f2;
+  color: #1f1f1f;
 }
 
 .detail-actions {
@@ -333,6 +382,13 @@ textarea {
   margin-top: 0.75rem;
 }
 
+.time-option-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
 .builder-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -358,6 +414,14 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.override-editor {
+  border: 1px solid #f0ede4;
+  border-radius: 12px;
+  padding: 1rem;
+  background: #fcfbf8;
+  margin-bottom: 1rem;
 }
 
 .override-row {
@@ -502,6 +566,16 @@ textarea {
   margin-bottom: 0.35rem;
 }
 
+.rich-text-loading {
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border: 1px solid #d3d0ca;
+  border-radius: 10px;
+  background: #fbfaf8;
+}
+
 .modal {
   position: fixed;
   inset: 0;
@@ -579,6 +653,74 @@ textarea {
   display: flex;
   align-items: center;
   gap: 1rem;
+}
+
+.save-feedback {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.save-feedback.is-success {
+  color: #166534;
+}
+
+.save-feedback.is-error {
+  color: #b91c1c;
+}
+
+.editor-savebar {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.editor-savebar__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.editor-section {
+  padding: 0;
+  overflow: hidden;
+}
+
+.editor-section summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 1.25rem 1.5rem;
+}
+
+.editor-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.editor-section[open] summary {
+  border-bottom: 1px solid #f0ede4;
+}
+
+.editor-section__body {
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.section-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 600;
+  color: #1f1f1f;
+}
+
+.section-toggle input {
+  width: auto;
+  margin: 0;
 }
 
 .list-editor-row {
