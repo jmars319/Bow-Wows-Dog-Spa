@@ -26,7 +26,11 @@ final class AdminRetailController
     public function save(Request $request): void
     {
         $this->auth->ensureSectionAccess('retail');
-        $item = $this->retail->save($request->body);
+        try {
+            $item = $this->retail->save($request->body);
+        } catch (\RuntimeException $e) {
+            Response::error('retail_error', $e->getMessage(), 422);
+        }
         Response::success($item);
     }
 }

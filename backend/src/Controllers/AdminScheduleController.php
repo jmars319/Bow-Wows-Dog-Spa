@@ -30,11 +30,15 @@ final class AdminScheduleController
     public function saveTemplates(Request $request): void
     {
         $this->auth->ensureSectionAccess('schedule');
-        foreach ($request->body['templates'] ?? [] as $template) {
-            $this->schedule->saveTemplate($template);
-        }
-        if (!empty($request->body['settings']) && is_array($request->body['settings'])) {
-            $this->schedule->saveSettings($request->body['settings']);
+        try {
+            foreach ($request->body['templates'] ?? [] as $template) {
+                $this->schedule->saveTemplate($template);
+            }
+            if (!empty($request->body['settings']) && is_array($request->body['settings'])) {
+                $this->schedule->saveSettings($request->body['settings']);
+            }
+        } catch (\RuntimeException $e) {
+            Response::error('schedule_error', $e->getMessage(), 422);
         }
 
         Response::success(['saved' => true]);
@@ -49,7 +53,11 @@ final class AdminScheduleController
     public function saveOverride(Request $request): void
     {
         $this->auth->ensureSectionAccess('schedule');
-        $this->schedule->saveOverride($request->body);
+        try {
+            $this->schedule->saveOverride($request->body);
+        } catch (\RuntimeException $e) {
+            Response::error('schedule_error', $e->getMessage(), 422);
+        }
         Response::success(['saved' => true]);
     }
 

@@ -12,6 +12,7 @@ final class Request
         public readonly array $query,
         public readonly array $body,
         public readonly array $headers,
+        public readonly array $files,
         public readonly array $server,
         public readonly array $params = [],
     ) {
@@ -23,13 +24,25 @@ final class Request
         $uri = $_SERVER['REQUEST_URI'] ?? '/';
         $path = parse_url($uri, PHP_URL_PATH) ?? '/';
         $headers = function_exists('getallheaders') ? getallheaders() : [];
-        $body = json_decode(file_get_contents('php://input') ?: '[]', true);
+        $contentType = strtolower((string) ($_SERVER['CONTENT_TYPE'] ?? ''));
+        $rawBody = file_get_contents('php://input') ?: '';
+        $body = [];
 
-        if (!is_array($body)) {
-            $body = [];
+        if (str_contains($contentType, 'application/json')) {
+            $decoded = json_decode($rawBody, true);
+            if (is_array($decoded)) {
+                $body = $decoded;
+            }
+        } elseif (!empty($_POST)) {
+            $body = $_POST;
+        } elseif ($rawBody !== '') {
+            parse_str($rawBody, $parsed);
+            if (is_array($parsed)) {
+                $body = $parsed;
+            }
         }
 
-        return new self($method, rtrim($path, '/') ?: '/', $_GET, $body, $headers, $_SERVER);
+        return new self($method, rtrim($path, '/') ?: '/', $_GET, $body, $headers, $_FILES, $_SERVER);
     }
 
     public function input(string $key, mixed $default = null): mixed
@@ -39,6 +52,6 @@ final class Request
 
     public function withParams(array $params): self
     {
-        return new self($this->method, $this->path, $this->query, $this->body, $this->headers, $this->server, $params);
+        return new self($this->method, $this->path, $this->query, $this->body, $this->headers, $this->files, $this->server, $params);
     }
 }

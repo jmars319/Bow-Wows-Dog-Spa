@@ -11,11 +11,15 @@ final class EmailService
     public function send(string $toEmail, string $toName, string $subject, string $html, array $options = []): void
     {
         if (!Config::get('sendgrid.enabled', true)) {
+            error_log('[BowWow][email_skipped] SendGrid disabled.');
             return;
         }
 
         $apiKey = Config::get('sendgrid.api_key');
-        if (!$apiKey || $apiKey === 'SENDGRID_API_KEY') {
+        $fromEmail = Config::get('sendgrid.from_email');
+        $fromName = Config::get('sendgrid.from_name');
+        if (!$apiKey || $apiKey === 'SENDGRID_API_KEY' || !$fromEmail || !$fromName) {
+            error_log('[BowWow][email_skipped] SendGrid is enabled but missing API key or sender configuration.');
             return;
         }
 
@@ -35,8 +39,8 @@ final class EmailService
                 ],
             ],
             'from' => [
-                'email' => Config::get('sendgrid.from_email'),
-                'name' => Config::get('sendgrid.from_name'),
+                'email' => $fromEmail,
+                'name' => $fromName,
             ],
             'content' => [
                 [
@@ -45,6 +49,13 @@ final class EmailService
                 ],
             ],
         ];
+
+        if (!empty($options['reply_to']['email'])) {
+            $payload['reply_to'] = [
+                'email' => (string) $options['reply_to']['email'],
+                'name' => (string) ($options['reply_to']['name'] ?? $options['reply_to']['email']),
+            ];
+        }
 
         $ch = curl_init('https://api.sendgrid.com/v3/mail/send');
         curl_setopt_array($ch, [
@@ -57,11 +68,22 @@ final class EmailService
             CURLOPT_RETURNTRANSFER => true,
         ]);
 
-        curl_exec($ch);
+        $response = curl_exec($ch);
+        $curlError = curl_error($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         curl_close($ch);
+
+        if ($response === false) {
+            error_log('[BowWow][email_failed] ' . ($curlError !== '' ? $curlError : 'Unknown cURL failure.'));
+            return;
+        }
+
+        if ($status < 200 || $status >= 300) {
+            error_log('[BowWow][email_failed] SendGrid returned HTTP ' . $status . '.');
+        }
     }
 
-    public function notifyStaff(string $subject, string $body): void
+    public function notifyStaff(string $subject, string $body, array $options = []): void
     {
         $staffRecipients = Config::get('sendgrid.staff_notifications', []);
         foreach ($staffRecipients as $email) {
@@ -73,6 +95,7 @@ final class EmailService
                 [
                     'variant' => 'staff',
                     'headline' => $subject,
+                    'reply_to' => $options['reply_to'] ?? null,
                 ]
             );
         }
@@ -81,9 +104,9 @@ final class EmailService
     private function renderTemplate(string $headline, string $body, string $variant): string
     {
         $appUrl = rtrim((string) Config::get('app.url', 'https://bowwowsdogspa.com'), '/');
-        $logoUrl = $appUrl . '/current/share-logo.png';
+        $logoUrl = $appUrl . '/share-logo.png';
         $accent = $variant === 'staff' ? '#2F3A3A' : '#8FB6B1';
-        $eyebrow = $variant === 'staff' ? 'Internal notification · Please review' : 'Bow Wow\'s Dog Spa';
+        $eyebrow = $variant === 'staff' ? 'Staff notification · Review needed' : 'Bow Wow\'s Dog Spa';
 
         return <<<HTML
 <!DOCTYPE html>

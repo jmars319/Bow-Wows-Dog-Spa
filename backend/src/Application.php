@@ -14,12 +14,15 @@ use BowWowSpa\Controllers\AdminBookingController;
 use BowWowSpa\Controllers\AdminScheduleController;
 use BowWowSpa\Controllers\AdminContentController;
 use BowWowSpa\Controllers\AdminRetailController;
-use BowWowSpa\Controllers\AdminHappyClientsController;
 use BowWowSpa\Controllers\AdminMediaController;
 use BowWowSpa\Controllers\AdminAuditController;
 use BowWowSpa\Controllers\AdminUsersController;
 use BowWowSpa\Controllers\AdminDashboardController;
 use BowWowSpa\Controllers\AdminSystemController;
+use BowWowSpa\Controllers\AdminServicesController;
+use BowWowSpa\Controllers\AdminFeaturedReviewsController;
+use BowWowSpa\Controllers\AdminGalleryController;
+use BowWowSpa\Controllers\AdminContactMessagesController;
 
 final class Application
 {
@@ -37,6 +40,7 @@ final class Application
             $request = Request::capture();
             $this->router->dispatch($request);
         } catch (\Throwable $e) {
+            error_log('[BowWow][server_error] ' . $e->getMessage());
             $debug = (bool) Config::get('app.debug', false);
             $message = $debug ? $e->getMessage() : 'Unexpected server error.';
             Response::error('server_error', $message, 500);
@@ -68,8 +72,10 @@ final class Application
         $this->router->add('GET', '/api/admin/booking-requests', [$booking, 'index']);
         $this->router->add('POST', '/api/admin/booking-requests', [$booking, 'create']);
         $this->router->add('POST', '/api/admin/booking-requests/action', [$booking, 'transition']);
+        $this->router->add('POST', '/api/admin/booking-requests/notes', [$booking, 'updateNotes']);
         $this->router->add('POST', '/api/admin/booking-requests/extend', [$booking, 'extendHold']);
         $this->router->add('POST', '/api/admin/booking-requests/release', [$booking, 'releaseHold']);
+        $this->router->add('GET', '/api/admin/booking-requests/{id}/attachments/{attachmentId}', [$booking, 'attachment']);
 
         $schedule = new AdminScheduleController();
         $this->router->add('GET', '/api/admin/schedule/templates', [$schedule, 'templates']);
@@ -82,13 +88,24 @@ final class Application
         $this->router->add('GET', '/api/admin/content/site', [$content, 'site']);
         $this->router->add('POST', '/api/admin/content/site', [$content, 'saveSite']);
 
+        $services = new AdminServicesController();
+        $this->router->add('GET', '/api/admin/services', [$services, 'index']);
+        $this->router->add('POST', '/api/admin/services', [$services, 'save']);
+
+        $reviews = new AdminFeaturedReviewsController();
+        $this->router->add('GET', '/api/admin/reviews', [$reviews, 'index']);
+        $this->router->add('POST', '/api/admin/reviews', [$reviews, 'save']);
+
+        $gallery = new AdminGalleryController();
+        $this->router->add('GET', '/api/admin/gallery-items', [$gallery, 'index']);
+        $this->router->add('POST', '/api/admin/gallery-items', [$gallery, 'save']);
+
+        $contacts = new AdminContactMessagesController();
+        $this->router->add('GET', '/api/admin/contact-messages', [$contacts, 'index']);
+
         $retail = new AdminRetailController();
         $this->router->add('GET', '/api/admin/retail', [$retail, 'index']);
         $this->router->add('POST', '/api/admin/retail', [$retail, 'save']);
-
-        $happy = new AdminHappyClientsController();
-        $this->router->add('GET', '/api/admin/happy-clients', [$happy, 'index']);
-        $this->router->add('POST', '/api/admin/happy-clients', [$happy, 'save']);
 
         $media = new AdminMediaController();
         $this->router->add('GET', '/api/admin/media', [$media, 'index']);

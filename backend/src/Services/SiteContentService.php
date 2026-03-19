@@ -5,127 +5,134 @@ declare(strict_types=1);
 namespace BowWowSpa\Services;
 
 use BowWowSpa\Database\Database;
+use BowWowSpa\Support\Input;
 
 final class SiteContentService
 {
     private array $defaultSettings = [
-        'business_name' => "Bow Wow's Dog Spa & Boutique",
-        'serving_area' => 'Proudly serving Lexington & Davidson County',
-        'address' => '123 Bark Avenue, Lexington, NC 27292',
-        'phone' => '(336) 555-9663',
-        'email' => 'info@bowwowsspa.com',
-        'hours' => 'Mon-Fri 8a-6p · Sat 9a-5p · Sun by special appointment',
-        'social_facebook' => '@BowWowsSpa',
-        'social_instagram' => '@BowWowsSpaLexington',
+        'business_name' => "Bow Wow's Dog Spa",
+        'serving_area' => 'Serving Midway, Winston-Salem, and nearby Triad families',
+        'address' => '',
+        'phone' => '',
+        'email' => '',
+        'hours' => '',
+        'social_facebook' => '',
+        'social_instagram' => '',
+        'maps_url' => '',
+        'google_reviews_url' => '',
+        'google_review_rating' => '',
+        'google_review_count' => '',
     ];
 
     private array $defaultSections = [
         'hero' => [
             'enabled' => true,
-            'headline' => 'Where Every Dog is Pampered Like Royalty',
-            'subheading' => '<p>Premium grooming services and carefully curated pet products for the four-legged members of your family. Experience the Bow Wow’s difference where luxury meets love.</p>',
-            'cta_text' => 'Book Appointment',
+            'eyebrow' => 'Calm neighborhood grooming care',
+            'headline' => 'Comfort-first grooming care for dogs in Midway and the Winston-Salem area.',
+            'subheading' => '<p>Bow Wow’s Dog Spa provides appointment-based grooming and bath care for families looking for a calm, reliable experience.</p><p>Request a visit online, then our team will review the details and follow up directly.</p>',
+            'cta_text' => 'Request Appointment',
             'cta_secondary' => 'View Services',
+        ],
+        'trust' => [
+            'enabled' => true,
+            'title' => 'Why local families choose Bow Wow’s',
+            'intro' => 'Clear communication, thoughtful handling, and a tidy boutique environment from drop-off to pick-up.',
+            'points' => [
+                ['title' => 'Appointment-based care', 'text' => 'Focused visits keep the experience calmer and easier on sensitive dogs.'],
+                ['title' => 'Comfort-focused handling', 'text' => 'We work gently, communicate clearly, and adjust for first-timers, seniors, and nervous pups.'],
+                ['title' => 'Serving the Midway & Winston-Salem area', 'text' => 'A neighborhood dog spa with boutique-level attention and approachable service.'],
+            ],
         ],
         'services' => [
             'enabled' => true,
-            'intro' => 'Signature spa experiences tailored to every breed, coat, and personality.',
-            'grooming' => 'Full-service grooming tailored to each pup.',
-            'baths' => 'Spa baths with premium shampoos.',
-            'play' => 'Supervised free roam and calm suites.',
-            'cards' => [
-                [
-                    'title' => 'Signature Spa Package',
-                    'price' => '$65+',
-                    'description' => '<p>Our complete luxury grooming experience with hypoallergenic products, styling, and finishing touches.</p>',
-                    'bullets' => [
-                        'Luxury bath + blowout',
-                        'Breed-specific cut & styling',
-                        'Nail trim, ear care, teeth brushing',
-                    ],
-                ],
-                [
-                    'title' => 'Bath & Brush Deluxe',
-                    'price' => '$45+',
-                    'description' => '<p>Deep cleansing and coat conditioning refresh between full grooms.</p>',
-                    'bullets' => [
-                        'Premium shampoo + conditioner',
-                        'Deshedding brush-out',
-                        'Paw pad moisturizing treatment',
-                    ],
-                ],
-                [
-                    'title' => 'Pawdicure & Facial',
-                    'price' => '$25+',
-                    'description' => '<p>Quick refresh for paws, nails, and face to keep pups photo ready.</p>',
-                    'bullets' => [
-                        'Nail trim & filing',
-                        'Blueberry facial & tear stain care',
-                        'Paw massage + moisturizing',
-                    ],
-                ],
-            ],
+            'title' => 'Clear service options with transparent starting prices',
+            'intro' => 'Choose the care that fits your dog best. Starting prices are shown so you can plan with confidence before you request an appointment.',
+            'disclaimer' => 'Final pricing may vary based on size, coat condition, matting, temperament, and special handling needs.',
         ],
         'booking' => [
             'enabled' => true,
-            'intro' => 'Select a preferred date and time below. Each appointment request is held exclusively for 24 hours while our team confirms availability.',
+            'title' => 'Simple, service-aware booking built for phones',
+            'intro' => 'Select services first, then choose from time buttons that match the total appointment length.',
+            'notice' => 'This is a request. Our team reviews every appointment and confirms within 24 hours.',
+            'availability_note' => 'Available times are based on selected services and number of dogs.',
         ],
         'gallery' => [
             'enabled' => true,
-            'title' => 'Happy Clients & Glow-Ups',
+            'title' => 'Fresh from the spa',
+            'intro' => 'Happy, clean, well-cared-for dogs and a boutique setting that feels calm from the moment you arrive.',
         ],
-        'retail' => [
+        'reviews' => [
             'enabled' => true,
-            'title' => 'Boutique Retail',
-            'body' => 'Curated spa essentials, healthy treats, and locally-made gifts you will not find in big-box stores.',
+            'title' => 'Google reviews and neighborhood trust',
+            'intro' => 'Featured notes below are selected from real customer reviews. For the full review history, visit our Google profile.',
+            'cta_text' => 'See All Google Reviews',
         ],
         'about' => [
             'enabled' => true,
-            'title' => 'Meet Bow Wow’s Dog Spa & Boutique',
-            'body' => '<p>We are a woman-owned, neighborhood grooming studio that pairs spa-quality treatments with genuine Southern hospitality. Our certified groomers tailor each service to your dog’s coat, energy level, and sensitivities so every visit feels like a treat.</p><p>From senior dogs that need extra patience to puppies experiencing their first bath, we promise gentle handling, premium products, and a calming environment that feels like home.</p>',
+            'title' => 'Comfort-first care',
+            'body' => '<p>We believe a great groom starts with a calm environment, patient handling, and clear communication. Every visit is shaped around what helps your dog feel most comfortable while still getting the care they need.</p><p>That means thoughtful scheduling, honest recommendations, and boutique-level attention without the cold luxury feel. We want families to feel confident leaving their dogs in our hands.</p>',
         ],
         'faq' => [
             'enabled' => true,
+            'title' => 'Helpful answers before you book',
             'items' => [
-                ['question' => 'Do you take walk-ins?', 'answer' => 'Appointments ensure 1:1 attention; call us for last-minute availability and we will do our best to help.'],
-                ['question' => 'What vaccinations do you require?', 'answer' => 'We ask for current rabies, distemper, and bordetella vaccinations before your first visit. Please bring records so we can keep them on file.'],
-                ['question' => 'Do you work with anxious or senior dogs?', 'answer' => 'Absolutely. We schedule longer appointments, build in breaks, and adapt our process to keep sensitive pups comfortable.'],
+                ['question' => 'Is online booking instant?', 'answer' => '<p>No. Every request is reviewed by our team so we can confirm the service fit, timing, and any special handling notes before finalizing the appointment.</p>'],
+                ['question' => 'Can I bring more than one dog?', 'answer' => '<p>Yes. Add each dog during the booking request so we can account for the total appointment time.</p>'],
+                ['question' => 'Do you need vet or vaccine information?', 'answer' => '<p>We strongly encourage including your vet details and any important health or grooming notes so we can review them before confirming.</p>'],
             ],
         ],
         'policies' => [
             'enabled' => true,
+            'title' => 'Simple expectations and care notes',
             'items' => [
-                ['title' => 'Vaccinations', 'body' => 'We require rabies, distemper, and bordetella vaccinations for the safety of every guest.'],
-                ['title' => 'Cancellations', 'body' => 'Need to reschedule? Please let us know 24 hours in advance so we can offer the slot to another family.'],
-                ['title' => 'Late Arrivals', 'body' => 'Arriving more than 15 minutes late may require rescheduling to preserve the stress-free environment.'],
+                ['title' => 'Appointment Requests', 'body' => '<p>Appointments are requested online and confirmed by our staff after review.</p>'],
+                ['title' => 'Arrival & Timing', 'body' => '<p>Please arrive on time so we can keep the day calm and on schedule for every dog.</p>'],
+                ['title' => 'Health & Comfort Notes', 'body' => '<p>Share any medical, behavior, or grooming concerns during intake so we can plan appropriately.</p>'],
             ],
         ],
         'location' => [
             'enabled' => true,
-            'note' => 'Find us in historic Downtown Lexington—just minutes from Uptown, serving Davidson County and the Winston-Salem metro.',
+            'title' => 'Location & hours',
+            'note' => 'Call or send a message if you need help choosing a service, planning a first visit, or checking paperwork requirements.',
         ],
         'contact' => [
             'enabled' => true,
-            'note' => 'Call, email, or DM us on social—we love answering grooming questions and welcoming new pups to the Bow Wow’s family.',
+            'title' => 'Contact Bow Wow’s',
+            'note' => 'Questions about coat care, first visits, or paperwork? Send a note and our team will point you in the right direction.',
+        ],
+        'footer' => [
+            'enabled' => true,
+            'tagline' => 'Trusted neighborhood boutique grooming for Midway and Winston-Salem families.',
+        ],
+        'retail' => [
+            'enabled' => false,
+            'title' => 'Boutique Retail',
+            'body' => '',
         ],
         'terms' => [
             'enabled' => true,
+            'title' => 'Terms & Conditions',
             'items' => [
-                ['title' => 'Standard Terms', 'body' => 'All appointments follow our posted policies.'],
+                ['title' => 'Appointments & Services', 'body' => 'Appointment requests, confirmed visits, and grooming services follow our posted policies and any care notes reviewed with your family.'],
             ],
         ],
         'privacy' => [
             'enabled' => true,
+            'title' => 'Privacy Policy',
             'items' => [
-                ['title' => 'Privacy', 'body' => 'We only use your information to provide services.'],
+                ['title' => 'How we use your information', 'body' => 'We use contact, appointment, and pet-care details only to respond to inquiries, review requests, schedule services, and communicate about your dog’s visit.'],
             ],
         ],
     ];
 
     private array $listSections = ['faq', 'policies', 'terms', 'privacy'];
 
-    public function __construct(private readonly MediaService $media = new MediaService())
-    {
+    public function __construct(
+        private readonly MediaService $media = new MediaService(),
+        private readonly ServiceCatalogService $services = new ServiceCatalogService(),
+        private readonly FeaturedReviewService $reviews = new FeaturedReviewService(),
+        private readonly GalleryService $gallery = new GalleryService(),
+    ) {
     }
 
     public function getSiteSnapshot(): array
@@ -144,20 +151,19 @@ final class SiteContentService
         foreach ($this->defaultSections as $key => $defaults) {
             if (!isset($blocks[$key])) {
                 $blocks[$key] = $defaults;
-            } else {
-                $blocks[$key] = array_merge($defaults, $blocks[$key]);
+                continue;
             }
+
+            $blocks[$key] = $this->mergeSectionDefaults($defaults, $blocks[$key]);
             if (!isset($blocks[$key]['enabled'])) {
                 $blocks[$key]['enabled'] = true;
             }
         }
 
-        $gallery = Database::fetchAll('SELECT * FROM happy_clients WHERE is_published = 1 ORDER BY sort_order ASC, created_at DESC');
-        foreach ($gallery as &$entry) {
-            $entry['before_media'] = $entry['before_media_id'] ? $this->media->find((int) $entry['before_media_id']) : null;
-            $entry['after_media'] = $entry['after_media_id'] ? $this->media->find((int) $entry['after_media_id']) : null;
+        $galleryItems = $this->gallery->list(true);
+        if ($galleryItems === []) {
+            $galleryItems = $this->legacyGalleryFallback();
         }
-        unset($entry);
 
         $retail = Database::fetchAll('SELECT * FROM retail_items WHERE is_published = 1 ORDER BY sort_order ASC, created_at DESC');
         foreach ($retail as &$item) {
@@ -168,28 +174,49 @@ final class SiteContentService
         return [
             'settings' => $settings,
             'sections' => $blocks,
+            'services' => $this->services->list(true),
+            'featured_reviews' => $this->reviews->list(true),
+            'gallery_items' => $galleryItems,
             'faqs' => $blocks['faq']['items'] ?? [],
             'policies' => $blocks['policies']['items'] ?? [],
-            'happy_clients' => $gallery,
+            'happy_clients' => $galleryItems,
             'retail' => $retail,
         ];
     }
 
     public function saveSettings(array $settings): void
     {
+        $allowed = array_keys($this->defaultSettings);
         foreach ($settings as $key => $value) {
+            if (!in_array($key, $allowed, true)) {
+                continue;
+            }
+
+            $sanitized = match ($key) {
+                'email' => Input::email($value, 191),
+                'phone' => Input::phone($value, 50),
+                'social_facebook', 'social_instagram', 'maps_url', 'google_reviews_url' => Input::url($value, 255),
+                'google_review_rating', 'google_review_count' => Input::clean($value, 20),
+                default => Input::clean($value, 255, true),
+            };
+
             Database::run(
                 'INSERT INTO site_settings (`key`, `value`) VALUES (:key, :value)
                  ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)',
-                ['key' => $key, 'value' => (string) $value]
+                ['key' => $key, 'value' => (string) ($sanitized ?? '')]
             );
         }
     }
 
     public function saveBlocks(array $blocks): void
     {
+        $allowed = array_keys($this->defaultSections);
         foreach ($blocks as $key => $content) {
-            $normalized = $this->normalizeSection($key, $content);
+            if (!in_array((string) $key, $allowed, true)) {
+                continue;
+            }
+
+            $normalized = $this->normalizeSection($key, is_array($content) ? $content : []);
             Database::run(
                 'INSERT INTO content_blocks (`key`, content_json) VALUES (:key, :json)
                  ON DUPLICATE KEY UPDATE content_json = VALUES(content_json)',
@@ -207,16 +234,55 @@ final class SiteContentService
             if (isset($value['items']) && is_array($value['items'])) {
                 $value['items'] = array_values($value['items']);
             } elseif ($this->isList($value)) {
-                $value = [
-                    'items' => array_values($value),
-                ];
+                $value = ['items' => array_values($value)];
             } else {
                 $value['items'] = [];
             }
         }
 
+        if ($key === 'trust') {
+            $points = $value['points'] ?? [];
+            $value['points'] = is_array($points) ? array_values($points) : [];
+        }
+
         $value['enabled'] = $enabled;
         return $value;
+    }
+
+    private function mergeSectionDefaults(array $defaults, array $value): array
+    {
+        $merged = array_merge($defaults, $value);
+
+        foreach ($defaults as $key => $defaultValue) {
+            if (is_array($defaultValue) && isset($value[$key]) && is_array($value[$key]) && !$this->isList($defaultValue)) {
+                $merged[$key] = array_merge($defaultValue, $value[$key]);
+            }
+        }
+
+        return $merged;
+    }
+
+    private function legacyGalleryFallback(): array
+    {
+        $rows = Database::fetchAll('SELECT * FROM happy_clients WHERE is_published = 1 ORDER BY sort_order ASC, created_at DESC');
+        $items = [];
+
+        foreach ($rows as $row) {
+            $primary = $row['before_media_id'] ? $this->media->find((int) $row['before_media_id']) : null;
+            $secondary = $row['after_media_id'] ? $this->media->find((int) $row['after_media_id']) : null;
+            $items[] = [
+                'id' => (int) $row['id'],
+                'title' => (string) $row['title'],
+                'caption' => $row['blurb'],
+                'item_type' => ($primary && $secondary) ? 'before_after' : 'groomed_pet',
+                'primary_media' => $primary,
+                'secondary_media' => $secondary,
+                'sort_order' => (int) $row['sort_order'],
+                'is_published' => (int) $row['is_published'] === 1,
+            ];
+        }
+
+        return $items;
     }
 
     private function isList(array $value): bool

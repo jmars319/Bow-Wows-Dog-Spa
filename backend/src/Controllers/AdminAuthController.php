@@ -16,14 +16,23 @@ final class AdminAuthController
 
     public function login(Request $request): void
     {
-        $email = $request->body['email'] ?? null;
+        $identifier = trim((string) ($request->body['identifier'] ?? $request->body['email'] ?? ''));
         $password = $request->body['password'] ?? null;
-        if (!$email || !$password) {
-            Response::error('validation_error', 'Email and password required', 422);
+        if ($identifier === '' || !$password) {
+            Response::error('validation_error', 'Email or username and password required', 422);
         }
 
-        $user = $this->auth->attempt($email, $password);
+        $ip = trim((string) ($request->server['REMOTE_ADDR'] ?? ''));
+        $retryAfter = $this->auth->retryAfterSeconds($identifier, $ip);
+        if ($retryAfter > 0) {
+            Response::error('rate_limited', 'Too many login attempts. Please wait and try again.', 429, [
+                'retry_after_seconds' => $retryAfter,
+            ]);
+        }
+
+        $user = $this->auth->attempt($identifier, $password, $ip);
         if (!$user) {
+            $this->auth->recordFailedAttempt($identifier, $ip);
             Response::error('invalid_credentials', 'Invalid login', 401);
         }
 

@@ -6,6 +6,7 @@ namespace BowWowSpa\Services;
 
 use BowWowSpa\Database\Database;
 use BowWowSpa\Support\Config;
+use BowWowSpa\Support\Input;
 
 final class MediaService
 {
@@ -31,64 +32,69 @@ final class MediaService
 
     public function upload(array $file, int $adminId, array $payload = []): array
     {
-        $config = $this->resolveConfig();
-        $this->ensureUploadStructure();
-        $this->validateUpload($file, $config);
+        try {
+            $config = $this->resolveConfig();
+            $this->ensureUploadStructure();
+            $this->validateUpload($file, $config);
 
-        $category = $this->normalizeCategory($payload['category'] ?? 'default');
-        $altText = $payload['alt_text'] ?? null;
-        $title = $payload['title'] ?? null;
-        $caption = $payload['caption'] ?? null;
+            $category = $this->normalizeCategory($payload['category'] ?? 'default');
+            $altText = Input::clean($payload['alt_text'] ?? null, 255);
+            $title = Input::clean($payload['title'] ?? null, 255);
+            $caption = Input::clean($payload['caption'] ?? null, 4000, true);
 
-        $mime = $this->detectMime($file['tmp_name']);
-        $extension = $this->extensionFromMime($mime);
-        $hash = hash_file('sha1', $file['tmp_name']);
-        $baseName = $hash;
-        $originalFilename = $baseName . '.' . $extension;
-        $paths = $this->pathConfig();
+            $mime = $this->detectMime($file['tmp_name']);
+            $extension = $this->extensionFromMime($mime);
+            $hash = hash_file('sha1', $file['tmp_name']);
+            $baseName = $hash;
+            $originalFilename = $baseName . '.' . $extension;
+            $paths = $this->pathConfig();
 
-        $originalPath = $paths['originals_path'] . '/' . $originalFilename;
-        if (!move_uploaded_file($file['tmp_name'], $originalPath)) {
-            throw new \RuntimeException('Failed moving uploaded file.');
+            $originalPath = $paths['originals_path'] . '/' . $originalFilename;
+            if (!move_uploaded_file($file['tmp_name'], $originalPath)) {
+                throw new \RuntimeException('Failed moving uploaded file.');
+            }
+
+            $this->normalizeOrientation($originalPath, $mime);
+            [$width, $height] = getimagesize($originalPath);
+            if (!$width || !$height) {
+                unlink($originalPath);
+                throw new \RuntimeException('Unable to read image dimensions.');
+            }
+
+            $variants = $this->generateVariants($originalPath, $mime, $category, $baseName, $width, $height, $config);
+            $manifest = $this->writeManifest($baseName, $category, $mime, $width, $height, $originalFilename, $variants);
+
+            $originalUrl = $paths['originals_url'] . '/' . $originalFilename;
+
+            $id = Database::insert(
+                'INSERT INTO media_assets (original_path, original_url, variants_json, mime_type, intrinsic_width, intrinsic_height, category, title, caption, alt_text, responsive_variants_json, manifest_path, optimized_srcset, webp_srcset, fallback_url, created_by, created_at) 
+                 VALUES (:path, :url, :variants, :mime, :width, :height, :category, :title, :caption, :alt, :responsive, :manifest, :opt_srcset, :webp_srcset, :fallback, :created_by, NOW())',
+                [
+                    'path' => 'originals/' . $originalFilename,
+                    'url' => $originalUrl,
+                    'variants' => json_encode($variants),
+                    'mime' => $mime,
+                    'width' => $width,
+                    'height' => $height,
+                    'category' => $category,
+                    'title' => $title,
+                    'caption' => $caption,
+                    'alt' => $altText,
+                    'responsive' => json_encode($manifest['variants']),
+                    'manifest' => $manifest['path'],
+                    'opt_srcset' => $manifest['srcset']['optimized'] ?? null,
+                    'webp_srcset' => $manifest['srcset']['webp'] ?? null,
+                    'fallback' => $originalUrl,
+                    'created_by' => $adminId,
+                ]
+            );
+
+            $row = Database::fetch('SELECT * FROM media_assets WHERE id = :id', ['id' => $id]);
+            return $this->hydrateRow($row ?? []);
+        } catch (\Throwable $e) {
+            error_log('[BowWow][media_upload_failed] ' . $e->getMessage());
+            throw $e;
         }
-
-        $this->normalizeOrientation($originalPath, $mime);
-        [$width, $height] = getimagesize($originalPath);
-        if (!$width || !$height) {
-            unlink($originalPath);
-            throw new \RuntimeException('Unable to read image dimensions.');
-        }
-
-        $variants = $this->generateVariants($originalPath, $mime, $category, $baseName, $width, $height, $config);
-        $manifest = $this->writeManifest($baseName, $category, $mime, $width, $height, $originalFilename, $variants);
-
-        $originalUrl = $paths['originals_url'] . '/' . $originalFilename;
-
-        $id = Database::insert(
-            'INSERT INTO media_assets (original_path, original_url, variants_json, mime_type, intrinsic_width, intrinsic_height, category, title, caption, alt_text, responsive_variants_json, manifest_path, optimized_srcset, webp_srcset, fallback_url, created_by, created_at) 
-             VALUES (:path, :url, :variants, :mime, :width, :height, :category, :title, :caption, :alt, :responsive, :manifest, :opt_srcset, :webp_srcset, :fallback, :created_by, NOW())',
-            [
-                'path' => 'originals/' . $originalFilename,
-                'url' => $originalUrl,
-                'variants' => json_encode($variants),
-                'mime' => $mime,
-                'width' => $width,
-                'height' => $height,
-                'category' => $category,
-                'title' => $title,
-                'caption' => $caption,
-                'alt' => $altText,
-                'responsive' => json_encode($manifest['variants']),
-                'manifest' => $manifest['path'],
-                'opt_srcset' => $manifest['srcset']['optimized'] ?? null,
-                'webp_srcset' => $manifest['srcset']['webp'] ?? null,
-                'fallback' => $originalUrl,
-                'created_by' => $adminId,
-            ]
-        );
-
-        $row = Database::fetch('SELECT * FROM media_assets WHERE id = :id', ['id' => $id]);
-        return $this->hydrateRow($row ?? []);
     }
 
     public function delete(int $id): void
@@ -187,6 +193,11 @@ final class MediaService
 
         if ($file['size'] > $config['max_bytes']) {
             throw new \RuntimeException('File exceeds allowed size.');
+        }
+
+        $tmpName = (string) ($file['tmp_name'] ?? '');
+        if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+            throw new \RuntimeException('Uploaded file could not be verified.');
         }
 
         $mime = $this->detectMime($file['tmp_name']);
@@ -448,8 +459,8 @@ final class MediaService
     {
         $paths = $this->pathConfig();
         foreach (['base_path', 'originals_path', 'optimized_path', 'webp_path', 'manifests_path'] as $key) {
-            if (!is_dir($paths[$key])) {
-                mkdir($paths[$key], 0775, true);
+            if (!is_dir($paths[$key]) && !mkdir($paths[$key], 0775, true) && !is_dir($paths[$key])) {
+                throw new \RuntimeException('Unable to prepare media upload directories.');
             }
         }
     }

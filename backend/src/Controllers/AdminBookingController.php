@@ -35,7 +35,7 @@ final class AdminBookingController
         $this->auth->ensureSectionAccess('booking');
 
         try {
-            $booking = $this->bookings->createBooking($request->body);
+            $booking = $this->bookings->createBooking($request->body, $request->files);
             if (!empty($request->body['auto_confirm'])) {
                 $this->bookings->transition($booking['id'], 'confirm', $request->body['notes'] ?? null, $user['id'], $this->audit);
             }
@@ -67,6 +67,25 @@ final class AdminBookingController
         Response::success($result);
     }
 
+    public function updateNotes(Request $request): void
+    {
+        $user = $this->auth->requireAuth();
+        $this->auth->ensureSectionAccess('booking');
+        $id = (int) ($request->body['id'] ?? 0);
+
+        if (!$id) {
+            Response::error('validation_error', 'Missing booking id', 422);
+        }
+
+        try {
+            $result = $this->bookings->updateNotes($id, $request->body['notes'] ?? null, $user['id'], $this->audit);
+        } catch (\Throwable $e) {
+            Response::error('booking_error', $e->getMessage(), 422);
+        }
+
+        Response::success($result);
+    }
+
     public function extendHold(Request $request): void
     {
         $user = $this->auth->requireAuth();
@@ -91,5 +110,40 @@ final class AdminBookingController
 
         $result = $this->bookings->releaseHold($id, $request->body['notes'] ?? null, $user['id'], $this->audit);
         Response::success($result);
+    }
+
+    public function attachment(Request $request): void
+    {
+        $this->auth->ensureSectionAccess('booking');
+        $bookingId = (int) ($request->params['id'] ?? 0);
+        $attachmentId = (int) ($request->params['attachmentId'] ?? 0);
+
+        if ($bookingId <= 0 || $attachmentId <= 0) {
+            Response::error('validation_error', 'Attachment id required', 422);
+        }
+
+        $attachment = $this->bookings->findAttachment($bookingId, $attachmentId);
+        if ($attachment === null) {
+            Response::error('not_found', 'Attachment not found', 404);
+        }
+
+        $path = $this->bookings->attachmentAbsolutePath($attachment);
+        if (!is_file($path)) {
+            Response::error('not_found', 'Attachment file missing', 404);
+        }
+
+        header('Content-Type: ' . ($attachment['mime_type'] ?: 'application/octet-stream'));
+        header('Content-Length: ' . (string) filesize($path));
+        header('X-Content-Type-Options: nosniff');
+        header('Content-Disposition: attachment; filename="' . $this->asciiDownloadFilename((string) $attachment['original_name']) . '"; filename*=UTF-8\'\'' . rawurlencode((string) $attachment['original_name']));
+        readfile($path);
+        exit;
+    }
+
+    private function asciiDownloadFilename(string $name): string
+    {
+        $name = basename($name);
+        $name = preg_replace('/[^A-Za-z0-9._-]/', '_', $name) ?? 'attachment';
+        return $name !== '' ? $name : 'attachment';
     }
 }

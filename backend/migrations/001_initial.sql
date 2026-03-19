@@ -1,4 +1,4 @@
-CREATE TABLE admin_users (
+CREATE TABLE IF NOT EXISTS admin_users (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE admin_users (
     last_login_at DATETIME NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE audit_log (
+CREATE TABLE IF NOT EXISTS audit_log (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     admin_user_id INT UNSIGNED NULL,
     action VARCHAR(191) NOT NULL,
@@ -23,17 +23,17 @@ CREATE TABLE audit_log (
     CONSTRAINT fk_audit_admin FOREIGN KEY (admin_user_id) REFERENCES admin_users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE site_settings (
+CREATE TABLE IF NOT EXISTS site_settings (
     `key` VARCHAR(100) PRIMARY KEY,
     `value` TEXT NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE content_blocks (
+CREATE TABLE IF NOT EXISTS content_blocks (
     `key` VARCHAR(100) PRIMARY KEY,
     content_json JSON NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE retail_items (
+CREATE TABLE IF NOT EXISTS retail_items (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(191) NOT NULL,
     description TEXT NULL,
@@ -46,7 +46,7 @@ CREATE TABLE retail_items (
     updated_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE media_assets (
+CREATE TABLE IF NOT EXISTS media_assets (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     original_path VARCHAR(255) NOT NULL,
     variants_json JSON NULL,
@@ -57,7 +57,7 @@ CREATE TABLE media_assets (
     CONSTRAINT fk_media_admin FOREIGN KEY (created_by) REFERENCES admin_users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE happy_clients (
+CREATE TABLE IF NOT EXISTS happy_clients (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(191) NOT NULL,
     blurb TEXT NULL,
@@ -70,7 +70,7 @@ CREATE TABLE happy_clients (
     updated_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE contact_messages (
+CREATE TABLE IF NOT EXISTS contact_messages (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(191) NOT NULL,
     email VARCHAR(191) NOT NULL,
@@ -79,7 +79,7 @@ CREATE TABLE contact_messages (
     created_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE schedule_weekday_templates (
+CREATE TABLE IF NOT EXISTS schedule_weekday_templates (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     weekday TINYINT UNSIGNED NOT NULL,
     times_json JSON NOT NULL,
@@ -88,7 +88,7 @@ CREATE TABLE schedule_weekday_templates (
     UNIQUE KEY unique_weekday (weekday)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE schedule_date_overrides (
+CREATE TABLE IF NOT EXISTS schedule_date_overrides (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     date DATE NOT NULL UNIQUE,
     is_closed TINYINT(1) NOT NULL DEFAULT 0,
@@ -96,7 +96,7 @@ CREATE TABLE schedule_date_overrides (
     capacity_json JSON NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE booking_holds (
+CREATE TABLE IF NOT EXISTS booking_holds (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     date DATE NOT NULL,
     time TIME NOT NULL,
@@ -107,7 +107,7 @@ CREATE TABLE booking_holds (
     INDEX idx_hold_token (token)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE booking_requests (
+CREATE TABLE IF NOT EXISTS booking_requests (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     date DATE NOT NULL,
     time TIME NOT NULL,

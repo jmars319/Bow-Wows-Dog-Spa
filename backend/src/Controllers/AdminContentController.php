@@ -26,8 +26,12 @@ final class AdminContentController
     public function saveSite(Request $request): void
     {
         $this->auth->ensureSectionAccess('content');
-        $this->content->saveSettings($request->body['settings'] ?? []);
-        $this->content->saveBlocks($request->body['sections'] ?? []);
+        try {
+            $this->content->saveSettings($request->body['settings'] ?? []);
+            $this->content->saveBlocks($request->body['sections'] ?? []);
+        } catch (\RuntimeException $e) {
+            Response::error('content_error', $e->getMessage(), 422);
+        }
         Response::success(['saved' => true]);
     }
 }
