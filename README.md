@@ -45,10 +45,13 @@ Missing `.env` results in a clear bootstrap error so the backend never runs with
 ## Public site & placeholder archive
 
 - `/` serves the full public SPA.
+- `/status/access-denied`, `/status/not-found`, `/status/server-error`, and `/status/maintenance` provide branded full-page status routes for intentional redirects and support flows.
 - `/placeholder/` preserves the former placeholder page as a separate archived surface and is not linked from the live site.
 - `/admin/login` is the real admin surface.
 - `/api/*` is the PHP backend entrypoint.
 - Old `/preview` and `/current` URLs redirect to `/` so stale bookmarks keep working.
+- Unknown public URLs now return a real `404` while still landing in the public app shell.
+- If a `maintenance.flag` file exists in the deployed document root, public routes return a real `503` and Apache serves the branded maintenance document while `/admin/*`, `/api/admin/*`, and `/api/health` stay reachable.
 
 ## Dev & deploy scripts
 
@@ -60,6 +63,7 @@ Generic helper scripts live under `scripts/` (see `Generic-Scripts-Reference.md`
 | `bash scripts/dev-stop.sh` | Stop all dev servers (logs/pids in `.dev/`). |
 | `bash scripts/dev-status.sh` | Show PID + port status for backend/public/admin services. |
 | `bash scripts/dev-verify.sh` | Full smoke test: stop → start → check (backend/public/admin) → restart → re-check. |
+| `bash scripts/verify-public-error-pages.sh` | Verify public status-route codes, static error documents, and maintenance behavior against a staged frontend bundle. |
 | `bash scripts/make-deploy-zips.sh` | Builds React apps, refreshes placeholder assets, and produces `deploy-frontend.zip` + `deploy-backend.zip`. |
 | `bash scripts/check-deploy-zips.sh` | Quick sanity-check of the generated deploy archives. |
 
@@ -74,7 +78,8 @@ Generic helper scripts live under `scripts/` (see `Generic-Scripts-Reference.md`
 
 Verify these on the real Apache/GoDaddy host after each deploy:
 
-- Routing: `/` loads the live site, `/preview` redirects to `/`, `/current` redirects to `/`, `/admin/login` works, and `/privacy` plus `/terms` render correctly.
+- Routing: `/` loads the live site, `/preview` redirects to `/`, `/current` redirects to `/`, `/admin/login` works, `/privacy` plus `/terms` render correctly, unknown public URLs return a branded `404`, and `/status/maintenance` returns a branded `503`.
+- Maintenance mode: creating `maintenance.flag` in the document root serves the branded `503` document for public routes while `/admin/login`, `/api/admin/*`, and `/api/health` remain reachable; removing the file restores normal public traffic.
 - Backend: `/api/public/site` returns expected JSON, schedule lookup works, booking hold works, and booking request submission works.
 - Uploads: the configured upload directory is writable, booking attachment upload works, and admin attachment download works.
 - Email: contact submissions send staff mail, booking requests send staff mail, and booking confirmation/decline flows send the expected customer mail.

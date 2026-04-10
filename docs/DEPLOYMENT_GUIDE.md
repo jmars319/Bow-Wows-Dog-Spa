@@ -88,6 +88,7 @@ The CLI script prompts for email/password (or reads `ADMIN_EMAIL` / `ADMIN_PASSW
 1. Upload `deploy-frontend.zip` into your `public_html` (or subdomain) directory.
 2. Extract; the archive already contains the correct structure:
    - `/index.html` + `/index.php` + `/.htaccess` → public SPA mounted at the site root
+   - `/error-documents/` → branded static Apache fallback pages for `403`, `404`, `500`, and `503`
    - `/placeholder/` → archived placeholder page + static assets (logos)
    - `/admin/` → admin SPA build
 3. Keep `backend` as a sibling directory of the deployed front-end so `/api` can be routed into `backend/public`.
@@ -98,9 +99,20 @@ Routing expectations on the live host:
 - `/` serves the live site.
 - `/preview` redirects to `/`.
 - `/current` redirects to `/`.
+- `/status/access-denied`, `/status/not-found`, `/status/server-error`, and `/status/maintenance` render the branded public status views.
+- Unknown public URLs return a real `404`.
 - `/placeholder/` remains archived and isolated.
 - `/admin/login` is the real admin surface.
 - `/api/*` is the backend entrypoint.
+
+### Maintenance mode
+
+The root `.htaccess` now supports a simple file-based maintenance toggle:
+
+1. Create an empty `maintenance.flag` file in the same document root that contains the deployed `index.php` and `.htaccess`.
+2. Public routes return a real `503` and Apache serves `/error-documents/503.html`.
+3. `/admin/*`, `/api/admin/*`, and `/api/health` stay reachable so staff can still log in and health checks keep passing.
+4. Remove `maintenance.flag` when the public site should go live again.
 
 ## 6. Environment-specific tweaks
 
@@ -114,8 +126,18 @@ Routing expectations on the live host:
 1. Visit `/` and confirm the live public site renders.
 2. Visit `/preview` and confirm it redirects to `/`.
 3. Visit `/current` and confirm it redirects to `/`.
-4. Visit `/admin/login` and confirm the admin login renders correctly.
-5. Visit `/privacy` and `/terms` and confirm the legal pages load with the correct root assets.
+4. Visit an unknown public URL such as `/missing-page-check` and confirm you get the branded `404` page with Back + Home actions.
+5. Visit `/status/access-denied`, `/status/not-found`, `/status/server-error`, and `/status/maintenance` and confirm each loads the expected branded state with the correct HTTP status.
+6. Visit `/admin/login` and confirm the admin login renders correctly.
+7. Visit `/privacy` and `/terms` and confirm the legal pages load with the correct root assets.
+
+### Maintenance mode
+
+1. Create `maintenance.flag` in the document root.
+2. Confirm `/` and `/privacy` now return the branded `503` document.
+3. Confirm `/admin/login` still loads.
+4. Confirm `/api/health` still responds successfully.
+5. Remove `maintenance.flag` and confirm `/` returns to the live public site.
 
 ### Backend & booking
 

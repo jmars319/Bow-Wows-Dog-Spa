@@ -11,11 +11,11 @@ final class SiteContentService
 {
     private array $defaultSettings = [
         'business_name' => "Bow Wow's Dog Spa",
-        'serving_area' => 'Serving Midway, Winston-Salem, and nearby Triad families',
-        'address' => '',
-        'phone' => '',
-        'email' => '',
-        'hours' => '',
+        'serving_area' => 'Proudly serving Greater Winston-Salem and the Triad area',
+        'address' => '11141 Old U.S. Hwy 52 #4, Winston-Salem, NC 27107',
+        'phone' => '(336) 842-3723',
+        'email' => 'bowwowsdogspa@gmail.com',
+        'hours' => 'Mon-Thurs 10a-5p · Fri, Sat by special appointment',
         'social_facebook' => '',
         'social_instagram' => '',
         'maps_url' => '',
@@ -28,7 +28,7 @@ final class SiteContentService
         'hero' => [
             'enabled' => true,
             'eyebrow' => 'Calm neighborhood grooming care',
-            'headline' => 'Comfort-first grooming care for dogs in Midway and the Winston-Salem area.',
+            'headline' => 'Comfort-first grooming care for dogs across Greater Winston-Salem and the Triad.',
             'subheading' => '<p>Bow Wow’s Dog Spa provides appointment-based grooming and bath care for families looking for a calm, reliable experience.</p><p>Request a visit online, then our team will review the details and follow up directly.</p>',
             'cta_text' => 'Request Appointment',
             'cta_secondary' => 'View Services',
@@ -40,7 +40,7 @@ final class SiteContentService
             'points' => [
                 ['title' => 'Appointment-based care', 'text' => 'Focused visits keep the experience calmer and easier on sensitive dogs.'],
                 ['title' => 'Comfort-focused handling', 'text' => 'We work gently, communicate clearly, and adjust for first-timers, seniors, and nervous pups.'],
-                ['title' => 'Serving the Midway & Winston-Salem area', 'text' => 'A neighborhood dog spa with boutique-level attention and approachable service.'],
+                ['title' => 'Serving Greater Winston-Salem & the Triad', 'text' => 'A neighborhood dog spa with boutique-level attention and approachable service.'],
             ],
         ],
         'services' => [
@@ -102,7 +102,7 @@ final class SiteContentService
         ],
         'footer' => [
             'enabled' => true,
-            'tagline' => 'Trusted neighborhood boutique grooming for Midway and Winston-Salem families.',
+            'tagline' => 'Trusted neighborhood boutique grooming for Greater Winston-Salem and Triad families.',
         ],
         'retail' => [
             'enabled' => false,

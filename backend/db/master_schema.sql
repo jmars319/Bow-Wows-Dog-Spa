@@ -448,12 +448,19 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- default site settings for booking windows
+-- default site settings for public contact/location plus booking windows
 INSERT INTO site_settings (`key`, `value`)
 VALUES
+    ('business_name', 'Bow Wow''s Dog Spa'),
+    ('serving_area', 'Proudly serving Greater Winston-Salem and the Triad area'),
+    ('address', '11141 Old U.S. Hwy 52 #4, Winston-Salem, NC 27107'),
+    ('phone', '(336) 842-3723'),
+    ('email', 'bowwowsdogspa@gmail.com'),
+    ('hours', 'Mon-Thurs 10a-5p · Fri, Sat by special appointment'),
     ('booking_hold_minutes', '30'),
     ('booking_pending_expire_hours', '24')
-ON DUPLICATE KEY UPDATE `value` = VALUES(`value`);
+ON DUPLICATE KEY UPDATE
+    `value` = IF(TRIM(COALESCE(`value`, '')) = '', VALUES(`value`), `value`);
 
 INSERT INTO services (name, short_summary, description, duration_minutes, price_label, breed_weight_note, is_active, sort_order, created_at, updated_at)
 SELECT *

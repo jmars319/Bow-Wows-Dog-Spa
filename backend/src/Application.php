@@ -38,6 +38,14 @@ final class Application
     {
         try {
             $request = Request::capture();
+            if ($this->isMaintenanceMode($request)) {
+                header('Retry-After: 3600');
+                Response::error(
+                    'service_unavailable',
+                    'Bow Wow’s Dog Spa is temporarily offline for maintenance. Please try again shortly.',
+                    503
+                );
+            }
             $this->router->dispatch($request);
         } catch (\Throwable $e) {
             error_log('[BowWow][server_error] ' . $e->getMessage());
@@ -45,6 +53,39 @@ final class Application
             $message = $debug ? $e->getMessage() : 'Unexpected server error.';
             Response::error('server_error', $message, 500);
         }
+    }
+
+    private function isMaintenanceMode(Request $request): bool
+    {
+        if (!$this->maintenanceFlagExists($request)) {
+            return false;
+        }
+
+        return !$this->isMaintenanceExemptPath($request->path);
+    }
+
+    private function isMaintenanceExemptPath(string $path): bool
+    {
+        return $path === '/api/health' || str_starts_with($path, '/api/admin/');
+    }
+
+    private function maintenanceFlagExists(Request $request): bool
+    {
+        $candidates = [];
+        $documentRoot = trim((string) ($request->server['DOCUMENT_ROOT'] ?? ''));
+        if ($documentRoot !== '') {
+            $candidates[] = rtrim($documentRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'maintenance.flag';
+        }
+
+        $candidates[] = dirname(BOWWOW_APP_PATH) . DIRECTORY_SEPARATOR . 'maintenance.flag';
+
+        foreach (array_unique($candidates) as $candidate) {
+            if (is_file($candidate)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function registerRoutes(): void

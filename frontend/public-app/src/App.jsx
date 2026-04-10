@@ -1,14 +1,14 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import logoPrimaryPng from './assets/logos/logo-primary.png';
 import logoPrimaryWebp from './assets/logos/logo-primary.webp';
 
 const SiteContentContext = createContext({ data: null, loading: true, error: null });
 const CANONICAL_ORIGIN = 'https://bowwowsdogspa.com';
-const DEFAULT_SEO_TITLE = "Bow Wow's Dog Spa | Calm Dog Grooming in Midway & Winston-Salem";
+const DEFAULT_SEO_TITLE = "Bow Wow's Dog Spa | Calm Dog Grooming in Greater Winston-Salem & the Triad";
 const DEFAULT_SEO_DESCRIPTION =
-  'Calm, comfort-first dog grooming and spa care serving Midway, Winston-Salem, and nearby Triad families.';
+  'Calm, comfort-first dog grooming and spa care serving Greater Winston-Salem and nearby Triad families.';
 const DEFAULT_OG_IMAGE = `${CANONICAL_ORIGIN}/share-logo.png`;
 
 const SECTION_LINKS = [
@@ -22,6 +22,37 @@ const SECTION_LINKS = [
   { id: 'faq', label: 'FAQ' },
   { id: 'policies', label: 'Policies' },
 ];
+
+const STATUS_PAGE_CONTENT = {
+  accessDenied: {
+    status: 403,
+    path: '/status/access-denied',
+    eyebrow: '403 · Access denied',
+    title: 'This page is not available from this link.',
+    body: 'You may have followed an outdated private link or landed on an area that is not public.',
+  },
+  notFound: {
+    status: 404,
+    path: '/status/not-found',
+    eyebrow: '404 · Page not found',
+    title: 'We could not find that page.',
+    body: 'The link may be outdated, typed incorrectly, or no longer part of the public site.',
+  },
+  serverError: {
+    status: 500,
+    path: '/status/server-error',
+    eyebrow: '500 · Server error',
+    title: 'Something went wrong on our side.',
+    body: 'The site hit an unexpected issue while loading this page. Please head back or return home and try again.',
+  },
+  maintenance: {
+    status: 503,
+    path: '/status/maintenance',
+    eyebrow: '503 · Temporary outage',
+    title: 'We are temporarily offline for maintenance.',
+    body: 'Bow Wow’s Dog Spa is doing a quick tune-up right now. Please check back shortly.',
+  },
+};
 
 function SiteContentProvider({ children }) {
   const [data, setData] = useState(null);
@@ -73,20 +104,27 @@ function useSiteContent() {
   return useContext(SiteContentContext);
 }
 
+function SiteContentRoute({ children }) {
+  return <SiteContentProvider>{children}</SiteContentProvider>;
+}
+
 function App() {
   return (
     <BrowserRouter>
-      <SiteContentProvider>
-        <Routes>
-          <Route path="/" element={<PublicPage />} />
-          <Route path="/preview" element={<Navigate to="/" replace />} />
-          <Route path="/preview/*" element={<Navigate to="/" replace />} />
-          <Route path="/current" element={<Navigate to="/" replace />} />
-          <Route path="/current/*" element={<Navigate to="/" replace />} />
-          <Route path="/privacy" element={<SimplePage fallbackTitle="Privacy Policy" blockKey="privacy" />} />
-          <Route path="/terms" element={<SimplePage fallbackTitle="Terms & Conditions" blockKey="terms" />} />
-        </Routes>
-      </SiteContentProvider>
+      <Routes>
+        <Route path="/" element={<SiteContentRoute><PublicPage /></SiteContentRoute>} />
+        <Route path="/preview" element={<Navigate to="/" replace />} />
+        <Route path="/preview/*" element={<Navigate to="/" replace />} />
+        <Route path="/current" element={<Navigate to="/" replace />} />
+        <Route path="/current/*" element={<Navigate to="/" replace />} />
+        <Route path="/privacy" element={<SiteContentRoute><SimplePage fallbackTitle="Privacy Policy" blockKey="privacy" /></SiteContentRoute>} />
+        <Route path="/terms" element={<SiteContentRoute><SimplePage fallbackTitle="Terms & Conditions" blockKey="terms" /></SiteContentRoute>} />
+        <Route path="/status/access-denied" element={<StatusPage pageKey="accessDenied" />} />
+        <Route path="/status/not-found" element={<StatusPage pageKey="notFound" />} />
+        <Route path="/status/server-error" element={<StatusPage pageKey="serverError" />} />
+        <Route path="/status/maintenance" element={<StatusPage pageKey="maintenance" />} />
+        <Route path="*" element={<StatusPage pageKey="notFound" />} />
+      </Routes>
     </BrowserRouter>
   );
 }
@@ -100,6 +138,19 @@ function PublicPage() {
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  useEffect(() => {
+    if (loading || error || !data) {
+      return;
+    }
+
+    const sections = data.sections || {};
+    const settings = data.settings || {};
+    const galleryItems = Array.isArray(data.gallery_items) ? data.gallery_items : [];
+
+    applySeo(buildHomeSeo(settings, sections, galleryItems));
+    applyStructuredData(buildLocalBusinessSchema(settings, galleryItems));
+  }, [data, loading, error]);
 
   if (loading) {
     return (
@@ -143,11 +194,6 @@ function PublicPage() {
   const primaryCta = resolvePrimaryCta(visibleSections, settings);
   const secondaryCta = resolveSecondaryCta(visibleSections, settings, primaryCta);
   const brandHref = visibleSections.hero ? '#hero' : navSections[0] ? `#${navSections[0].id}` : '/';
-
-  useEffect(() => {
-    applySeo(buildHomeSeo(settings, sections, galleryItems));
-    applyStructuredData(buildLocalBusinessSchema(settings, galleryItems));
-  }, [settings, sections, galleryItems]);
 
   return (
     <div className="site-shell">
@@ -250,7 +296,7 @@ function Header({ settings, sections, legalSections, compact, primaryCta, brandH
 
 function HeroSection({ settings, content, primaryCta, secondaryCta }) {
   const phoneHref = settings.phone ? toPhoneHref(settings.phone) : null;
-  const servingAreaLabel = escapeHtml(settings.serving_area || 'Midway and the Winston-Salem area');
+  const servingAreaLabel = escapeHtml(settings.serving_area || 'Greater Winston-Salem and the Triad area');
   const heroSubheading =
     content.subheading ||
     `<p>Gentle grooming, spa baths, and comfort-focused care for dogs in ${servingAreaLabel}.</p><p>Request an appointment online and hear back within 24 hours.</p>`;
@@ -1558,6 +1604,84 @@ function SimplePage({ fallbackTitle, blockKey }) {
   );
 }
 
+function StatusPage({ pageKey }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const page = STATUS_PAGE_CONTENT[pageKey] || STATUS_PAGE_CONTENT.notFound;
+  const showRequestedPath = page.status === 404 && location.pathname !== page.path;
+
+  useEffect(() => {
+    applySeo(buildStatusSeo(page));
+    applyStructuredData(null);
+  }, [page]);
+
+  const goBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+
+    navigate('/', { replace: true });
+  };
+
+  return (
+    <div className="site-shell">
+      <main>
+        <section className="section status-section">
+          <div className="container status-page">
+            <article className="status-panel">
+              <BrandLockup />
+              <p className="eyebrow">{page.eyebrow}</p>
+              <h1>{page.title}</h1>
+              <p className="section-intro">{page.body}</p>
+              {showRequestedPath && (
+                <p className="status-path">
+                  Requested path: <code>{location.pathname}</code>
+                </p>
+              )}
+              <div className="status-actions">
+                <button type="button" className="btn btn-outline" onClick={goBack}>
+                  Back
+                </button>
+                <Link className="btn btn-primary" to="/">
+                  Home
+                </Link>
+              </div>
+            </article>
+          </div>
+        </section>
+      </main>
+      <StatusFooter />
+    </div>
+  );
+}
+
+function StatusFooter() {
+  return (
+    <footer className="site-footer">
+      <div className="container footer-grid">
+        <div>
+          <BrandLockup compact />
+          <p className="footer-tagline">Official Bow Wow’s Dog Spa website</p>
+        </div>
+
+        <div>
+          <h4>Quick links</h4>
+          <Link to="/">Home</Link>
+          <Link to="/privacy">Privacy Policy</Link>
+          <Link to="/terms">Terms & Conditions</Link>
+        </div>
+
+        <div>
+          <h4>Resources</h4>
+          <a href="/admin/login">Admin Login</a>
+        </div>
+      </div>
+      <div className="container footer-credit">Site by JAMARQ</div>
+    </footer>
+  );
+}
+
 function BookingSteps({ step, onStepChange, maxStep = 1 }) {
   const steps = [
     { id: 1, label: 'Services' },
@@ -1685,7 +1809,7 @@ function buildHomeSeo(settings, sections, galleryItems) {
   const businessName = textHasContent(settings.business_name) ? settings.business_name : "Bow Wow's Dog Spa";
   const title = textHasContent(sections.hero?.headline)
     ? `${stripHtml(sections.hero.headline)} | ${businessName}`
-    : `${businessName} | Calm Dog Grooming in Midway & Winston-Salem`;
+    : `${businessName} | Calm Dog Grooming in Greater Winston-Salem & the Triad`;
   const descriptionSource = sections.hero?.subheading || sections.services?.intro || sections.about?.body || '';
   const description = truncateText(stripHtml(descriptionSource), 180) || DEFAULT_SEO_DESCRIPTION;
 
@@ -1717,6 +1841,19 @@ function buildSimpleSeo(blockKey, title, items, enabled, settings) {
     image: DEFAULT_OG_IMAGE,
     siteName: businessName,
     robots: enabled ? 'index,follow,max-image-preview:large' : 'noindex,nofollow',
+  };
+}
+
+function buildStatusSeo(page) {
+  const businessName = "Bow Wow's Dog Spa";
+
+  return {
+    title: `${page.title} | ${businessName}`,
+    description: page.body,
+    path: page.path,
+    image: DEFAULT_OG_IMAGE,
+    siteName: businessName,
+    robots: 'noindex,nofollow',
   };
 }
 

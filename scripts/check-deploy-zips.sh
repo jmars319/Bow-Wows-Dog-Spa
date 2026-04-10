@@ -23,6 +23,7 @@ fi
 echo "[check] Frontend zip summary:"
 ls -lh "$FRONTEND_ZIP"
 FRONTEND_LIST="$(unzip -l "$FRONTEND_ZIP")"
+FRONTEND_FILES="$(unzip -Z1 "$FRONTEND_ZIP")"
 echo "$FRONTEND_LIST" | head -n 40
 
 echo "[check] Backend zip summary:"
@@ -82,5 +83,21 @@ if echo "$BACKEND_FILES" | grep -Fq 'backend/uploads/'; then
   echo "[check][error] backend zip should not include uploads/" >&2
   exit 1
 fi
+
+for required_frontend_file in \
+  ".htaccess" \
+  "index.php" \
+  "error-documents/403.html" \
+  "error-documents/404.html" \
+  "error-documents/500.html" \
+  "error-documents/503.html" \
+  "error-documents/styles.css" \
+  "error-documents/app.js"
+do
+  if ! echo "$FRONTEND_FILES" | grep -Fx "$required_frontend_file"; then
+    echo "[check][error] frontend zip must include $required_frontend_file" >&2
+    exit 1
+  fi
+done
 
 echo "[check] Deploy archives look good."

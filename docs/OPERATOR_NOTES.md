@@ -53,10 +53,18 @@
 
 ## Public site routing
 - `/` is now the live public SPA.
+- `/status/access-denied`, `/status/not-found`, `/status/server-error`, and `/status/maintenance` are the branded full-page public status routes.
+- Unknown public URLs now return a real `404`.
 - `/placeholder/` preserves the former placeholder page in its own folder so it can still be referenced without affecting the main site.
 - `/preview` and `/current` are legacy paths that redirect to `/` for compatibility.
 - `/admin/login` is the real admin surface.
 - `/api/*` is the backend entrypoint.
+
+## Maintenance mode
+- Create an empty `maintenance.flag` file in the deployed document root to put the public site into maintenance mode.
+- Public routes return a real `503` and Apache serves the branded `/error-documents/503.html` document.
+- `/admin/*`, `/api/admin/*`, and `/api/health` stay reachable during maintenance.
+- Remove `maintenance.flag` to restore the public site.
 
 ## Admin provisioning
 - Run `php backend/scripts/seed_admin.php` after migrations to create the initial `super_admin` (named `admin`) in local/CLI workflows or on hosts where you intentionally included the CLI tools. Provide credentials via prompts or `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars.
