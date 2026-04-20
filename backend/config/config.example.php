@@ -40,4 +40,9 @@ return [
             "retail": [320, 640, 960]
         }', true),
     ],
+    'calendar_sync' => [
+        'enabled' => true,
+        'default_timezone' => 'America/New_York',
+        'max_job_attempts' => 5,
+    ],
 ];

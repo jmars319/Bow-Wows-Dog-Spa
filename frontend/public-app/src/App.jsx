@@ -16,6 +16,7 @@ const SECTION_LINKS = [
   { id: 'services', label: 'Services' },
   { id: 'booking', label: 'Booking' },
   { id: 'gallery', label: 'Gallery' },
+  { id: 'retail', label: 'Products' },
   { id: 'reviews', label: 'Reviews' },
   { id: 'about', label: 'About' },
   { id: 'contact', label: 'Contact' },
@@ -110,7 +111,7 @@ function SiteContentRoute({ children }) {
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/" element={<SiteContentRoute><PublicPage /></SiteContentRoute>} />
         <Route path="/preview" element={<Navigate to="/" replace />} />
@@ -188,12 +189,14 @@ function PublicPage() {
   const services = Array.isArray(data.services) ? data.services : [];
   const galleryItems = Array.isArray(data.gallery_items) ? data.gallery_items : [];
   const featuredReviews = Array.isArray(data.featured_reviews) ? data.featured_reviews : [];
-  const visibleSections = computeVisibleSections(sections, services, galleryItems, featuredReviews, settings);
+  const retailCategories = Array.isArray(data.retail_categories) ? data.retail_categories : [];
+  const visibleSections = computeVisibleSections(sections, services, galleryItems, featuredReviews, retailCategories, settings);
   const legalSections = computeLegalSections(sections);
   const navSections = SECTION_LINKS.filter((item) => visibleSections[item.id]);
   const primaryCta = resolvePrimaryCta(visibleSections, settings);
   const secondaryCta = resolveSecondaryCta(visibleSections, settings, primaryCta);
   const brandHref = visibleSections.hero ? '#hero' : navSections[0] ? `#${navSections[0].id}` : '/';
+  const showFooter = isSectionEnabled(sections.footer);
 
   return (
     <div className="site-shell">
@@ -215,6 +218,7 @@ function PublicPage() {
         )}
         {visibleSections.booking && <BookingSection settings={settings} content={sections.booking || {}} services={services} />}
         {visibleSections.gallery && <GallerySection content={sections.gallery || {}} items={galleryItems} />}
+        {visibleSections.retail && <RetailSection content={sections.retail || {}} categories={retailCategories} settings={settings} />}
         {visibleSections.reviews && (
           <ReviewsSection settings={settings} content={sections.reviews || {}} items={featuredReviews} primaryCta={primaryCta} />
         )}
@@ -223,7 +227,9 @@ function PublicPage() {
         {visibleSections.faq && <FaqSection content={sections.faq || {}} items={sections.faq?.items || []} />}
         {visibleSections.policies && <PoliciesSection content={sections.policies || {}} items={sections.policies?.items || []} />}
       </main>
-      <Footer sections={navSections} legalSections={legalSections} settings={settings} content={sections.footer || {}} primaryCta={primaryCta} />
+      {showFooter && (
+        <Footer sections={navSections} legalSections={legalSections} settings={settings} content={sections.footer || {}} primaryCta={primaryCta} />
+      )}
       <MobileActionBar settings={settings} primaryCta={primaryCta} />
     </div>
   );
@@ -920,6 +926,7 @@ function BookingSection({ settings, content, services }) {
                           key={slot.time}
                           type="button"
                           className={`slot-button ${selectedSlot?.time === slot.time ? 'is-active' : ''}`}
+                          data-slot-time={slot.time}
                           onClick={() => chooseSlot(slot)}
                           aria-pressed={selectedSlot?.time === slot.time}
                         >
@@ -1211,6 +1218,91 @@ function GallerySection({ content, items }) {
             </article>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+function RetailSection({ content, categories, settings }) {
+  const phoneHref = settings.phone ? toPhoneHref(settings.phone) : null;
+  const emailHref = settings.email ? `mailto:${settings.email}` : null;
+  const showCategoryLinks = categories.length > 1;
+
+  return (
+    <section id="retail" className="section section--soft">
+      <div className="container">
+        <div className="section-heading">
+          <p className="eyebrow">In-spa products</p>
+          <h2>{content.title || 'Boutique Products'}</h2>
+          {textHasContent(content.body) && <div className="section-intro" dangerouslySetInnerHTML={{ __html: content.body }} />}
+        </div>
+
+        {showCategoryLinks && (
+          <div className="retail-category-nav">
+            {categories.map((category) => (
+              <a key={category.id} className="link-chip" href={`#retail-${category.slug || category.id}`}>
+                {category.name}
+              </a>
+            ))}
+          </div>
+        )}
+
+        <div className="retail-category-groups">
+          {categories.map((category) => (
+            <div key={category.id} id={`retail-${category.slug || category.id}`} className="retail-category-block">
+              <div className="retail-category-heading">
+                <div>
+                  <h3>{category.name}</h3>
+                  <p>{category.items.length} item{category.items.length === 1 ? '' : 's'}</p>
+                </div>
+              </div>
+
+              <div className="retail-product-grid">
+                {category.items.map((item) => (
+                  <article key={item.id} className="retail-card">
+                    <div className="retail-card__media">
+                      {item.media ? (
+                        <ResponsivePicture media={item.media} alt={item.name} />
+                      ) : (
+                        <div className="retail-card__placeholder" aria-hidden="true">
+                          {item.name.slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <div className="retail-card__body">
+                      <div className="retail-card__meta">
+                        <h4>{item.name}</h4>
+                        <strong>{item.price_label || 'Ask in spa'}</strong>
+                      </div>
+                      {item.description && <p>{item.description}</p>}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {(phoneHref || emailHref) && (
+          <div className="section-cta section-cta--soft">
+            <div>
+              <strong>Need help choosing the right product?</strong>
+              <p>Ask the team about availability, coat type recommendations, or what to pick up during your next visit.</p>
+            </div>
+            <div className="section-cta__actions">
+              {phoneHref && (
+                <a className="btn btn-outline" href={phoneHref}>
+                  Call {settings.phone}
+                </a>
+              )}
+              {emailHref && (
+                <a className="btn btn-primary" href={emailHref}>
+                  Email the spa
+                </a>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -1540,6 +1632,7 @@ function SimplePage({ fallbackTitle, blockKey }) {
   const legalSections = computeLegalSections(data?.sections || {});
   const settings = data?.settings || {};
   const galleryItems = Array.isArray(data?.gallery_items) ? data.gallery_items : [];
+  const showFooter = isSectionEnabled(data?.sections?.footer || {});
 
   useEffect(() => {
     if (loading || error || !data) {
@@ -1580,7 +1673,7 @@ function SimplePage({ fallbackTitle, blockKey }) {
             <p className="muted-text">This page is currently unavailable.</p>
           </div>
         </section>
-        <Footer sections={[]} legalSections={legalSections} settings={settings} content={data.sections?.footer || {}} />
+        {showFooter && <Footer sections={[]} legalSections={legalSections} settings={settings} content={data.sections?.footer || {}} />}
       </>
     );
   }
@@ -1599,7 +1692,7 @@ function SimplePage({ fallbackTitle, blockKey }) {
           ))}
         </div>
       </section>
-      <Footer sections={[]} legalSections={legalSections} settings={settings} content={data.sections?.footer || {}} />
+      {showFooter && <Footer sections={[]} legalSections={legalSections} settings={settings} content={data.sections?.footer || {}} />}
     </>
   );
 }
@@ -1742,7 +1835,7 @@ function ResponsivePicture({ media, alt }) {
   );
 }
 
-function computeVisibleSections(content, services, galleryItems, featuredReviews, settings = {}) {
+function computeVisibleSections(content, services, galleryItems, featuredReviews, retailCategories, settings = {}) {
   const hasReviewSignal =
     Array.isArray(featuredReviews) && featuredReviews.length > 0
       ? true
@@ -1754,6 +1847,10 @@ function computeVisibleSections(content, services, galleryItems, featuredReviews
     services: isSectionEnabled(content.services) && Array.isArray(services) && services.length > 0,
     booking: isSectionEnabled(content.booking) && Array.isArray(services) && services.length > 0,
     gallery: isSectionEnabled(content.gallery) && Array.isArray(galleryItems) && galleryItems.length > 0,
+    retail:
+      isSectionEnabled(content.retail) &&
+      Array.isArray(retailCategories) &&
+      retailCategories.some((category) => Array.isArray(category.items) && category.items.length > 0),
     reviews: isSectionEnabled(content.reviews) && hasReviewSignal,
     about: isSectionEnabled(content.about) && textHasContent(content.about?.body),
     contact: isSectionEnabled(content.contact) || isSectionEnabled(content.location),

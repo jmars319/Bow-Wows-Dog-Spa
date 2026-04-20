@@ -110,6 +110,17 @@ select:focus-visible {
     linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(241, 243, 242, 0.8));
 }
 
+.link-chip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+
 .centered-block {
   display: grid;
   place-items: center;
@@ -764,6 +775,97 @@ select:focus-visible {
   padding: 0.45rem 0.2rem 0 0.2rem;
   color: var(--text-secondary);
   font-size: 0.84rem;
+}
+
+.retail-category-groups,
+.retail-product-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.retail-category-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.retail-category-block {
+  display: grid;
+  gap: 1rem;
+}
+
+.retail-category-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.retail-category-heading h3,
+.retail-card__meta h4 {
+  margin: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+}
+
+.retail-category-heading p,
+.retail-card__body p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.retail-product-grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.retail-card {
+  overflow: hidden;
+  border-radius: 26px;
+  background: var(--surface-card);
+  border: 1px solid rgba(217, 226, 225, 0.9);
+  box-shadow: var(--shadow-soft);
+}
+
+.retail-card__media {
+  background:
+    linear-gradient(180deg, rgba(191, 216, 213, 0.16), rgba(233, 228, 242, 0.12)),
+    var(--surface-card);
+}
+
+.retail-card__media .responsive-picture img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.retail-card__placeholder {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 3;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.retail-card__body {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem 1.2rem;
+}
+
+.retail-card__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: baseline;
+}
+
+@media (max-width: 640px) {
+  .retail-category-heading,
+  .retail-card__meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .reviews-summary {

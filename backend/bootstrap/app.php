@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 define('BOWWOW_APP_PATH', dirname(__DIR__));
+define('BOWWOW_PROJECT_PATH', dirname(BOWWOW_APP_PATH));
 
 require BOWWOW_APP_PATH . '/bootstrap/autoload.php';
 
@@ -62,7 +63,7 @@ $config = [
         'send_customer_confirmations' => filter_var(getenv('SENDGRID_SEND_CUSTOMER_CONFIRMATIONS'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true,
     ],
     'media' => [
-        'upload_dir' => getenv('UPLOAD_DIR') ?: BOWWOW_APP_PATH . '/uploads',
+        'upload_dir' => resolvePath((string) (getenv('UPLOAD_DIR') ?: 'backend/uploads')),
         'public_url_prefix' => '/uploads',
         'max_bytes' => (int) (getenv('IMAGE_UPLOAD_MAX_BYTES') ?: (8 * 1024 * 1024)),
         'jpeg_quality' => (int) (getenv('IMAGE_JPEG_QUALITY') ?: 88),
@@ -73,6 +74,11 @@ $config = [
             "gallery": [640, 1280, 1920],
             "retail": [320, 640, 960]
         }', true),
+    ],
+    'calendar_sync' => [
+        'enabled' => filter_var(getenv('CALENDAR_SYNC_ENABLED'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true,
+        'default_timezone' => getenv('CALENDAR_SYNC_DEFAULT_TIMEZONE') ?: 'America/New_York',
+        'max_job_attempts' => max(1, (int) (getenv('CALENDAR_SYNC_MAX_JOB_ATTEMPTS') ?: 5)),
     ],
 ];
 
@@ -103,4 +109,18 @@ session_name($sessionConfig['name'] ?? 'bowwow_admin');
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
+}
+
+function resolvePath(string $path): string
+{
+    $trimmed = trim($path);
+    if ($trimmed === '') {
+        return BOWWOW_APP_PATH . '/uploads';
+    }
+
+    if ($trimmed[0] === '/' || preg_match('/^[A-Za-z]:[\\\\\\/]/', $trimmed) === 1) {
+        return $trimmed;
+    }
+
+    return BOWWOW_PROJECT_PATH . '/' . ltrim($trimmed, '/');
 }

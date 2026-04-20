@@ -1,0 +1,12 @@
+{
+  "name": "bowwow-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:all": "bash ./scripts/test-all.sh"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0"
+  }
+}

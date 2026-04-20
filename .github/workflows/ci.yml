@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: bowwow_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: exif, fileinfo, gd, mbstring, pdo_mysql
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            frontend/public-app/package-lock.json
+            frontend/admin-app/package-lock.json
+
+      - name: Install frontend and e2e dependencies
+        run: |
+          npm ci
+          npm ci --prefix frontend/public-app
+          npm ci --prefix frontend/admin-app
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Create CI backend environment
+        run: |
+          cat > backend/.env <<'EOF'
+          APP_ENV=testing
+          APP_URL=http://127.0.0.1:5173
+          APP_DEBUG=true
+          DB_HOST=127.0.0.1
+          DB_NAME=bowwow_ci
+          DB_USER=root
+          DB_PASS=root
+          DB_TEST_NAME=bowwow_ci
+          BOWWOW_TEST_REUSE_CONFIGURED_DB=true
+          SENDGRID_ENABLED=false
+          SENDGRID_API_KEY=
+          SENDGRID_FROM_EMAIL=
+          SENDGRID_FROM_NAME=
+          SENDGRID_STAFF_NOTIFICATIONS=
+          SENDGRID_SEND_CUSTOMER_RECEIPTS=false
+          SENDGRID_SEND_CUSTOMER_CONFIRMATIONS=false
+          SESSION_NAME=bowwow_ci
+          SESSION_LIFETIME=14400
+          SESSION_SECURE=false
+          SESSION_SAMESITE=Lax
+          UPLOAD_DIR=backend/uploads
+          IMAGE_UPLOAD_MAX_BYTES=8388608
+          IMAGE_JPEG_QUALITY=88
+          IMAGE_WEBP_QUALITY=90
+          IMAGE_PNG_COMPRESSION=6
+          RESPONSIVE_IMAGE_WIDTH_PROFILES={"default":[480,960,1440],"gallery":[640,1280,1920],"retail":[320,640,960]}
+          CALENDAR_SYNC_ENABLED=true
+          CALENDAR_SYNC_DEFAULT_TIMEZONE=America/New_York
+          CALENDAR_SYNC_MAX_JOB_ATTEMPTS=5
+          E2E_ADMIN_EMAIL=e2e-admin@bowwow.local
+          E2E_ADMIN_USERNAME=e2e-admin
+          E2E_ADMIN_PASSWORD=BowWowE2E123!
+          EOF
+
+      - name: Run migrations
+        run: php backend/scripts/run_migrations.php
+
+      - name: Lint backend PHP
+        run: find backend/src backend/bootstrap backend/scripts backend/tests -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Run backend tests
+        run: BOWWOW_TEST_REUSE_CONFIGURED_DB=1 BOWWOW_TEST_SKIP_BACKUP_RESTORE=1 DB_TEST_NAME=bowwow_ci php backend/tests/run.php
+
+      - name: Run frontend tests and builds
+        run: |
+          npm test --prefix frontend/public-app
+          npm run build --prefix frontend/public-app
+          npm test --prefix frontend/admin-app
+          npm run build --prefix frontend/admin-app
+
+      - name: Run browser smoke suite
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/

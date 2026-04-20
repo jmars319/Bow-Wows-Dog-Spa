@@ -37,7 +37,7 @@ final class AdminBookingController
         try {
             $booking = $this->bookings->createBooking($request->body, $request->files);
             if (!empty($request->body['auto_confirm'])) {
-                $this->bookings->transition($booking['id'], 'confirm', $request->body['notes'] ?? null, $user['id'], $this->audit);
+                $booking = $this->bookings->transition($booking['id'], 'confirm', $request->body['notes'] ?? null, $user['id'], $this->audit);
             }
         } catch (\Throwable $e) {
             Response::error('booking_error', $e->getMessage(), 422);
@@ -94,7 +94,13 @@ final class AdminBookingController
         if (!$id) {
             Response::error('validation_error', 'Booking id required', 422);
         }
-        $result = $this->bookings->extendHold($id);
+
+        try {
+            $result = $this->bookings->extendHold($id);
+        } catch (\Throwable $e) {
+            Response::error('booking_error', $e->getMessage(), 422);
+        }
+
         $this->audit->log($user['id'], 'booking_extend_hold', 'booking_requests', $id, []);
         Response::success($result);
     }
@@ -108,7 +114,12 @@ final class AdminBookingController
             Response::error('validation_error', 'Booking id required', 422);
         }
 
-        $result = $this->bookings->releaseHold($id, $request->body['notes'] ?? null, $user['id'], $this->audit);
+        try {
+            $result = $this->bookings->releaseHold($id, $request->body['notes'] ?? null, $user['id'], $this->audit);
+        } catch (\Throwable $e) {
+            Response::error('booking_error', $e->getMessage(), 422);
+        }
+
         Response::success($result);
     }
 

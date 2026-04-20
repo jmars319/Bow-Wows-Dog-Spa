@@ -21,6 +21,7 @@ final class BookingService
         private readonly ScheduleService $schedule = new ScheduleService(),
         private readonly EmailService $emails = new EmailService(),
         private readonly BookingAttachmentService $attachments = new BookingAttachmentService(),
+        private readonly CalendarSyncService $calendarSync = new CalendarSyncService(),
     ) {
     }
 
@@ -325,6 +326,8 @@ final class BookingService
             $adminId
         ));
 
+        $this->queueCalendarSync($updated, $currentStatus);
+
         return $updated;
     }
 
@@ -406,13 +409,6 @@ final class BookingService
         if ($updated === null) {
             throw new \RuntimeException('Unable to load updated booking.');
         }
-
-        error_log(sprintf(
-            '[BowWow][booking_status_changed] id=%d from=%s to=cancelled admin=%d',
-            $bookingId,
-            (string) $booking['status'],
-            $adminId
-        ));
 
         return $updated;
     }
@@ -888,5 +884,20 @@ final class BookingService
                 : 'Only pending or confirmed bookings can be cancelled.',
             default => 'That action is not available for this booking.',
         };
+    }
+
+    private function queueCalendarSync(array $booking, string $previousStatus): void
+    {
+        try {
+            $this->calendarSync->queueBookingSync($booking, $previousStatus);
+        } catch (\Throwable $e) {
+            error_log(sprintf(
+                '[BowWow][calendar_sync_queue_failed] booking=%d status=%s previous=%s error=%s',
+                (int) ($booking['id'] ?? 0),
+                (string) ($booking['status'] ?? ''),
+                $previousStatus,
+                $e->getMessage()
+            ));
+        }
     }
 }

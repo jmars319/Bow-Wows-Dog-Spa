@@ -1,4 +1,4 @@
-import { Suspense, createContext, lazy, useCallback, useContext, useEffect, useId, useMemo, useState } from 'react';
+import { Suspense, createContext, lazy, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
@@ -141,16 +141,17 @@ const NAV_ITEMS = [
   { path: `${ADMIN_BASE}/content`, label: 'Text & Site Info', section: 'content' },
   { path: `${ADMIN_BASE}/contacts`, label: 'Contact Inbox', section: 'contact_messages' },
   { path: `${ADMIN_BASE}/media`, label: 'Media', section: 'media' },
-  { path: `${ADMIN_BASE}/retail`, label: 'Retail', section: 'retail' },
+  { path: `${ADMIN_BASE}/retail`, label: 'Products', section: 'retail' },
   { path: `${ADMIN_BASE}/audit`, label: 'Audit Log', section: 'audit' },
   { path: `${ADMIN_BASE}/users`, label: 'Admin Users', section: 'users', superOnly: true },
+  { path: `${ADMIN_BASE}/calendar-sync`, label: 'Calendar Sync', section: 'system' },
   { path: `${ADMIN_BASE}/system`, label: 'System', section: 'system' },
 ];
 
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AuthProvider>
         <DirtyStateProvider>
           <Routes>
@@ -172,6 +173,7 @@ function App() {
                 <Route path={`${ADMIN_BASE}/media`} element={<MediaPage />} />
                 <Route path={`${ADMIN_BASE}/audit`} element={<AuditLogPage />} />
                 <Route path={`${ADMIN_BASE}/users`} element={<AdminUsersPage />} />
+                <Route path={`${ADMIN_BASE}/calendar-sync`} element={<CalendarSyncPage />} />
                 <Route path={`${ADMIN_BASE}/system`} element={<SystemPage />} />
               </Route>
             </Route>
@@ -1717,138 +1719,538 @@ function ContactMessagesPage() {
   );
 }
 
-function RetailPage() {
-  const defaultForm = {
+function createRetailCategoryForm() {
+  return {
     id: null,
     name: '',
-    description: '',
-    price_cents: '',
-    media: null,
-    is_featured: false,
     is_published: true,
-    sort_order: 0,
   };
+}
 
-  const [items, setItems] = useState([]);
-  const [form, setForm] = useState(defaultForm);
-  const [feedback, setFeedback] = useState(null);
+const DEFAULT_RETAIL_PRODUCT_OPTIONS = {
+  online_sale_status: [
+    { value: 'catalog_only', label: 'Catalog only for now' },
+    { value: 'ready', label: 'Okay to sell online later' },
+    { value: 'in_store_only', label: 'Keep in-store only' },
+  ],
+  inventory_status: [
+    { value: 'untracked', label: 'Not tracked yet' },
+    { value: 'in_stock', label: 'In stock' },
+    { value: 'limited', label: 'Low or limited' },
+    { value: 'out_of_stock', label: 'Out of stock' },
+  ],
+  fulfillment_mode: [
+    { value: 'undecided', label: 'Undecided' },
+    { value: 'pickup_only', label: 'Pickup only' },
+    { value: 'ship_or_pickup', label: 'Can ship or pickup' },
+  ],
+};
+
+function createRetailProductForm(categoryId = '') {
+  return {
+    id: null,
+    category_id: categoryId ? String(categoryId) : '',
+    name: '',
+    sku: '',
+    description: '',
+    price: '',
+    media: null,
+    online_sale_status: 'catalog_only',
+    inventory_status: 'untracked',
+    fulfillment_mode: 'undecided',
+    is_published: true,
+  };
+}
+
+function RetailPage() {
+  const [categories, setCategories] = useState([]);
+  const [commerce, setCommerce] = useState({ mode: 'catalog_only', mode_label: 'Catalog only', checkout_enabled: false });
+  const [productOptions, setProductOptions] = useState(DEFAULT_RETAIL_PRODUCT_OPTIONS);
+  const [loading, setLoading] = useState(true);
+  const [categoryForm, setCategoryForm] = useState(createRetailCategoryForm());
+  const [productForm, setProductForm] = useState(createRetailProductForm());
+  const [categoryFeedback, setCategoryFeedback] = useState(null);
+  const [productFeedback, setProductFeedback] = useState(null);
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [savingProduct, setSavingProduct] = useState(false);
 
   const load = useCallback(async () => {
-    const response = await api.get('/retail');
-    setItems(response.data.data.items);
+    setLoading(true);
+    try {
+      const response = await api.get('/retail');
+      setCategories(response.data.data.categories || []);
+      setCommerce(response.data.data.commerce || { mode: 'catalog_only', mode_label: 'Catalog only', checkout_enabled: false });
+      setProductOptions(response.data.data.product_options || DEFAULT_RETAIL_PRODUCT_OPTIONS);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const save = async (e) => {
-    e.preventDefault();
-    setFeedback(null);
+  useEffect(() => {
+    if (productForm.id || productForm.category_id || categories.length === 0) {
+      return;
+    }
+
+    setProductForm((current) => ({
+      ...current,
+      category_id: String(categories[0].id),
+    }));
+  }, [categories, productForm.category_id, productForm.id]);
+
+  const resetCategoryForm = () => {
+    setCategoryForm(createRetailCategoryForm());
+  };
+
+  const resetProductForm = (nextCategoryId = '') => {
+    const fallbackCategoryId = nextCategoryId || (categories[0] ? String(categories[0].id) : '');
+    setProductForm(createRetailProductForm(fallbackCategoryId));
+  };
+
+  const saveCategory = async (event) => {
+    event.preventDefault();
+    setSavingCategory(true);
+    setCategoryFeedback(null);
+
     try {
-      await api.post('/retail', {
-        id: form.id || undefined,
-        name: form.name,
-        description: form.description,
-        price_cents: form.price_cents ? Math.round(Number(form.price_cents) * 100) : null,
-        media_id: form.media?.id ?? null,
-        is_featured: form.is_featured ? 1 : 0,
-        is_published: form.is_published ? 1 : 0,
-        sort_order: Number(form.sort_order) || 0,
+      const response = await api.post('/retail/categories', {
+        id: categoryForm.id || undefined,
+        name: categoryForm.name,
+        is_published: categoryForm.is_published ? 1 : 0,
       });
-      setForm(defaultForm);
-      setFeedback({ tone: 'success', message: 'Retail item saved.' });
-      load();
+
+      const savedCategory = response.data.data.category;
+      await load();
+      resetCategoryForm();
+      setCategoryFeedback({
+        tone: 'success',
+        message: categoryForm.id ? 'Category updated.' : 'Category created.',
+      });
+      setProductForm((current) => {
+        if (current.category_id) {
+          return current;
+        }
+
+        return {
+          ...current,
+          category_id: String(savedCategory.id),
+        };
+      });
     } catch (err) {
-      setFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to save retail item.' });
+      setCategoryFeedback({
+        tone: 'error',
+        message: err.response?.data?.error?.message ?? 'Unable to save category.',
+      });
+    } finally {
+      setSavingCategory(false);
     }
   };
 
-  const edit = (item) => {
-    setFeedback(null);
-    setForm({
-      id: item.id,
-      name: item.name,
-      description: item.description ?? '',
-      price_cents: item.price_cents ? (item.price_cents / 100).toFixed(2) : '',
-      media: item.media ?? null,
-      is_featured: item.is_featured === 1,
-      is_published: item.is_published === 1,
-      sort_order: item.sort_order ?? 0,
+  const saveProduct = async (event) => {
+    event.preventDefault();
+    setSavingProduct(true);
+    setProductFeedback(null);
+
+    try {
+      const response = await api.post('/retail', {
+        id: productForm.id || undefined,
+        category_id: productForm.category_id ? Number(productForm.category_id) : null,
+        name: productForm.name,
+        sku: productForm.sku,
+        description: productForm.description,
+        price_cents: productForm.price ? Math.round(Number(productForm.price) * 100) : null,
+        media_id: productForm.media?.id ?? null,
+        online_sale_status: productForm.online_sale_status,
+        inventory_status: productForm.inventory_status,
+        fulfillment_mode: productForm.fulfillment_mode,
+        is_published: productForm.is_published ? 1 : 0,
+      });
+
+      const savedItem = response.data.data.item;
+      await load();
+      resetProductForm(savedItem.category_id ? String(savedItem.category_id) : '');
+      setProductFeedback({
+        tone: 'success',
+        message: productForm.id ? 'Product updated.' : 'Product saved.',
+      });
+    } catch (err) {
+      setProductFeedback({
+        tone: 'error',
+        message: err.response?.data?.error?.message ?? 'Unable to save product.',
+      });
+    } finally {
+      setSavingProduct(false);
+    }
+  };
+
+  const editCategory = (category) => {
+    setCategoryFeedback(null);
+    setCategoryForm({
+      id: category.id,
+      name: category.name,
+      is_published: Boolean(category.is_published),
     });
   };
 
+  const editProduct = (item) => {
+    setProductFeedback(null);
+    setProductForm({
+      id: item.id,
+      category_id: item.category_id ? String(item.category_id) : '',
+      name: item.name,
+      sku: item.sku || '',
+      description: item.description ?? '',
+      price: item.price_cents ? (item.price_cents / 100).toFixed(2) : '',
+      media: item.media ?? null,
+      online_sale_status: item.online_sale_status || 'catalog_only',
+      inventory_status: item.inventory_status || 'untracked',
+      fulfillment_mode: item.fulfillment_mode || 'undecided',
+      is_published: Boolean(item.is_published),
+    });
+  };
+
+  const startProductForCategory = (categoryId) => {
+    setProductFeedback(null);
+    setProductForm(createRetailProductForm(String(categoryId)));
+  };
+
+  const deleteCategory = async (category) => {
+    if (!window.confirm(`Delete "${category.name}"? Categories can only be deleted when they are empty.`)) {
+      return;
+    }
+
+    setCategoryFeedback(null);
+    const remainingCategoryId = categories.find((item) => item.id !== category.id)?.id;
+    try {
+      await api.delete(`/retail/categories/${category.id}`);
+      await load();
+      if (categoryForm.id === category.id) {
+        resetCategoryForm();
+      }
+      if (productForm.category_id === String(category.id)) {
+        resetProductForm(remainingCategoryId ? String(remainingCategoryId) : '');
+      }
+      setCategoryFeedback({ tone: 'success', message: 'Category deleted.' });
+    } catch (err) {
+      setCategoryFeedback({
+        tone: 'error',
+        message: err.response?.data?.error?.message ?? 'Unable to delete category.',
+      });
+    }
+  };
+
+  const deleteProduct = async (item) => {
+    if (!window.confirm(`Delete "${item.name}"?`)) {
+      return;
+    }
+
+    setProductFeedback(null);
+    try {
+      await api.delete(`/retail/items/${item.id}`);
+      await load();
+      if (productForm.id === item.id) {
+        resetProductForm(item.category_id ? String(item.category_id) : '');
+      }
+      setProductFeedback({ tone: 'success', message: 'Product deleted.' });
+    } catch (err) {
+      setProductFeedback({
+        tone: 'error',
+        message: err.response?.data?.error?.message ?? 'Unable to delete product.',
+      });
+    }
+  };
+
+  const totalProducts = categories.reduce((sum, category) => sum + (category.items?.length || 0), 0);
+
   return (
-    <div>
-      <h1>Retail Items</h1>
-      <form className="card stack gap-sm" onSubmit={save}>
-        <label className="field-block">
-          <span className="field-label">Product name</span>
-          <input id="retail-name" placeholder="Name shown publicly" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} required />
-        </label>
-        <label className="field-block">
-          <span className="field-label">Description</span>
-          <textarea id="retail-description" placeholder="Optional supporting description" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
-        </label>
-        <div className="grid two-col gap-sm">
-          <label className="field-block">
-            <span className="field-label">Price (USD)</span>
-            <input
-              id="retail-price"
-              placeholder="Leave blank if price is not published"
-              value={form.price_cents}
-              onChange={(e) => setForm((prev) => ({ ...prev, price_cents: e.target.value }))}
-              type="number"
-              step="0.01"
-              min="0"
-            />
-          </label>
-          <label className="field-block">
-            <span className="field-label">Display order</span>
-            <input
-              id="retail-sort-order"
-              type="number"
-              placeholder="0"
-              value={form.sort_order}
-              onChange={(e) => setForm((prev) => ({ ...prev, sort_order: e.target.value }))}
-            />
-          </label>
+    <div className="stack gap-md">
+      <div className="page-header">
+        <div>
+          <h1>Products</h1>
+          <p className="muted">Create simple categories, add products under each one, and the public site updates automatically.</p>
         </div>
-        <div className="grid two-col gap-sm">
-          <label className="toggle">
-            <input type="checkbox" checked={form.is_featured} onChange={(e) => setForm((prev) => ({ ...prev, is_featured: e.target.checked }))} /> Featured
-          </label>
-          <label className="toggle">
-            <input type="checkbox" checked={form.is_published} onChange={(e) => setForm((prev) => ({ ...prev, is_published: e.target.checked }))} /> Published
-          </label>
-        </div>
-        <MediaPicker label="Product image" media={form.media} onChange={(media) => setForm((prev) => ({ ...prev, media }))} />
-        <div className="form-actions">
-          <button className="btn">{form.id ? 'Update Item' : 'Save Item'}</button>
-          {form.id && (
-            <button type="button" className="btn btn-link" onClick={() => setForm(defaultForm)}>
-              Cancel edit
-            </button>
-          )}
-          {feedback && <p role={feedback.tone === 'error' ? 'alert' : 'status'} className={`save-feedback ${feedback.tone === 'error' ? 'is-error' : 'is-success'}`}>{feedback.message}</p>}
-        </div>
-      </form>
-      <div className="card-grid">
-        {items.map((item) => (
-          <div key={item.id} className="card">
-            {item.media && <img src={item.media.fallback_url} alt={item.media.alt_text || item.name} style={{ width: '100%', borderRadius: '10px' }} />}
-            <strong>{item.name}</strong>
-            <p className="muted">{item.description}</p>
-            <p className="small-text">
-              {item.price_cents ? `$${(item.price_cents / 100).toFixed(2)}` : 'Contact for pricing'} · {item.is_published ? 'Published' : 'Hidden'}
-            </p>
-            <button type="button" className="btn btn-tertiary" onClick={() => edit(item)}>
-              Edit item
-            </button>
-          </div>
-        ))}
-        {items.length === 0 && <div className="card">No retail items added yet.</div>}
       </div>
+
+      <div className="card">
+        <strong>Online sales are not live yet.</strong>
+        <p className="muted small-text" style={{ margin: '0.5rem 0 0' }}>
+          Current shop mode: {commerce.mode_label}. The extra sales-prep fields below are optional groundwork only, so checkout can be added later without reshaping every product.
+        </p>
+      </div>
+
+      <div className="retail-admin-layout">
+        <form className="card stack gap-sm" data-retail-form="category" onSubmit={saveCategory}>
+          <div>
+            <h2>{categoryForm.id ? 'Edit category' : 'Add category'}</h2>
+            <p className="muted small-text">Start with broad groups customers will recognize right away.</p>
+          </div>
+          <label className="field-block">
+            <span className="field-label">Category name</span>
+            <input
+              placeholder="Shampoos & coat care"
+              value={categoryForm.name}
+              onChange={(event) => setCategoryForm((current) => ({ ...current, name: event.target.value }))}
+              required
+            />
+          </label>
+          <label className="toggle">
+            <input
+              type="checkbox"
+              checked={categoryForm.is_published}
+              onChange={(event) => setCategoryForm((current) => ({ ...current, is_published: event.target.checked }))}
+            />
+            Show this category on the site
+          </label>
+          <div className="form-actions">
+            <button className="btn" disabled={savingCategory}>
+              {savingCategory ? 'Saving…' : categoryForm.id ? 'Update category' : 'Save category'}
+            </button>
+            {categoryForm.id && (
+              <button type="button" className="btn btn-link" onClick={resetCategoryForm}>
+                Cancel edit
+              </button>
+            )}
+          </div>
+          {categoryFeedback && (
+            <p
+              role={categoryFeedback.tone === 'error' ? 'alert' : 'status'}
+              className={`save-feedback ${categoryFeedback.tone === 'error' ? 'is-error' : 'is-success'}`}
+            >
+              {categoryFeedback.message}
+            </p>
+          )}
+        </form>
+
+        <form className="card stack gap-sm" data-retail-form="product" onSubmit={saveProduct}>
+          <div>
+            <h2>{productForm.id ? 'Edit product' : 'Add product'}</h2>
+            <p className="muted small-text">Keep it simple: category, name, price, photo, and a short note if needed.</p>
+          </div>
+          {categories.length === 0 ? (
+            <div className="inline-note">Create a category first, then products can be added underneath it.</div>
+          ) : (
+            <>
+              <label className="field-block">
+                <span className="field-label">Category</span>
+                <select
+                  value={productForm.category_id}
+                  onChange={(event) => setProductForm((current) => ({ ...current, category_id: event.target.value }))}
+                  required
+                >
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field-block">
+                <span className="field-label">Product name</span>
+                <input
+                  id="retail-product-name"
+                  placeholder="Blueberry facial"
+                  value={productForm.name}
+                  onChange={(event) => setProductForm((current) => ({ ...current, name: event.target.value }))}
+                  required
+                />
+              </label>
+              <label className="field-block">
+                <span className="field-label">SKU (optional)</span>
+                <input
+                  placeholder="BWDS-BLUEBERRY-001"
+                  value={productForm.sku}
+                  onChange={(event) => setProductForm((current) => ({ ...current, sku: event.target.value }))}
+                />
+              </label>
+              <div className="grid two-col gap-sm">
+                <label className="field-block">
+                  <span className="field-label">Price</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    placeholder="Leave blank to hide the price"
+                    value={productForm.price}
+                    onChange={(event) => setProductForm((current) => ({ ...current, price: event.target.value }))}
+                  />
+                </label>
+                <label className="toggle retail-toggle">
+                  <input
+                    type="checkbox"
+                    checked={productForm.is_published}
+                    onChange={(event) => setProductForm((current) => ({ ...current, is_published: event.target.checked }))}
+                  />
+                  Show this product on the site
+                </label>
+              </div>
+              <label className="field-block">
+                <span className="field-label">Short note</span>
+                <textarea
+                  placeholder="Optional details customers should know."
+                  value={productForm.description}
+                  onChange={(event) => setProductForm((current) => ({ ...current, description: event.target.value }))}
+                />
+              </label>
+              <MediaPicker
+                label="Product image"
+                media={productForm.media}
+                onChange={(media) => setProductForm((current) => ({ ...current, media }))}
+                libraryCategory="retail"
+                uploadCategory="retail"
+              />
+              <details className="retail-sales-prep">
+                <summary>Future online sales prep</summary>
+                <p className="muted small-text">Optional only. Leave these at the defaults until you actually decide to sell online.</p>
+                <div className="grid two-col gap-sm">
+                  <label className="field-block">
+                    <span className="field-label">Online sales plan</span>
+                    <select
+                      value={productForm.online_sale_status}
+                      onChange={(event) => setProductForm((current) => ({ ...current, online_sale_status: event.target.value }))}
+                    >
+                      {productOptions.online_sale_status.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field-block">
+                    <span className="field-label">Stock status</span>
+                    <select
+                      value={productForm.inventory_status}
+                      onChange={(event) => setProductForm((current) => ({ ...current, inventory_status: event.target.value }))}
+                    >
+                      {productOptions.inventory_status.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field-block">
+                    <span className="field-label">Fulfillment later</span>
+                    <select
+                      value={productForm.fulfillment_mode}
+                      onChange={(event) => setProductForm((current) => ({ ...current, fulfillment_mode: event.target.value }))}
+                    >
+                      {productOptions.fulfillment_mode.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </details>
+              <div className="form-actions">
+                <button className="btn" disabled={savingProduct}>
+                  {savingProduct ? 'Saving…' : productForm.id ? 'Update product' : 'Save product'}
+                </button>
+                {productForm.id && (
+                  <button type="button" className="btn btn-link" onClick={() => resetProductForm(productForm.category_id)}>
+                    Cancel edit
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+          {productFeedback && (
+            <p
+              role={productFeedback.tone === 'error' ? 'alert' : 'status'}
+              className={`save-feedback ${productFeedback.tone === 'error' ? 'is-error' : 'is-success'}`}
+            >
+              {productFeedback.message}
+            </p>
+          )}
+        </form>
+      </div>
+
+      <div className="retail-summary-bar">
+        <div className="card">
+          <strong>{categories.length}</strong>
+          <p className="muted small-text">Categories</p>
+        </div>
+        <div className="card">
+          <strong>{totalProducts}</strong>
+          <p className="muted small-text">Products</p>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="card">Loading products…</div>
+      ) : categories.length === 0 ? (
+        <div className="card">No categories yet. Add the first category to start building the product section.</div>
+      ) : (
+        <div className="retail-category-stack">
+          {categories.map((category) => (
+            <article key={category.id} className="card retail-category-card">
+              <div className="retail-category-card__header">
+                <div>
+                  <h3>{category.name}</h3>
+                  <p className="muted small-text">
+                    {category.is_published ? 'Visible on the site' : 'Hidden from the site'} · {category.items?.length || 0} product
+                    {(category.items?.length || 0) === 1 ? '' : 's'}
+                  </p>
+                </div>
+                <div className="retail-inline-actions">
+                  <button type="button" className="btn btn-tertiary" onClick={() => startProductForCategory(category.id)}>
+                    Add product
+                  </button>
+                  <button type="button" className="btn btn-link" onClick={() => editCategory(category)}>
+                    Edit
+                  </button>
+                  <button type="button" className="btn btn-link danger" onClick={() => deleteCategory(category)}>
+                    Delete
+                  </button>
+                </div>
+              </div>
+
+              {category.items?.length ? (
+                <div className="retail-product-list">
+                  {category.items.map((item) => (
+                    <div key={item.id} className="retail-product-row">
+                      {item.media ? (
+                        <img
+                          className="retail-product-row__image"
+                          src={item.media.fallback_url || item.media.original_url}
+                          alt={item.media.alt_text || item.name}
+                        />
+                      ) : (
+                        <div className="retail-product-row__placeholder" aria-hidden="true">
+                          {item.name.slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="retail-product-row__details">
+                        <div className="retail-product-row__heading">
+                          <strong>{item.name}</strong>
+                          <span className="small-text muted">{item.price_label || 'Ask in spa'}</span>
+                        </div>
+                        {item.description ? <p className="muted small-text">{item.description}</p> : <p className="muted small-text">No extra notes.</p>}
+                        <p className="small-text muted">{item.is_published ? 'Visible on the site' : 'Hidden from the site'}</p>
+                      </div>
+                      <div className="retail-inline-actions">
+                        <button type="button" className="btn btn-link" onClick={() => editProduct(item)}>
+                          Edit
+                        </button>
+                        <button type="button" className="btn btn-link danger" onClick={() => deleteProduct(item)}>
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="inline-note">No products in this category yet.</div>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -2260,7 +2662,28 @@ function ContentPage() {
           </div>
         </EditorSection>
 
+        <EditorSection title="Products Section" description="Public heading and intro copy shown above the live product categories.">
+          <SectionEnabledToggle
+            label="Show products section"
+            value={sections.retail?.enabled !== false}
+            onChange={(enabled) => updateSection('retail', { enabled })}
+          />
+          <label className="field-block">
+            <span className="field-label">Section title</span>
+            <input value={sections.retail?.title || ''} onChange={(e) => updateSection('retail', { title: e.target.value })} />
+          </label>
+          <div className="field-block">
+            <span className="field-label">Section intro</span>
+            <RichTextEditor value={sections.retail?.body || ''} onChange={(value) => updateSection('retail', { body: value })} />
+          </div>
+        </EditorSection>
+
         <EditorSection title="Footer" description="Short footer tagline shown alongside the site quick links.">
+          <SectionEnabledToggle
+            label="Show footer"
+            value={sections.footer?.enabled !== false}
+            onChange={(enabled) => updateSection('footer', { enabled })}
+          />
           <label className="field-block">
             <span className="field-label">Footer tagline</span>
             <input value={sections.footer?.tagline || ''} onChange={(e) => updateSection('footer', { tagline: e.target.value })} />
@@ -2379,8 +2802,14 @@ function MediaPage() {
     if (!window.confirm('Delete this media item? This can remove it from gallery, reviews, or other public sections that reference it.')) {
       return;
     }
-    await api.delete(`/media/${id}`);
-    load();
+
+    try {
+      await api.delete(`/media/${id}`);
+      setUploadStatus('Media deleted.');
+      load();
+    } catch (err) {
+      setUploadStatus(err.response?.data?.error?.message ?? 'Unable to delete that media item.');
+    }
   };
 
   const categories = useMemo(() => {
@@ -2448,8 +2877,11 @@ function MediaPage() {
       </div>
       <div className="media-gallery">
         {filteredItems.map((item) => (
-          <div key={item.id} className="card">
+          <div key={item.id} className="card" data-media-id={item.id}>
             <MediaPicture media={item} alt={item.alt_text || item.title || `Media ${item.id}`} />
+            <p>
+              <strong>{item.title || item.alt_text || `Media #${item.id}`}</strong>
+            </p>
             <p>
               #{item.id} · {item.category}
             </p>
@@ -2683,6 +3115,239 @@ function SystemPage() {
       </div>
     </div>
   );
+}
+
+function createCalendarIntegrationForm(provider = 'google') {
+  return {
+    id: null,
+    provider,
+    label: '',
+    target_calendar_name: '',
+    target_calendar_reference: '',
+    notes: '',
+    is_enabled: false,
+    sync_confirmed_bookings: true,
+  };
+}
+
+function CalendarSyncPage() {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+  const [status, setStatus] = useState(null);
+  const [form, setForm] = useState(createCalendarIntegrationForm());
+
+  const load = useCallback(async () => {
+    const response = await api.get('/calendar-integrations');
+    setData(response.data.data);
+    setError(null);
+  }, []);
+
+  useEffect(() => {
+    load().catch((err) => setError(err.response?.data?.error?.message ?? err.message));
+  }, [load]);
+
+  const resetForm = () => {
+    const defaultProvider = data?.providers?.[0]?.key || 'google';
+    setForm(createCalendarIntegrationForm(defaultProvider));
+    setStatus(null);
+  };
+
+  const save = async (event) => {
+    event.preventDefault();
+    try {
+      const response = await api.post('/calendar-integrations', form);
+      const saved = response.data.data;
+      setStatus({ tone: 'success', message: `${saved.label} saved.` });
+      await load();
+      setForm(createCalendarIntegrationForm(saved.provider || data?.providers?.[0]?.key || 'google'));
+    } catch (err) {
+      setStatus({
+        tone: 'error',
+        message: err.response?.data?.error?.message ?? err.message,
+      });
+    }
+  };
+
+  const edit = (item) => {
+    setForm({
+      id: item.id,
+      provider: item.provider,
+      label: item.label || '',
+      target_calendar_name: item.target_calendar_name || '',
+      target_calendar_reference: item.target_calendar_reference || '',
+      notes: item.notes || '',
+      is_enabled: Boolean(item.is_enabled),
+      sync_confirmed_bookings: Boolean(item.sync_confirmed_bookings),
+    });
+    setStatus(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const destroy = async (id) => {
+    if (!window.confirm('Delete this calendar integration slot? Existing sync history for that slot will be removed too.')) {
+      return;
+    }
+
+    try {
+      await api.delete(`/calendar-integrations/${id}`);
+      setStatus({ tone: 'success', message: 'Calendar integration deleted.' });
+      if (form.id === id) {
+        resetForm();
+      }
+      await load();
+    } catch (err) {
+      setStatus({
+        tone: 'error',
+        message: err.response?.data?.error?.message ?? err.message,
+      });
+    }
+  };
+
+  if (error && !data) {
+    return <div className="card">{error}</div>;
+  }
+
+  if (!data) {
+    return <div className="card">Loading calendar sync foundation…</div>;
+  }
+
+  const providerLookup = Object.fromEntries((data.providers ?? []).map((provider) => [provider.key, provider]));
+  const selectedProvider = providerLookup[form.provider] || data.providers?.[0] || null;
+  const editingIntegration = form.id ? (data.integrations ?? []).find((item) => item.id === form.id) : null;
+
+  return (
+    <div>
+      <h1>Calendar Sync</h1>
+      <p>Foundation only for now. This stores future Google, Microsoft, or Apple sync targets and reserves the booking lifecycle hooks needed to sync confirmed appointments later.</p>
+      {error ? <div className="card" style={{ marginBottom: '1rem' }}>{error}</div> : null}
+
+      <div className="card">
+        <h3>Current foundation</h3>
+        <p>Calendar sync enabled: {data.config?.enabled ? 'Yes' : 'No'}</p>
+        <p>Default timezone: {data.config?.default_timezone || 'Not set'}</p>
+        <p>Max job attempts: {data.config?.max_job_attempts ?? 0}</p>
+        <p className="muted">No provider-specific OAuth or event-writing code is active yet. Enabling a slot here will not create events until a provider implementation is added and connected.</p>
+      </div>
+
+      <div className="card" style={{ marginTop: '1rem' }}>
+        <h3>Supported provider slots</h3>
+        <div style={{ display: 'grid', gap: '0.75rem' }}>
+          {(data.providers ?? []).map((provider) => (
+            <div key={provider.key} style={{ border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '0.9rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'baseline' }}>
+                <strong>{provider.label}</strong>
+                <span className="small-text muted">{provider.implementation_status === 'foundation_only' ? 'Foundation only' : provider.implementation_status}</span>
+              </div>
+              <p style={{ margin: '0.5rem 0 0.25rem' }}>{provider.summary}</p>
+              <p className="muted small-text" style={{ margin: 0 }}>Planned auth: {provider.planned_auth_strategy}</p>
+              <p className="muted small-text" style={{ margin: '0.25rem 0 0' }}>{provider.future_notes}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <form className="card" style={{ marginTop: '1rem' }} onSubmit={save}>
+        <h3>{form.id ? 'Edit integration slot' : 'Add integration slot'}</h3>
+        <p className="muted">You can store multiple targets here now, then connect one or more of them later when we implement the real provider.</p>
+        <div className="form-grid">
+          <label>
+            Provider
+            <select value={form.provider} onChange={(event) => setForm((current) => ({ ...current, provider: event.target.value }))}>
+              {(data.providers ?? []).map((provider) => (
+                <option key={provider.key} value={provider.key}>{provider.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Label
+            <input value={form.label} onChange={(event) => setForm((current) => ({ ...current, label: event.target.value }))} placeholder="Front desk calendar" />
+          </label>
+          <label>
+            Target calendar name
+            <input value={form.target_calendar_name} onChange={(event) => setForm((current) => ({ ...current, target_calendar_name: event.target.value }))} placeholder="Grooming confirmations" />
+          </label>
+          <label>
+            Future target reference
+            <input value={form.target_calendar_reference} onChange={(event) => setForm((current) => ({ ...current, target_calendar_reference: event.target.value }))} placeholder={selectedProvider?.planned_target_label || 'Calendar reference'} />
+          </label>
+        </div>
+
+        <label style={{ display: 'block', marginTop: '0.75rem' }}>
+          Notes
+          <textarea value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} rows={4} placeholder="Who owns this calendar, what it should receive, or anything we should remember later." />
+        </label>
+
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
+          <label>
+            <input type="checkbox" checked={form.is_enabled} onChange={(event) => setForm((current) => ({ ...current, is_enabled: event.target.checked }))} /> Enabled when provider is ready
+          </label>
+          <label>
+            <input type="checkbox" checked={form.sync_confirmed_bookings} onChange={(event) => setForm((current) => ({ ...current, sync_confirmed_bookings: event.target.checked }))} /> Sync confirmed bookings only
+          </label>
+        </div>
+
+        <div className="muted small-text" style={{ marginTop: '0.75rem' }}>
+          Current connection status: {form.id ? humanizeCalendarConnectionStatus(editingIntegration?.connection_status || 'not_connected') : 'Not connected'}
+        </div>
+
+        <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button className="btn">{form.id ? 'Update slot' : 'Save slot'}</button>
+          <button type="button" className="btn btn-link" onClick={resetForm}>Clear</button>
+        </div>
+        {status && <p role={status.tone === 'error' ? 'alert' : 'status'} className={status.tone === 'error' ? 'muted danger' : 'muted'} style={{ marginTop: '0.75rem' }}>{status.message}</p>}
+      </form>
+
+      <div className="card" style={{ marginTop: '1rem' }}>
+        <h3>Queued sync work</h3>
+        <p className="muted">These counters are here so future provider implementations can reuse the same queue and tracking model.</p>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <tbody>
+            {Object.entries(data.queue?.status_totals ?? {}).map(([key, total]) => (
+              <tr key={key}>
+                <td style={{ padding: '0.4rem 0', width: '35%' }}>{humanizeCalendarConnectionStatus(key)}</td>
+                <td style={{ padding: '0.4rem 0' }}>{total}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ marginTop: '1rem', display: 'grid', gap: '0.75rem' }}>
+        {(data.integrations ?? []).length === 0 ? (
+          <div className="card">No calendar integration slots saved yet.</div>
+        ) : (
+          (data.integrations ?? []).map((item) => (
+            <div key={item.id} className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                <div>
+                  <strong>{item.label}</strong>
+                  <p className="muted" style={{ margin: '0.35rem 0 0' }}>
+                    {item.provider_label} · {humanizeCalendarConnectionStatus(item.connection_status)} · {item.is_enabled ? 'Enabled' : 'Disabled'}
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <button type="button" className="btn btn-tertiary" onClick={() => edit(item)}>Edit</button>
+                  <button type="button" className="btn btn-link danger" onClick={() => destroy(item.id)}>Delete</button>
+                </div>
+              </div>
+              <p style={{ margin: '0.75rem 0 0.25rem' }}>Target calendar: {item.target_calendar_name || 'Not named yet'}</p>
+              <p className="muted small-text" style={{ margin: 0 }}>Future reference: {item.target_calendar_reference || 'Not assigned yet'}</p>
+              <p className="muted small-text" style={{ margin: '0.25rem 0 0' }}>Confirmed-only sync: {item.sync_confirmed_bookings ? 'Yes' : 'No'}</p>
+              <p className="muted small-text" style={{ margin: '0.25rem 0 0' }}>Pending jobs: {item.stats?.pending_jobs ?? 0} · Failed jobs: {item.stats?.failed_jobs ?? 0} · Linked events: {item.stats?.linked_events ?? 0}</p>
+              {item.notes ? <p style={{ margin: '0.75rem 0 0' }}>{item.notes}</p> : null}
+              {item.last_error ? <p className="muted danger" style={{ margin: '0.75rem 0 0' }}>Last error: {item.last_error}</p> : null}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function humanizeCalendarConnectionStatus(value) {
+  return String(value || '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function ManualBookingLauncher({ children, onCreated, scheduleSettings }) {
@@ -3015,9 +3680,15 @@ function RichTextEditor({ value, onChange }) {
 
 function EditorSection({ title, description, children, initiallyOpen = false }) {
   const [isOpen, setIsOpen] = useState(initiallyOpen);
+  const sectionKey = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
   return (
-    <details className="editor-section card" open={isOpen} onToggle={(event) => setIsOpen(event.currentTarget.open)}>
+    <details
+      className="editor-section card"
+      data-editor-section={sectionKey}
+      open={isOpen}
+      onToggle={(event) => setIsOpen(event.currentTarget.open)}
+    >
       <summary>
         <div>
           <strong>{title}</strong>
@@ -3092,12 +3763,15 @@ function ListEditor({ items, onChange, fields }) {
   );
 }
 
-function MediaPicker({ label, media, onChange }) {
+function MediaPicker({ label, media, onChange, libraryCategory = '', uploadCategory = '' }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(null);
   const dialogId = useId();
   const dialogTitleId = useId();
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (!open) {
@@ -3114,11 +3788,55 @@ function MediaPicker({ label, media, onChange }) {
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [open]);
 
+  useEffect(() => {
+    setItems([]);
+  }, [libraryCategory]);
+
   const loadMedia = async () => {
     setLoading(true);
-    const response = await api.get('/media');
-    setItems(response.data.data.items);
-    setLoading(false);
+    setError(null);
+
+    try {
+      const response = await api.get('/media', {
+        params: libraryCategory ? { category: libraryCategory } : undefined,
+      });
+      setItems(response.data.data.items);
+    } catch (err) {
+      setError(err.response?.data?.error?.message ?? 'Unable to load images right now.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const uploadImage = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('category', uploadCategory || libraryCategory || 'default');
+
+      const response = await api.post('/media', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      const nextMedia = response.data.data.media;
+      setItems((current) => [nextMedia, ...current.filter((item) => item.id !== nextMedia.id)]);
+      onChange(nextMedia);
+    } catch (err) {
+      setError(err.response?.data?.error?.message ?? 'Unable to upload image.');
+    } finally {
+      event.target.value = '';
+      setUploading(false);
+    }
   };
 
   const openModal = () => {
@@ -3149,12 +3867,17 @@ function MediaPicker({ label, media, onChange }) {
         >
           Choose image
         </button>
+        <button type="button" className="btn btn-tertiary" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+          {uploading ? 'Uploading…' : 'Upload image'}
+        </button>
         {media && (
           <button type="button" className="btn btn-link" onClick={() => onChange(null)}>
             Clear
           </button>
         )}
       </div>
+      <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={uploadImage} />
+      {error && <p role="alert" className="save-feedback is-error">{error}</p>}
       {open && (
         <div className="media-modal" role="presentation">
           <div className="media-modal__backdrop" onClick={() => setOpen(false)} />
@@ -3165,8 +3888,20 @@ function MediaPicker({ label, media, onChange }) {
                 Close
               </button>
             </div>
+            <div className="media-modal__toolbar">
+              <button type="button" className="btn btn-tertiary" onClick={loadMedia} disabled={loading}>
+                Refresh
+              </button>
+              <button type="button" className="btn btn-tertiary" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                {uploading ? 'Uploading…' : 'Upload image'}
+              </button>
+            </div>
             {loading ? (
               <p>Loading…</p>
+            ) : error ? (
+              <p role="alert" className="save-feedback is-error">{error}</p>
+            ) : items.length === 0 ? (
+              <div className="inline-note">No images here yet. Upload one to get started.</div>
             ) : (
               <div className="media-grid">
                 {items.map((item) => (

@@ -54,7 +54,13 @@ final class AdminMediaController
         if (!$id) {
             Response::error('validation_error', 'ID required', 422);
         }
-        $this->media->delete($id);
+
+        try {
+            $this->media->delete($id);
+        } catch (\RuntimeException $e) {
+            Response::error('media_error', $e->getMessage(), 422);
+        }
+
         Response::success(['deleted' => true]);
     }
 }

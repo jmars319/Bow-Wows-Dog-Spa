@@ -19,6 +19,7 @@ use BowWowSpa\Controllers\AdminAuditController;
 use BowWowSpa\Controllers\AdminUsersController;
 use BowWowSpa\Controllers\AdminDashboardController;
 use BowWowSpa\Controllers\AdminSystemController;
+use BowWowSpa\Controllers\AdminCalendarIntegrationsController;
 use BowWowSpa\Controllers\AdminServicesController;
 use BowWowSpa\Controllers\AdminFeaturedReviewsController;
 use BowWowSpa\Controllers\AdminGalleryController;
@@ -146,7 +147,10 @@ final class Application
 
         $retail = new AdminRetailController();
         $this->router->add('GET', '/api/admin/retail', [$retail, 'index']);
-        $this->router->add('POST', '/api/admin/retail', [$retail, 'save']);
+        $this->router->add('POST', '/api/admin/retail', [$retail, 'saveItem']);
+        $this->router->add('POST', '/api/admin/retail/categories', [$retail, 'saveCategory']);
+        $this->router->add('DELETE', '/api/admin/retail/categories/{id}', [$retail, 'deleteCategory']);
+        $this->router->add('DELETE', '/api/admin/retail/items/{id}', [$retail, 'deleteItem']);
 
         $media = new AdminMediaController();
         $this->router->add('GET', '/api/admin/media', [$media, 'index']);
@@ -162,5 +166,10 @@ final class Application
 
         $system = new AdminSystemController();
         $this->router->add('GET', '/api/admin/system', [$system, 'diagnostics']);
+
+        $calendarIntegrations = new AdminCalendarIntegrationsController();
+        $this->router->add('GET', '/api/admin/calendar-integrations', [$calendarIntegrations, 'index']);
+        $this->router->add('POST', '/api/admin/calendar-integrations', [$calendarIntegrations, 'save']);
+        $this->router->add('DELETE', '/api/admin/calendar-integrations/{id}', [$calendarIntegrations, 'delete']);
     }
 }

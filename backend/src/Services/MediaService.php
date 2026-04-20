@@ -104,6 +104,13 @@ final class MediaService
             return;
         }
 
+        $usages = $this->findUsages($id);
+        if ($usages !== []) {
+            throw new \RuntimeException(
+                'This image is still being used by ' . implode(', ', $usages) . '. Replace it there before deleting it.'
+            );
+        }
+
         $paths = $this->pathConfig();
         $toDelete = [];
 
@@ -179,6 +186,46 @@ final class MediaService
             'fallback_url' => $row['fallback_url'] ?? $row['original_url'],
             'created_at' => $row['created_at'],
         ];
+    }
+
+    private function findUsages(int $mediaId): array
+    {
+        $usages = [];
+
+        $retail = Database::fetch(
+            'SELECT COUNT(*) AS total
+             FROM retail_items
+             WHERE media_id = :media_id',
+            ['media_id' => $mediaId]
+        );
+        $retailTotal = (int) ($retail['total'] ?? 0);
+        if ($retailTotal > 0) {
+            $usages[] = $retailTotal . ' product' . ($retailTotal === 1 ? '' : 's');
+        }
+
+        $gallery = Database::fetch(
+            'SELECT COUNT(*) AS total
+             FROM gallery_items
+             WHERE primary_media_id = :media_id OR secondary_media_id = :media_id',
+            ['media_id' => $mediaId]
+        );
+        $galleryTotal = (int) ($gallery['total'] ?? 0);
+        if ($galleryTotal > 0) {
+            $usages[] = $galleryTotal . ' gallery item' . ($galleryTotal === 1 ? '' : 's');
+        }
+
+        $legacyGallery = Database::fetch(
+            'SELECT COUNT(*) AS total
+             FROM happy_clients
+             WHERE before_media_id = :media_id OR after_media_id = :media_id',
+            ['media_id' => $mediaId]
+        );
+        $legacyTotal = (int) ($legacyGallery['total'] ?? 0);
+        if ($legacyTotal > 0) {
+            $usages[] = $legacyTotal . ' legacy gallery item' . ($legacyTotal === 1 ? '' : 's');
+        }
+
+        return $usages;
     }
 
     private function validateUpload(array $file, array $config): void

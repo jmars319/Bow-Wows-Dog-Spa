@@ -42,17 +42,54 @@ CREATE TABLE IF NOT EXISTS content_blocks (
     content_json JSON NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS retail_items (
+CREATE TABLE IF NOT EXISTS retail_categories (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(191) NOT NULL,
+    slug VARCHAR(191) NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    is_published TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    UNIQUE KEY uniq_retail_categories_slug (slug)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS retail_items (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    category_id INT UNSIGNED NULL,
+    name VARCHAR(191) NOT NULL,
+    sku VARCHAR(100) NULL,
     description TEXT NULL,
     price_cents INT NULL,
     media_id INT NULL,
+    online_sale_status ENUM('catalog_only', 'ready', 'in_store_only') NOT NULL DEFAULT 'catalog_only',
+    inventory_status ENUM('untracked', 'in_stock', 'limited', 'out_of_stock') NOT NULL DEFAULT 'untracked',
+    fulfillment_mode ENUM('undecided', 'pickup_only', 'ship_or_pickup') NOT NULL DEFAULT 'undecided',
     is_featured TINYINT(1) NOT NULL DEFAULT 0,
     sort_order INT NOT NULL DEFAULT 0,
     is_published TINYINT(1) NOT NULL DEFAULT 1,
     created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL
+    updated_at DATETIME NOT NULL,
+    UNIQUE KEY uniq_retail_items_sku (sku),
+    INDEX idx_retail_items_category_sort (category_id, sort_order, created_at),
+    CONSTRAINT fk_retail_items_category FOREIGN KEY (category_id) REFERENCES retail_categories(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS retail_item_variants (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    retail_item_id INT UNSIGNED NOT NULL,
+    label VARCHAR(191) NOT NULL,
+    sku VARCHAR(100) NULL,
+    price_cents INT NULL,
+    inventory_status ENUM('untracked', 'in_stock', 'limited', 'out_of_stock') NOT NULL DEFAULT 'untracked',
+    stock_quantity INT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    is_default TINYINT(1) NOT NULL DEFAULT 0,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    INDEX idx_retail_item_variants_item_sort (retail_item_id, is_active, sort_order, created_at),
+    UNIQUE KEY uniq_retail_item_variants_sku (sku),
+    CONSTRAINT fk_retail_item_variants_item FOREIGN KEY (retail_item_id) REFERENCES retail_items(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS media_assets (
@@ -209,6 +246,60 @@ CREATE TABLE IF NOT EXISTS gallery_items (
     updated_at DATETIME NOT NULL,
     INDEX idx_gallery_primary_media (primary_media_id),
     INDEX idx_gallery_secondary_media (secondary_media_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS calendar_integrations (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    provider VARCHAR(50) NOT NULL,
+    label VARCHAR(191) NOT NULL,
+    target_calendar_name VARCHAR(191) NULL,
+    target_calendar_reference VARCHAR(191) NULL,
+    connection_status ENUM('not_connected', 'connected', 'error') NOT NULL DEFAULT 'not_connected',
+    sync_confirmed_bookings TINYINT(1) NOT NULL DEFAULT 1,
+    is_enabled TINYINT(1) NOT NULL DEFAULT 0,
+    settings_json JSON NULL,
+    notes TEXT NULL,
+    last_synced_at DATETIME NULL,
+    last_error TEXT NULL,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    INDEX idx_calendar_integrations_provider (provider),
+    INDEX idx_calendar_integrations_enabled (is_enabled, connection_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS calendar_sync_jobs (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    calendar_integration_id INT UNSIGNED NOT NULL,
+    booking_request_id BIGINT UNSIGNED NOT NULL,
+    action ENUM('upsert_booking', 'delete_booking') NOT NULL,
+    job_status ENUM('pending', 'processing', 'completed', 'failed', 'skipped') NOT NULL DEFAULT 'pending',
+    payload_json JSON NULL,
+    attempt_count INT UNSIGNED NOT NULL DEFAULT 0,
+    error_message TEXT NULL,
+    available_at DATETIME NOT NULL,
+    processed_at DATETIME NULL,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    INDEX idx_calendar_sync_jobs_lookup (calendar_integration_id, booking_request_id, action, job_status),
+    INDEX idx_calendar_sync_jobs_available (job_status, available_at),
+    CONSTRAINT fk_calendar_sync_jobs_integration FOREIGN KEY (calendar_integration_id) REFERENCES calendar_integrations(id) ON DELETE CASCADE,
+    CONSTRAINT fk_calendar_sync_jobs_booking FOREIGN KEY (booking_request_id) REFERENCES booking_requests(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS calendar_sync_links (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    calendar_integration_id INT UNSIGNED NOT NULL,
+    booking_request_id BIGINT UNSIGNED NOT NULL,
+    external_calendar_id VARCHAR(191) NULL,
+    external_event_id VARCHAR(191) NOT NULL,
+    external_event_version VARCHAR(191) NULL,
+    synced_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    UNIQUE KEY uniq_calendar_sync_link (calendar_integration_id, booking_request_id),
+    INDEX idx_calendar_sync_external_event (calendar_integration_id, external_event_id),
+    CONSTRAINT fk_calendar_sync_links_integration FOREIGN KEY (calendar_integration_id) REFERENCES calendar_integrations(id) ON DELETE CASCADE,
+    CONSTRAINT fk_calendar_sync_links_booking FOREIGN KEY (booking_request_id) REFERENCES booking_requests(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -418,6 +509,127 @@ PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE BINARY table_schema = BINARY @dbName
+      AND BINARY table_name = BINARY 'retail_items'
+      AND BINARY column_name = BINARY 'category_id'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE retail_items ADD COLUMN category_id INT UNSIGNED NULL AFTER id', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'retail_items' AND column_name = 'sku'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE retail_items ADD COLUMN sku VARCHAR(100) NULL AFTER name', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'retail_items' AND column_name = 'online_sale_status'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE retail_items ADD COLUMN online_sale_status ENUM(''catalog_only'', ''ready'', ''in_store_only'') NOT NULL DEFAULT ''catalog_only'' AFTER media_id', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'retail_items' AND column_name = 'inventory_status'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE retail_items ADD COLUMN inventory_status ENUM(''untracked'', ''in_stock'', ''limited'', ''out_of_stock'') NOT NULL DEFAULT ''untracked'' AFTER online_sale_status', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'retail_items' AND column_name = 'fulfillment_mode'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE retail_items ADD COLUMN fulfillment_mode ENUM(''undecided'', ''pickup_only'', ''ship_or_pickup'') NOT NULL DEFAULT ''undecided'' AFTER inventory_status', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.statistics
+    WHERE table_schema = @dbName AND table_name = 'retail_items' AND index_name = 'uniq_retail_items_sku'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE retail_items ADD UNIQUE KEY uniq_retail_items_sku (sku)', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.statistics
+    WHERE BINARY table_schema = BINARY @dbName
+      AND BINARY table_name = BINARY 'retail_items'
+      AND BINARY index_name = BINARY 'idx_retail_items_category_sort'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE retail_items ADD INDEX idx_retail_items_category_sort (category_id, sort_order, created_at)', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*)
+    FROM information_schema.referential_constraints
+    WHERE BINARY constraint_schema = BINARY @dbName
+      AND BINARY table_name = BINARY 'retail_items'
+      AND BINARY constraint_name = BINARY 'fk_retail_items_category'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE retail_items ADD CONSTRAINT fk_retail_items_category FOREIGN KEY (category_id) REFERENCES retail_categories(id) ON DELETE SET NULL', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+INSERT INTO retail_categories (name, slug, sort_order, is_published, created_at, updated_at)
+SELECT 'General', 'general', 10, 1, NOW(), NOW()
+WHERE EXISTS (SELECT 1 FROM retail_items)
+  AND NOT EXISTS (SELECT 1 FROM retail_categories);
+
+SET @defaultRetailCategoryId := (
+    SELECT id
+    FROM retail_categories
+    ORDER BY sort_order ASC, id ASC
+    LIMIT 1
+);
+
+UPDATE retail_items
+SET category_id = @defaultRetailCategoryId
+WHERE category_id IS NULL
+  AND @defaultRetailCategoryId IS NOT NULL;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.tables
+    WHERE table_schema = @dbName AND table_name = 'retail_item_variants'
+);
+SET @ddl := IF(@exists = 0, 'CREATE TABLE retail_item_variants (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    retail_item_id INT UNSIGNED NOT NULL,
+    label VARCHAR(191) NOT NULL,
+    sku VARCHAR(100) NULL,
+    price_cents INT NULL,
+    inventory_status ENUM(''''untracked'''', ''''in_stock'''', ''''limited'''', ''''out_of_stock'''') NOT NULL DEFAULT ''''untracked'''',
+    stock_quantity INT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    is_default TINYINT(1) NOT NULL DEFAULT 0,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    INDEX idx_retail_item_variants_item_sort (retail_item_id, is_active, sort_order, created_at),
+    UNIQUE KEY uniq_retail_item_variants_sku (sku),
+    CONSTRAINT fk_retail_item_variants_item FOREIGN KEY (retail_item_id) REFERENCES retail_items(id) ON DELETE CASCADE
+)', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 ALTER TABLE booking_requests
     MODIFY COLUMN status ENUM('pending_confirmation', 'confirmed', 'declined', 'cancelled', 'expired', 'completed') NOT NULL DEFAULT 'pending_confirmation';
 
@@ -457,6 +669,9 @@ VALUES
     ('phone', '(336) 842-3723'),
     ('email', 'bowwowsdogspa@gmail.com'),
     ('hours', 'Mon-Thurs 10a-5p · Fri, Sat by special appointment'),
+    ('commerce_mode', 'catalog_only'),
+    ('commerce_currency', 'USD'),
+    ('commerce_provider', ''),
     ('booking_hold_minutes', '30'),
     ('booking_pending_expire_hours', '24')
 ON DUPLICATE KEY UPDATE

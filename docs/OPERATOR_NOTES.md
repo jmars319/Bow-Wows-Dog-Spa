@@ -24,11 +24,25 @@
   - An admin confirmed booking already uses the time.
   - A manual hold exists (via public selection) and has not expired.
 
+## Calendar sync groundwork
+- The **Calendar Sync** admin screen stores future calendar targets for Google, Microsoft, and Apple without connecting any provider yet.
+- Multiple targets can be saved at once so the business can decide later which calendars should receive confirmed bookings.
+- Saving a slot here does **not** create calendar events on its own. Actual provider auth and event-writing work still has to be implemented later.
+- The backend now records future sync jobs and event links in dedicated tables so confirmed-booking sync can be added without reshaping the booking lifecycle again.
+
 ## Content management
 - **Text & Site Info**: update hero copy, about text, policy blocks, serving-area tagline, and default email language.
 - **Gallery**: manage published groomed-pet, facility, retail, and before/after items that appear in the public photo-driven sections.
-- **Retail**: maintain boutique products with optional prices and featured flags.
+- **Retail**: maintain boutique products with optional prices and featured flags. The product form now also has an optional **Future online sales prep** section for SKU, stock status, fulfillment direction, and whether a product should stay catalog-only or eventually be eligible for online checkout.
 - **Media Manager**: upload photos (XHR progress UI) and provide category/alt/title/caption. Originals land in `backend/uploads/originals` and responsive variants + WebP + manifests are generated automatically per the Generic Image Pipeline spec.
+
+## Future online sales groundwork
+- The live public site is still catalog-only. There is no cart, checkout, payment provider, shipping flow, tax handling, or order management yet.
+- Backend scaffolding now exists so checkout can be added later without reshaping every product:
+  - item-level SKU / stock / fulfillment / sales-intent fields
+  - dormant `retail_item_variants` table for future sizes or product options
+  - dormant commerce mode settings in `site_settings`
+- Until checkout is explicitly implemented, treat those new product fields as internal prep only.
 
 ## RBAC summary
 - `super_admin`: full access, plus Admin Users screen.
@@ -70,6 +84,14 @@
 - Run `php backend/scripts/seed_admin.php` after migrations to create the initial `super_admin` (named `admin`) in local/CLI workflows or on hosts where you intentionally included the CLI tools. Provide credentials via prompts or `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars.
 - Use `--reset` or `ADMIN_FORCE_RESET=1` to rotate the password for the existing admin user without manual SQL.
 - Default deploy bundles exclude `backend/scripts/` entirely. If you need the CLI tools on a host intentionally, rebuild with `INCLUDE_CLI_TOOLS_IN_DEPLOY=true`.
+
+## Test workflow
+- Backend integration tests: `php backend/tests/run.php`
+- Frontend unit/integration tests: `cd frontend/public-app && npm test` and `cd frontend/admin-app && npm test`
+- Browser smoke suite: `npm run test:e2e`
+- Full local verification: `bash scripts/test-all.sh`
+- `scripts/test-all.sh` backs up the configured dev DB first, runs the backend/frontend/browser suites, then restores the DB on exit. It is safe to use with `bowwow_dev` if you let the script finish cleanly.
+- The Playwright seed step uses `backend/scripts/seed_e2e_fixtures.php` to create/update a deterministic `e2e-admin` user and seed one future booking date with fixed time buttons.
 
 ## Release packaging
 - `backend/.env` is the local/dev file in this repo unless your host setup deliberately uses that same path.

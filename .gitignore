@@ -13,3 +13,5 @@ deploy-*.zip
 *.DS_Store
 .build/
 .dev/
+playwright-report/
+test-results/

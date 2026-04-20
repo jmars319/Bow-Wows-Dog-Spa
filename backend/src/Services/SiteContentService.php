@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BowWowSpa\Services;
 
 use BowWowSpa\Database\Database;
+use BowWowSpa\Support\HtmlSanitizer;
 use BowWowSpa\Support\Input;
 
 final class SiteContentService
@@ -105,9 +106,9 @@ final class SiteContentService
             'tagline' => 'Trusted neighborhood boutique grooming for Greater Winston-Salem and Triad families.',
         ],
         'retail' => [
-            'enabled' => false,
-            'title' => 'Boutique Retail',
-            'body' => '',
+            'enabled' => true,
+            'title' => 'Boutique Products',
+            'body' => '<p>Browse the shampoos, coat-care essentials, treats, and boutique extras available in the spa. This section updates automatically whenever our team refreshes the product list.</p>',
         ],
         'terms' => [
             'enabled' => true,
@@ -132,6 +133,7 @@ final class SiteContentService
         private readonly ServiceCatalogService $services = new ServiceCatalogService(),
         private readonly FeaturedReviewService $reviews = new FeaturedReviewService(),
         private readonly GalleryService $gallery = new GalleryService(),
+        private readonly RetailService $retail = new RetailService(),
     ) {
     }
 
@@ -165,22 +167,20 @@ final class SiteContentService
             $galleryItems = $this->legacyGalleryFallback();
         }
 
-        $retail = Database::fetchAll('SELECT * FROM retail_items WHERE is_published = 1 ORDER BY sort_order ASC, created_at DESC');
-        foreach ($retail as &$item) {
-            $item['media'] = $item['media_id'] ? $this->media->find((int) $item['media_id']) : null;
-        }
-        unset($item);
+        $retailCatalog = $this->retail->publicCatalog();
 
         return [
             'settings' => $settings,
             'sections' => $blocks,
+            'commerce' => $retailCatalog['commerce'],
             'services' => $this->services->list(true),
             'featured_reviews' => $this->reviews->list(true),
             'gallery_items' => $galleryItems,
             'faqs' => $blocks['faq']['items'] ?? [],
             'policies' => $blocks['policies']['items'] ?? [],
             'happy_clients' => $galleryItems,
-            'retail' => $retail,
+            'retail' => $retailCatalog['items'],
+            'retail_categories' => $retailCatalog['categories'],
         ];
     }
 
@@ -245,6 +245,7 @@ final class SiteContentService
             $value['points'] = is_array($points) ? array_values($points) : [];
         }
 
+        $value = $this->sanitizeSectionHtml($key, $value);
         $value['enabled'] = $enabled;
         return $value;
     }
@@ -299,5 +300,44 @@ final class SiteContentService
         }
 
         return true;
+    }
+
+    private function sanitizeSectionHtml(string $key, array $value): array
+    {
+        $richTextFields = [
+            'hero' => ['subheading'],
+            'trust' => ['intro'],
+            'services' => ['intro', 'disclaimer'],
+            'booking' => ['intro', 'notice', 'availability_note'],
+            'gallery' => ['intro'],
+            'reviews' => ['intro'],
+            'about' => ['body'],
+            'location' => ['note'],
+            'contact' => ['note'],
+            'retail' => ['body'],
+        ];
+
+        foreach ($richTextFields[$key] ?? [] as $field) {
+            $value[$field] = HtmlSanitizer::richText($value[$field] ?? null);
+        }
+
+        if (in_array($key, ['faq', 'policies', 'terms', 'privacy'], true)) {
+            $items = is_array($value['items'] ?? null) ? $value['items'] : [];
+            foreach ($items as $index => $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+
+                if ($key === 'faq') {
+                    $items[$index]['answer'] = HtmlSanitizer::richText($item['answer'] ?? null);
+                    continue;
+                }
+
+                $items[$index]['body'] = HtmlSanitizer::richText($item['body'] ?? null);
+            }
+            $value['items'] = $items;
+        }
+
+        return $value;
     }
 }

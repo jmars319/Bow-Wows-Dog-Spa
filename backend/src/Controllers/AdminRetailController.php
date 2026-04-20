@@ -20,17 +20,60 @@ final class AdminRetailController
     public function index(): void
     {
         $this->auth->ensureSectionAccess('retail');
-        Response::success(['items' => $this->retail->list()]);
+        Response::success($this->retail->adminCatalog());
     }
 
-    public function save(Request $request): void
+    public function saveItem(Request $request): void
     {
         $this->auth->ensureSectionAccess('retail');
         try {
-            $item = $this->retail->save($request->body);
+            $item = $this->retail->saveItem($request->body);
         } catch (\RuntimeException $e) {
             Response::error('retail_error', $e->getMessage(), 422);
         }
-        Response::success($item);
+
+        Response::success(['item' => $item]);
+    }
+
+    public function saveCategory(Request $request): void
+    {
+        $this->auth->ensureSectionAccess('retail');
+
+        try {
+            $category = $this->retail->saveCategory($request->body);
+        } catch (\RuntimeException $e) {
+            Response::error('retail_error', $e->getMessage(), 422);
+        }
+
+        Response::success(['category' => $category]);
+    }
+
+    public function deleteCategory(Request $request): void
+    {
+        $this->auth->ensureSectionAccess('retail');
+        $id = isset($request->params['id']) ? (int) $request->params['id'] : 0;
+        if ($id <= 0) {
+            Response::error('validation_error', 'Category ID required.', 422);
+        }
+
+        try {
+            $this->retail->deleteCategory($id);
+        } catch (\RuntimeException $e) {
+            Response::error('retail_error', $e->getMessage(), 422);
+        }
+
+        Response::success(['deleted' => true]);
+    }
+
+    public function deleteItem(Request $request): void
+    {
+        $this->auth->ensureSectionAccess('retail');
+        $id = isset($request->params['id']) ? (int) $request->params['id'] : 0;
+        if ($id <= 0) {
+            Response::error('validation_error', 'Product ID required.', 422);
+        }
+
+        $this->retail->deleteItem($id);
+        Response::success(['deleted' => true]);
     }
 }

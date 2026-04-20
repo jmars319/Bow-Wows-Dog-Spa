@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BowWowSpa\Services;
 
 use BowWowSpa\Database\Database;
+use BowWowSpa\Support\HtmlSanitizer;
 use BowWowSpa\Support\Input;
 
 final class ServiceCatalogService
@@ -64,7 +65,7 @@ final class ServiceCatalogService
         $fields = [
             'name' => Input::clean($payload['name'] ?? null, 191),
             'short_summary' => Input::clean($payload['short_summary'] ?? null, 1000, true),
-            'description' => Input::clean($payload['description'] ?? null, 4000, true),
+            'description' => HtmlSanitizer::richText($payload['description'] ?? null, 4000),
             'duration_minutes' => min(480, max(15, (int) ($payload['duration_minutes'] ?? 30))),
             'price_label' => Input::clean($payload['price_label'] ?? null, 100),
             'breed_weight_note' => Input::clean($payload['breed_weight_note'] ?? null, 191),
@@ -141,7 +142,7 @@ final class ServiceCatalogService
             'id' => (int) $row['id'],
             'name' => (string) $row['name'],
             'short_summary' => $row['short_summary'],
-            'description' => $row['description'],
+            'description' => HtmlSanitizer::richText($row['description'] ?? null, 4000),
             'duration_minutes' => (int) $row['duration_minutes'],
             'price_label' => $row['price_label'],
             'breed_weight_note' => $row['breed_weight_note'],
