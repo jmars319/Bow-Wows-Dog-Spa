@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import logoPrimaryPng from './assets/logos/logo-primary.png';
@@ -10,6 +10,8 @@ const DEFAULT_SEO_TITLE = "Bow Wow's Dog Spa | Calm Dog Grooming in Greater Wins
 const DEFAULT_SEO_DESCRIPTION =
   'Calm, comfort-first dog grooming and spa care serving Greater Winston-Salem and nearby Triad families.';
 const DEFAULT_OG_IMAGE = `${CANONICAL_ORIGIN}/share-logo.png`;
+const LOGO_WIDTH = 1536;
+const LOGO_HEIGHT = 1024;
 
 const SECTION_LINKS = [
   { id: 'hero', label: 'Home' },
@@ -132,11 +134,27 @@ function App() {
 
 function PublicPage() {
   const { data, loading, error } = useSiteContent();
+  const location = useLocation();
   const [showNav, setShowNav] = useState(false);
+  const [showMobileActionBar, setShowMobileActionBar] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setShowNav(window.scrollY > 32);
-    window.addEventListener('scroll', onScroll);
+    const onScroll = () => {
+      const scrollY = window.scrollY;
+
+      setShowNav((current) => {
+        const next = scrollY > 24;
+        return current === next ? current : next;
+      });
+
+      setShowMobileActionBar((current) => {
+        const next = scrollY > 280;
+        return current === next ? current : next;
+      });
+    };
+
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
@@ -152,6 +170,24 @@ function PublicPage() {
     applySeo(buildHomeSeo(settings, sections, galleryItems));
     applyStructuredData(buildLocalBusinessSchema(settings, galleryItems));
   }, [data, loading, error]);
+
+  useEffect(() => {
+    if (loading || error || !data || !location.hash) {
+      return;
+    }
+
+    const targetId = decodeURIComponent(location.hash.slice(1));
+    const target = document.getElementById(targetId);
+    if (!target) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      target.scrollIntoView({ block: 'start' });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [data, loading, error, location.hash]);
 
   if (loading) {
     return (
@@ -200,6 +236,9 @@ function PublicPage() {
 
   return (
     <div className="site-shell">
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
       <Header
         settings={settings}
         sections={navSections}
@@ -208,7 +247,7 @@ function PublicPage() {
         primaryCta={primaryCta}
         brandHref={brandHref}
       />
-      <main>
+      <main id="main-content">
         {visibleSections.hero && (
           <HeroSection settings={settings} content={sections.hero || {}} primaryCta={primaryCta} secondaryCta={secondaryCta} />
         )}
@@ -230,17 +269,53 @@ function PublicPage() {
       {showFooter && (
         <Footer sections={navSections} legalSections={legalSections} settings={settings} content={sections.footer || {}} primaryCta={primaryCta} />
       )}
-      <MobileActionBar settings={settings} primaryCta={primaryCta} />
+      <MobileActionBar settings={settings} primaryCta={primaryCta} visible={showMobileActionBar} />
     </div>
   );
 }
 
 function Header({ settings, sections, legalSections, compact, primaryCta, brandHref }) {
   const [open, setOpen] = useState(false);
+  const headerRef = useRef(null);
+  const location = useLocation();
   const phoneHref = settings.phone ? toPhoneHref(settings.phone) : null;
 
+  useEffect(() => {
+    setOpen(false);
+  }, [location.pathname, location.hash]);
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    };
+
+    const closeOnOutsidePress = (event) => {
+      if (headerRef.current?.contains(event.target)) {
+        return;
+      }
+
+      setOpen(false);
+    };
+
+    document.body.classList.add('has-site-nav-open');
+    window.addEventListener('keydown', closeOnEscape);
+    document.addEventListener('pointerdown', closeOnOutsidePress);
+
+    return () => {
+      document.body.classList.remove('has-site-nav-open');
+      window.removeEventListener('keydown', closeOnEscape);
+      document.removeEventListener('pointerdown', closeOnOutsidePress);
+    };
+  }, [open]);
+
   return (
-    <header className={`site-header ${compact ? 'site-header--compact' : ''}`}>
+    <header ref={headerRef} className={`site-header ${compact ? 'site-header--compact' : ''}`}>
       <div className="container site-header__inner">
         <a href={brandHref} className="brand-link" onClick={() => setOpen(false)}>
           <BrandLockup compact={compact} />
@@ -257,23 +332,6 @@ function Header({ settings, sections, legalSections, compact, primaryCta, brandH
           >
             Menu
           </button>
-          <div id="site-nav-drawer" className={`site-nav__drawer ${open ? 'is-open' : ''}`} aria-hidden={!open}>
-            {sections.map((section) => (
-              <a key={section.id} href={`#${section.id}`} onClick={() => setOpen(false)}>
-                {section.label}
-              </a>
-            ))}
-            {legalSections?.privacy && (
-              <Link to="/privacy" onClick={() => setOpen(false)}>
-                Privacy
-              </Link>
-            )}
-            {legalSections?.terms && (
-              <Link to="/terms" onClick={() => setOpen(false)}>
-                Terms
-              </Link>
-            )}
-          </div>
           <div className="site-nav__desktop">
             {sections.map((section) => (
               <a key={section.id} href={`#${section.id}`}>
@@ -296,6 +354,30 @@ function Header({ settings, sections, legalSections, compact, primaryCta, brandH
           )}
         </div>
       </div>
+
+      {open && (
+        <div className="site-nav__drawer-shell">
+          <div className="container">
+            <div id="site-nav-drawer" className="site-nav__drawer" aria-label="Site navigation">
+              {sections.map((section) => (
+                <a key={section.id} href={`#${section.id}`} onClick={() => setOpen(false)}>
+                  {section.label}
+                </a>
+              ))}
+              {legalSections?.privacy && (
+                <Link to="/privacy" onClick={() => setOpen(false)}>
+                  Privacy
+                </Link>
+              )}
+              {legalSections?.terms && (
+                <Link to="/terms" onClick={() => setOpen(false)}>
+                  Terms
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
@@ -396,7 +478,7 @@ function TrustStrip({ settings, content }) {
               </>
             )}
             {textHasContent(settings.google_reviews_url) && (
-              <a className="text-link" href={settings.google_reviews_url} target="_blank" rel="noreferrer">
+              <a className="text-link" href={settings.google_reviews_url} target="_blank" rel="noopener noreferrer">
                 View the full Google profile
               </a>
             )}
@@ -801,7 +883,12 @@ function BookingSection({ settings, content, services }) {
 
             <div className="booking-stage">
               {flowStatus && (
-                <p role={flowStatus.tone === 'error' ? 'alert' : 'status'} className={`status-text ${flowStatus.tone === 'error' ? 'status-text--error' : 'status-text--success'}`}>
+                <p
+                  role={flowStatus.tone === 'error' ? 'alert' : 'status'}
+                  aria-live={flowStatus.tone === 'error' ? 'assertive' : 'polite'}
+                  aria-atomic="true"
+                  className={`status-text ${flowStatus.tone === 'error' ? 'status-text--error' : 'status-text--success'}`}
+                >
                   {flowStatus.message}
                 </p>
               )}
@@ -918,7 +1005,9 @@ function BookingSection({ settings, content, services }) {
                   </div>
 
                   {loadingAvailability ? (
-                    <p className="muted-text">Loading available times…</p>
+                    <p className="muted-text" role="status" aria-live="polite">
+                      Loading available times…
+                    </p>
                   ) : (
                     <div className="slot-grid">
                       {availability.map((slot) => (
@@ -957,7 +1046,11 @@ function BookingSection({ settings, content, services }) {
                     </div>
                   )}
 
-                  {slotError && <p role="alert" className="status-text status-text--error">{slotError}</p>}
+                  {slotError && (
+                    <p role="alert" aria-live="assertive" aria-atomic="true" className="status-text status-text--error">
+                      {slotError}
+                    </p>
+                  )}
 
                   <div className="step-actions">
                     <button className="btn btn-outline" type="button" onClick={() => changeStep(1)}>
@@ -981,23 +1074,63 @@ function BookingSection({ settings, content, services }) {
                   <form className="booking-form-grid" onSubmit={(event) => event.preventDefault()}>
                     <div className="field-group">
                       <label htmlFor="booking-owner-name">Owner name</label>
-                      <input id="booking-owner-name" value={form.owner_name} onChange={(event) => setForm((current) => ({ ...current, owner_name: event.target.value }))} required />
+                      <input
+                        id="booking-owner-name"
+                        name="ownerName"
+                        autoComplete="name"
+                        value={form.owner_name}
+                        onChange={(event) => setForm((current) => ({ ...current, owner_name: event.target.value }))}
+                        required
+                      />
                     </div>
                     <div className="field-group">
                       <label htmlFor="booking-owner-phone">Phone</label>
-                      <input id="booking-owner-phone" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} required />
+                      <input
+                        id="booking-owner-phone"
+                        name="ownerPhone"
+                        type="tel"
+                        autoComplete="tel"
+                        inputMode="tel"
+                        value={form.phone}
+                        onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
+                        required
+                      />
                     </div>
                     <div className="field-group">
                       <label htmlFor="booking-owner-email">Email</label>
-                      <input id="booking-owner-email" type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} required />
+                      <input
+                        id="booking-owner-email"
+                        name="ownerEmail"
+                        type="email"
+                        autoComplete="email"
+                        spellCheck={false}
+                        autoCapitalize="none"
+                        value={form.email}
+                        onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+                        required
+                      />
                     </div>
                     <div className="field-group">
                       <label htmlFor="booking-vet-name">Vet name</label>
-                      <input id="booking-vet-name" value={form.vet_name} onChange={(event) => setForm((current) => ({ ...current, vet_name: event.target.value }))} />
+                      <input
+                        id="booking-vet-name"
+                        name="vetName"
+                        autoComplete="organization"
+                        value={form.vet_name}
+                        onChange={(event) => setForm((current) => ({ ...current, vet_name: event.target.value }))}
+                      />
                     </div>
                     <div className="field-group">
                       <label htmlFor="booking-vet-phone">Vet phone</label>
-                      <input id="booking-vet-phone" value={form.vet_phone} onChange={(event) => setForm((current) => ({ ...current, vet_phone: event.target.value }))} />
+                      <input
+                        id="booking-vet-phone"
+                        name="vetPhone"
+                        type="tel"
+                        autoComplete="tel"
+                        inputMode="tel"
+                        value={form.vet_phone}
+                        onChange={(event) => setForm((current) => ({ ...current, vet_phone: event.target.value }))}
+                      />
                     </div>
                   </form>
 
@@ -1010,23 +1143,57 @@ function BookingSection({ settings, content, services }) {
                         <div className="booking-form-grid">
                           <div className="field-group">
                             <label htmlFor={`booking-dog-name-${index}`}>Name</label>
-                            <input id={`booking-dog-name-${index}`} value={dog.pet_name} onChange={(event) => updateDog(index, 'pet_name', event.target.value)} required />
+                            <input
+                              id={`booking-dog-name-${index}`}
+                              name={`dogName${index}`}
+                              autoComplete="off"
+                              value={dog.pet_name}
+                              onChange={(event) => updateDog(index, 'pet_name', event.target.value)}
+                              required
+                            />
                           </div>
                           <div className="field-group">
                             <label htmlFor={`booking-dog-breed-${index}`}>Breed</label>
-                            <input id={`booking-dog-breed-${index}`} value={dog.breed} onChange={(event) => updateDog(index, 'breed', event.target.value)} />
+                            <input
+                              id={`booking-dog-breed-${index}`}
+                              name={`dogBreed${index}`}
+                              autoComplete="off"
+                              value={dog.breed}
+                              onChange={(event) => updateDog(index, 'breed', event.target.value)}
+                            />
                           </div>
                           <div className="field-group">
                             <label htmlFor={`booking-dog-weight-${index}`}>Approximate weight</label>
-                            <input id={`booking-dog-weight-${index}`} value={dog.approximate_weight} onChange={(event) => updateDog(index, 'approximate_weight', event.target.value)} required />
+                            <input
+                              id={`booking-dog-weight-${index}`}
+                              name={`dogWeight${index}`}
+                              autoComplete="off"
+                              value={dog.approximate_weight}
+                              onChange={(event) => updateDog(index, 'approximate_weight', event.target.value)}
+                              required
+                            />
                           </div>
                           <div className="field-group field-group--wide">
                             <label htmlFor={`booking-dog-temperament-${index}`}>Temperament notes</label>
-                            <textarea id={`booking-dog-temperament-${index}`} value={dog.temperament_notes} onChange={(event) => updateDog(index, 'temperament_notes', event.target.value)} />
+                            <textarea
+                              id={`booking-dog-temperament-${index}`}
+                              name={`dogTemperament${index}`}
+                              autoComplete="off"
+                              placeholder="Handling notes, first-visit nerves, or anything that helps…"
+                              value={dog.temperament_notes}
+                              onChange={(event) => updateDog(index, 'temperament_notes', event.target.value)}
+                            />
                           </div>
                           <div className="field-group field-group--wide">
                             <label htmlFor={`booking-dog-medical-${index}`}>Medical or grooming notes</label>
-                            <textarea id={`booking-dog-medical-${index}`} value={dog.medical_or_grooming_notes} onChange={(event) => updateDog(index, 'medical_or_grooming_notes', event.target.value)} />
+                            <textarea
+                              id={`booking-dog-medical-${index}`}
+                              name={`dogMedicalNotes${index}`}
+                              autoComplete="off"
+                              placeholder="Allergies, medications, mobility notes, or recent changes…"
+                              value={dog.medical_or_grooming_notes}
+                              onChange={(event) => updateDog(index, 'medical_or_grooming_notes', event.target.value)}
+                            />
                           </div>
                         </div>
                       </article>
@@ -1040,12 +1207,20 @@ function BookingSection({ settings, content, services }) {
                   <div className="booking-form-grid">
                     <div className="field-group field-group--wide">
                       <label htmlFor="booking-request-notes">Additional request notes</label>
-                      <textarea id="booking-request-notes" value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} />
+                      <textarea
+                        id="booking-request-notes"
+                        name="requestNotes"
+                        autoComplete="off"
+                        placeholder="Preferred timing, grooming goals, or anything else to know…"
+                        value={form.notes}
+                        onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
+                      />
                     </div>
                     <div className="field-group field-group--wide upload-card">
                       <label htmlFor="booking-paperwork-upload">Upload paperwork (PDF, JPG, PNG)</label>
                       <input
                         id="booking-paperwork-upload"
+                        name="paperworkUpload"
                         type="file"
                         accept=".pdf,image/jpeg,image/png"
                         aria-describedby="booking-paperwork-help"
@@ -1071,7 +1246,14 @@ function BookingSection({ settings, content, services }) {
                     </div>
                     <div className="field-group field-group--wide">
                       <label htmlFor="booking-paperwork-summary">Paperwork summary</label>
-                      <textarea id="booking-paperwork-summary" value={form.paperwork_notes} onChange={(event) => setForm((current) => ({ ...current, paperwork_notes: event.target.value }))} />
+                      <textarea
+                        id="booking-paperwork-summary"
+                        name="paperworkSummary"
+                        autoComplete="off"
+                        placeholder="Vaccines on file, paperwork details, or follow-up notes…"
+                        value={form.paperwork_notes}
+                        onChange={(event) => setForm((current) => ({ ...current, paperwork_notes: event.target.value }))}
+                      />
                     </div>
                   </div>
 
@@ -1152,7 +1334,12 @@ function BookingSection({ settings, content, services }) {
             </div>
 
             {submitStatus && (
-              <p role={submitStatus.tone === 'error' ? 'alert' : 'status'} className={`status-text ${submitStatus.tone === 'error' ? 'status-text--error' : 'status-text--success'}`}>
+              <p
+                role={submitStatus.tone === 'error' ? 'alert' : 'status'}
+                aria-live={submitStatus.tone === 'error' ? 'assertive' : 'polite'}
+                aria-atomic="true"
+                className={`status-text ${submitStatus.tone === 'error' ? 'status-text--error' : 'status-text--success'}`}
+              >
                 {submitStatus.message}
               </p>
             )}
@@ -1336,7 +1523,7 @@ function ReviewsSection({ settings, content, items, primaryCta }) {
               We do not host an open on-site review form. Featured quotes here are sourced from real reviews, and the full review history lives on Google.
             </p>
             {reviewUrl && (
-              <a className="btn btn-outline" href={reviewUrl} target="_blank" rel="noreferrer">
+              <a className="btn btn-outline" href={reviewUrl} target="_blank" rel="noopener noreferrer">
                 {content.cta_text || 'See All Google Reviews'}
               </a>
             )}
@@ -1356,7 +1543,7 @@ function ReviewsSection({ settings, content, items, primaryCta }) {
                     <>
                       {' '}
                       ·{' '}
-                      <a href={item.source_url} target="_blank" rel="noreferrer">
+                      <a href={item.source_url} target="_blank" rel="noopener noreferrer">
                         Source
                       </a>
                     </>
@@ -1429,10 +1616,12 @@ function AboutSection({ content, settings }) {
 function ContactSection({ content, location, settings }) {
   const [form, setForm] = useState({ name: '', email: '', phone: '', message: '' });
   const [status, setStatus] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const phoneHref = settings.phone ? toPhoneHref(settings.phone) : null;
 
   const submitContact = async (event) => {
     event.preventDefault();
+    setSubmitting(true);
     setStatus(null);
 
     try {
@@ -1441,6 +1630,8 @@ function ContactSection({ content, location, settings }) {
       setForm({ name: '', email: '', phone: '', message: '' });
     } catch (error) {
       setStatus({ tone: 'error', message: error.response?.data?.error?.message || 'Unable to send your message right now.' });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -1468,7 +1659,12 @@ function ContactSection({ content, location, settings }) {
               </a>
             )}
             {settings.address && (
-              <a className="contact-card" href={settings.maps_url || '#contact'} target={settings.maps_url ? '_blank' : undefined} rel="noreferrer">
+              <a
+                className="contact-card"
+                href={settings.maps_url || '#contact'}
+                target={settings.maps_url ? '_blank' : undefined}
+                rel={settings.maps_url ? 'noopener noreferrer' : undefined}
+              >
                 <span>Location</span>
                 <strong>{settings.address}</strong>
               </a>
@@ -1490,24 +1686,66 @@ function ContactSection({ content, location, settings }) {
           <form className="contact-form-card" onSubmit={submitContact}>
             <div className="field-group">
               <label htmlFor="contact-name">Name</label>
-              <input id="contact-name" required value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
+              <input
+                id="contact-name"
+                name="contactName"
+                autoComplete="name"
+                required
+                value={form.name}
+                onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+              />
             </div>
             <div className="field-group">
               <label htmlFor="contact-email">Email</label>
-              <input id="contact-email" type="email" required value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} />
+              <input
+                id="contact-email"
+                name="contactEmail"
+                type="email"
+                autoComplete="email"
+                spellCheck={false}
+                autoCapitalize="none"
+                required
+                value={form.email}
+                onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+              />
             </div>
             <div className="field-group">
               <label htmlFor="contact-phone">Phone</label>
-              <input id="contact-phone" value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} />
+              <input
+                id="contact-phone"
+                name="contactPhone"
+                type="tel"
+                autoComplete="tel"
+                inputMode="tel"
+                value={form.phone}
+                onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
+              />
             </div>
             <div className="field-group">
               <label htmlFor="contact-message">Message</label>
-              <textarea id="contact-message" required value={form.message} onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))} />
+              <textarea
+                id="contact-message"
+                name="contactMessage"
+                autoComplete="off"
+                placeholder="Tell us what you need, your dog’s size, or your ideal visit day…"
+                required
+                value={form.message}
+                onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))}
+              />
             </div>
-            <button className="btn btn-primary" type="submit">
-              Send Message
+            <button className="btn btn-primary" type="submit" disabled={submitting} aria-busy={submitting}>
+              {submitting ? 'Sending…' : 'Send Message'}
             </button>
-            {status && <p role={status.tone === 'error' ? 'alert' : 'status'} className={`status-text ${status.tone === 'error' ? 'status-text--error' : 'status-text--success'}`}>{status.message}</p>}
+            {status && (
+              <p
+                role={status.tone === 'error' ? 'alert' : 'status'}
+                aria-live={status.tone === 'error' ? 'assertive' : 'polite'}
+                aria-atomic="true"
+                className={`status-text ${status.tone === 'error' ? 'status-text--error' : 'status-text--success'}`}
+              >
+                {status.message}
+              </p>
+            )}
           </form>
         </div>
       </div>
@@ -1605,8 +1843,12 @@ function Footer({ sections, legalSections, settings, content, primaryCta }) {
   );
 }
 
-function MobileActionBar({ settings, primaryCta }) {
+function MobileActionBar({ settings, primaryCta, visible = false }) {
   const phoneHref = settings.phone ? toPhoneHref(settings.phone) : null;
+
+  if (!visible || (!phoneHref && (!primaryCta || primaryCta.kind === 'phone'))) {
+    return null;
+  }
 
   return (
     <div className="mobile-action-bar">
@@ -1807,7 +2049,13 @@ function BrandLockup({ compact = false }) {
     <div className={`brand-lockup ${compact ? 'brand-lockup--compact' : ''}`}>
       <picture className="brand-logo">
         <source srcSet={logoPrimaryWebp} type="image/webp" />
-        <img src={logoPrimaryPng} alt="Bow Wow's Dog Spa logo" />
+        <img
+          src={logoPrimaryPng}
+          alt="Bow Wow's Dog Spa logo"
+          width={LOGO_WIDTH}
+          height={LOGO_HEIGHT}
+          fetchpriority="high"
+        />
       </picture>
       <div>
         <strong>Bow Wow’s Dog Spa</strong>
@@ -1829,6 +2077,8 @@ function ResponsivePicture({ media, alt }) {
       <img
         src={media.fallback_url || media.original_url}
         alt={alt || media.alt_text || media.title || "Bow Wow's Dog Spa gallery image"}
+        width={media.intrinsic_width || undefined}
+        height={media.intrinsic_height || undefined}
         loading="lazy"
       />
     </picture>

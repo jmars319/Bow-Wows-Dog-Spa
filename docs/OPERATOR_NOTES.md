@@ -91,7 +91,7 @@
 - Browser smoke suite: `npm run test:e2e`
 - Full local verification: `bash scripts/test-all.sh`
 - `scripts/test-all.sh` backs up the configured dev DB first, runs the backend/frontend/browser suites, then restores the DB on exit. It is safe to use with `bowwow_dev` if you let the script finish cleanly.
-- The Playwright seed step uses `backend/scripts/seed_e2e_fixtures.php` to create/update a deterministic `e2e-admin` user and seed one future booking date with fixed time buttons.
+- The Playwright seed step uses `backend/scripts/seed_e2e_fixtures.php` to create/update a deterministic `admin` user (`e2e-admin@bowwow.local`) and seed one future booking date with fixed time buttons.
 
 ## Release packaging
 - `backend/.env` is the local/dev file in this repo unless your host setup deliberately uses that same path.

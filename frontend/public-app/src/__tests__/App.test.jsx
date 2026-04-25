@@ -1,13 +1,15 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { axiosGet } = vi.hoisted(() => ({
+const { axiosGet, axiosPost } = vi.hoisted(() => ({
   axiosGet: vi.fn(),
+  axiosPost: vi.fn(),
 }));
 
 vi.mock('axios', () => ({
   default: {
     get: axiosGet,
+    post: axiosPost,
   },
 }));
 
@@ -85,6 +87,7 @@ function createPayload(overrides = {}) {
 describe('public app', () => {
   beforeEach(() => {
     axiosGet.mockReset();
+    axiosPost.mockReset();
     window.history.pushState({}, '', '/');
     document.head.innerHTML = '';
   });
@@ -114,5 +117,54 @@ describe('public app', () => {
 
     expect(await screen.findByText('This page is currently unavailable.')).toBeInTheDocument();
     expect(screen.queryByText('Hidden footer')).not.toBeInTheDocument();
+  });
+
+  it('uses client-demo form semantics and stable brand image sizing on visible public sections', async () => {
+    axiosGet.mockResolvedValueOnce({
+      data: createPayload({
+        sections: {
+          retail: { enabled: false },
+          contact: { enabled: true, title: 'Contact Us' },
+          location: { enabled: true, title: 'Location & hours' },
+        },
+        retail_categories: [],
+      }),
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole('button', { name: 'Send Message' })).toBeInTheDocument();
+
+    const logo = screen.getAllByAltText("Bow Wow's Dog Spa logo")[0];
+    expect(logo).toHaveAttribute('width', '1536');
+    expect(logo).toHaveAttribute('height', '1024');
+
+    const skipLink = screen.getAllByRole('link', { name: 'Skip to main content' })[0];
+    expect(skipLink).toHaveAttribute('href', '#main-content');
+
+    const emailInput = screen.getByLabelText('Email');
+    expect(emailInput).toHaveAttribute('type', 'email');
+    expect(emailInput).toHaveAttribute('autocomplete', 'email');
+    expect(emailInput).toHaveAttribute('spellcheck', 'false');
+
+    const phoneInput = screen.getByLabelText('Phone');
+    expect(phoneInput).toHaveAttribute('type', 'tel');
+    expect(phoneInput).toHaveAttribute('autocomplete', 'tel');
+    expect(phoneInput).toHaveAttribute('inputmode', 'tel');
+  });
+
+  it('opens a full mobile navigation drawer when the menu button is pressed', async () => {
+    axiosGet.mockResolvedValueOnce({ data: createPayload() });
+
+    render(<App />);
+
+    const [menuButton] = await screen.findAllByRole('button', { name: 'Open site navigation' });
+    expect(document.getElementById('site-nav-drawer')).not.toBeInTheDocument();
+
+    fireEvent.click(menuButton);
+
+    expect(document.getElementById('site-nav-drawer')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Privacy' })).toBeInTheDocument();
+    expect(document.body).toHaveClass('has-site-nav-open');
   });
 });

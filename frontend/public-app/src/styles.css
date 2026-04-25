@@ -1,5 +1,6 @@
 :root {
   scroll-behavior: smooth;
+  color-scheme: light;
   --background-primary: #faf9f6;
   --background-secondary: #f1f3f2;
   --surface-card: #ffffff;
@@ -37,6 +38,15 @@ body {
     radial-gradient(circle at top right, rgba(214, 205, 232, 0.28), transparent 30%),
     var(--background-primary);
   color: var(--text-primary);
+  overflow-x: hidden;
+}
+
+body.has-site-nav-open {
+  overflow: hidden;
+}
+
+main [id] {
+  scroll-margin-top: 5.75rem;
 }
 
 img {
@@ -56,6 +66,11 @@ select {
   font: inherit;
 }
 
+button,
+a {
+  touch-action: manipulation;
+}
+
 input,
 textarea,
 select {
@@ -65,6 +80,7 @@ select {
   padding: 0.95rem 1rem;
   background: var(--surface-card);
   color: var(--text-primary);
+  font-size: 1rem;
 }
 
 textarea {
@@ -83,6 +99,24 @@ select:focus-visible {
 
 .site-shell {
   padding-bottom: 6rem;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: 1rem;
+  z-index: 60;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-soft);
+  transform: translateY(-220%);
+  transition: transform 0.18s ease;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
 }
 
 .container {
@@ -178,8 +212,15 @@ select:focus-visible {
 }
 
 .brand-logo {
+  display: block;
   width: clamp(70px, 19vw, 112px);
   flex: 0 0 auto;
+}
+
+.brand-logo img,
+.responsive-picture img {
+  width: 100%;
+  height: auto;
 }
 
 .site-nav {
@@ -194,12 +235,35 @@ select:focus-visible {
   color: var(--text-primary);
 }
 
-.site-nav__drawer {
-  display: none;
+.site-nav__drawer-shell {
   position: absolute;
-  left: 1rem;
-  right: 1rem;
-  top: calc(100% + 0.65rem);
+  top: 100%;
+  left: 0;
+  right: 0;
+  padding-top: 0.65rem;
+}
+
+.site-nav__drawer-shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(47, 58, 58, 0.08);
+  backdrop-filter: blur(6px);
+}
+
+.site-nav__drawer-shell .container {
+  position: relative;
+  z-index: 1;
+}
+
+.site-nav__drawer {
+  display: grid;
+  gap: 0.75rem;
+  width: min(100%, 22rem);
+  max-height: calc(100vh - 6rem);
+  margin-left: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 1rem;
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.98);
@@ -207,15 +271,15 @@ select:focus-visible {
   border: 1px solid rgba(217, 226, 225, 0.9);
 }
 
-.site-nav__drawer.is-open {
-  display: grid;
-  gap: 0.75rem;
-}
-
 .site-nav__drawer a,
 .site-nav__desktop a,
 .site-footer a {
   color: var(--text-secondary);
+}
+
+.site-nav__drawer a {
+  display: block;
+  padding: 0.55rem 0.2rem;
 }
 
 .site-nav__desktop,
@@ -244,6 +308,7 @@ select:focus-visible {
   margin: 0;
   font-family: Georgia, 'Times New Roman', serif;
   line-height: 1.05;
+  text-wrap: balance;
 }
 
 .hero-copy h1 {
@@ -275,7 +340,6 @@ select:focus-visible {
 .pill-row,
 .dog-count-controls,
 .mobile-action-bar,
-.header-actions,
 .booking-steps,
 .proof-strip,
 .policy-grid,
@@ -498,6 +562,7 @@ select:focus-visible {
   border: 1px solid var(--border-subtle);
   background: var(--background-primary);
   color: var(--text-secondary);
+  scroll-margin-top: 7rem;
 }
 
 .booking-step span {
@@ -559,6 +624,7 @@ select:focus-visible {
   background: var(--surface-card);
   display: grid;
   gap: 0.4rem;
+  scroll-margin-top: 7rem;
 }
 
 .service-chip-card.is-active {
@@ -653,6 +719,7 @@ select:focus-visible {
   display: grid;
   gap: 0.2rem;
   text-align: left;
+  scroll-margin-top: 7rem;
 }
 
 .slot-button small {
@@ -861,6 +928,46 @@ select:focus-visible {
 }
 
 @media (max-width: 640px) {
+  .site-header__inner {
+    gap: 0.75rem;
+    padding-top: 0.7rem;
+    padding-bottom: 0.7rem;
+  }
+
+  .site-header .brand-lockup {
+    gap: 0.65rem;
+  }
+
+  .site-header .brand-lockup strong {
+    font-size: 0.96rem;
+    line-height: 1.08;
+  }
+
+  .site-header .brand-lockup span {
+    display: none;
+  }
+
+  .site-header .brand-logo {
+    width: 56px;
+  }
+
+  .menu-toggle {
+    padding: 0.55rem 0.9rem;
+  }
+
+  .hero-section {
+    padding-top: 2.25rem;
+  }
+
+  .hero-copy h1 {
+    font-size: clamp(2.25rem, 13vw, 4rem);
+    max-width: 11ch;
+  }
+
+  .hero-actions .btn {
+    flex: 1 1 100%;
+  }
+
   .retail-category-heading,
   .retail-card__meta {
     flex-direction: column;
@@ -1081,6 +1188,10 @@ select:focus-visible {
     font-size: 0.94rem;
   }
 
+  .site-nav__drawer-shell {
+    display: none;
+  }
+
   .header-actions {
     display: inline-flex;
     gap: 0.75rem;
@@ -1140,5 +1251,18 @@ select:focus-visible {
 
   .site-footer {
     padding-bottom: 3rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
   }
 }

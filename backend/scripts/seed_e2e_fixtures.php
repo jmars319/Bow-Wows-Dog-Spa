@@ -13,15 +13,29 @@ require __DIR__ . '/../bootstrap/app.php';
 use BowWowSpa\Database\Database;
 
 $email = getenv('E2E_ADMIN_EMAIL') ?: 'e2e-admin@bowwow.local';
-$username = trim((string) (getenv('E2E_ADMIN_USERNAME') ?: 'e2e-admin'));
-$password = getenv('E2E_ADMIN_PASSWORD') ?: 'BowWowE2E123!';
+$username = trim((string) (getenv('E2E_ADMIN_USERNAME') ?: 'admin'));
+$password = getenv('E2E_ADMIN_PASSWORD') ?: 'BowWow123!';
 $bookingDate = getenv('E2E_BOOKING_DATE') ?: (new DateTimeImmutable('today'))->modify('+14 days')->format('Y-m-d');
 $timeSlots = ['09:00:00', '09:30:00', '10:00:00', '10:30:00', '11:00:00'];
 
-$existing = Database::fetch('SELECT * FROM admin_users WHERE email = :email LIMIT 1', ['email' => $email]);
-$hash = password_hash($password, PASSWORD_DEFAULT);
 $hasUsername = columnExists('admin_users', 'username');
 $hasDisplayName = columnExists('admin_users', 'display_name');
+$existingByEmail = Database::fetch('SELECT * FROM admin_users WHERE email = :email LIMIT 1', ['email' => $email]);
+$existingByUsername = null;
+if ($hasUsername && $username !== '') {
+    $existingByUsername = Database::fetch('SELECT * FROM admin_users WHERE username = :username LIMIT 1', ['username' => $username]);
+}
+
+$reusingUsernameOwner = $existingByUsername && (!$existingByEmail || (int) $existingByUsername['id'] !== (int) $existingByEmail['id']);
+$existing = $reusingUsernameOwner ? $existingByUsername : $existingByEmail;
+if ($reusingUsernameOwner) {
+    $email = (string) ($existing['email'] ?? $email);
+}
+
+$displayName = $reusingUsernameOwner && $hasDisplayName && !empty($existing['display_name'])
+    ? (string) $existing['display_name']
+    : 'E2E Admin';
+$hash = password_hash($password, PASSWORD_DEFAULT);
 
 if ($existing) {
     $fields = [
@@ -30,7 +44,7 @@ if ($existing) {
         'hash' => $hash,
         'role' => 'super_admin',
         'username' => $username !== '' ? $username : null,
-        'display_name' => 'E2E Admin',
+        'display_name' => $displayName,
     ];
     $updates = ['email = :email', 'password_hash = :hash', 'role = :role', 'is_enabled = 1', 'updated_at = NOW()'];
     if ($hasUsername) {
@@ -50,7 +64,7 @@ if ($existing) {
         'hash' => $hash,
         'role' => 'super_admin',
         'username' => $username !== '' ? $username : null,
-        'display_name' => 'E2E Admin',
+        'display_name' => $displayName,
     ];
 
     if ($hasUsername) {

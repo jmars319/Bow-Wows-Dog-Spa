@@ -257,7 +257,9 @@ final class MediaService
     {
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $mime = finfo_file($finfo, $path) ?: 'application/octet-stream';
-        finfo_close($finfo);
+        if (PHP_VERSION_ID < 80500) {
+            finfo_close($finfo);
+        }
         return $mime;
     }
 
@@ -347,10 +349,14 @@ final class MediaService
                 }
             }
 
-            imagedestroy($canvas);
+            if (PHP_VERSION_ID < 80000) {
+                imagedestroy($canvas);
+            }
         }
 
-        imagedestroy($source);
+        if (PHP_VERSION_ID < 80000) {
+            imagedestroy($source);
+        }
 
         return [
             'optimized' => $optimizedVariants,
