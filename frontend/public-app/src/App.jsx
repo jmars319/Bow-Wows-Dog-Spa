@@ -1838,7 +1838,9 @@ function Footer({ sections, legalSections, settings, content, primaryCta }) {
           <a href="/admin/login">Admin Login</a>
         </div>
       </div>
-      <div className="container footer-credit">Site by JAMARQ</div>
+      <div className="container footer-credit">
+        Website by <a href="https://jamarq.digital" target="_blank" rel="noopener noreferrer">JAMARQ Digital</a>
+      </div>
     </footer>
   );
 }
@@ -2012,7 +2014,9 @@ function StatusFooter() {
           <a href="/admin/login">Admin Login</a>
         </div>
       </div>
-      <div className="container footer-credit">Site by JAMARQ</div>
+      <div className="container footer-credit">
+        Website by <a href="https://jamarq.digital" target="_blank" rel="noopener noreferrer">JAMARQ Digital</a>
+      </div>
     </footer>
   );
 }

@@ -1086,6 +1086,11 @@ select:focus-visible {
   color: rgba(255, 255, 255, 0.56);
 }
 
+.footer-credit a {
+  display: inline;
+  margin-top: 0;
+}
+
 .mobile-action-bar {
   position: fixed;
   left: 0;
