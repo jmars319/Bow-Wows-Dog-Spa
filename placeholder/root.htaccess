@@ -1,0 +1,41 @@
+Options All -Indexes
+DirectoryIndex index.php
+
+ErrorDocument 403 /error-documents/403.html
+ErrorDocument 404 /error-documents/404.html
+ErrorDocument 500 /error-documents/500.html
+ErrorDocument 503 /error-documents/503.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  RewriteCond %{HTTP_HOST} ^www\.bowwowsdogspa\.com$ [NC,OR]
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https [NC]
+  RewriteRule ^ https://bowwowsdogspa.com%{REQUEST_URI} [R=301,L,NE]
+
+  RewriteRule ^placeholder/?$ placeholder/index.php [QSA,L]
+
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  RewriteRule ^$ index.php [L]
+  RewriteRule ^privacy/?$ privacy.html [L,NC]
+  RewriteRule ^terms/?$ terms.html [L,NC]
+
+  RewriteRule ^ - [R=404,L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+  Header unset X-Powered-By
+</IfModule>
+
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>
