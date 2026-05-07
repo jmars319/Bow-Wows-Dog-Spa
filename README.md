@@ -1,5 +1,11 @@
 # Bow Wow’s Dog Spa Platform
 
+## Repository About
+
+- **Description:** Comfort-first dog grooming website and admin platform for Bow Wow's Dog Spa, including a temporary launch placeholder, public booking flow, service/content/media management, retail catalog groundwork, and a PHP/MySQL backend built for shared-host deployment.
+- **Live URL:** https://bowwowsdogspa.com/
+- **Suggested GitHub topics:** `dog-grooming`, `booking`, `local-business`, `react`, `vite`, `php`, `mysql`, `admin-dashboard`, `sendgrid`, `shared-hosting`, `seo`
+
 Monorepo for the Bow Wow’s Dog Spa build, covering:
 
 - `frontend/public-app`: Public single-page site with booking + contact forms.
@@ -7,6 +13,10 @@ Monorepo for the Bow Wow’s Dog Spa build, covering:
 - `backend`: PHP API with SendGrid integration, MySQL persistence, media processing, audit logging, a provider-agnostic calendar sync foundation for future Google, Microsoft, or Apple booking sync, and catalog groundwork for future online product sales.
 - `scripts`: Helper build scripts that emit deploy-ready ZIPs for GoDaddy.
 - `docs`: Deployment + operator runbooks.
+
+## Current Reality
+
+This repo contains both the temporary noindex placeholder deployment and the full public/admin platform. Until the owners approve the full build, deploy `deploy-placeholder.zip` from `bash scripts/make-placeholder-deploy-zip.sh`; the full app remains in the repo and can be packaged with `bash scripts/make-deploy-zips.sh` when it is time to launch.
 
 ## Quick start
 
