@@ -1,11 +1,5 @@
 # Bow Wow’s Dog Spa Platform
 
-## Repository About
-
-- **Description:** Comfort-first dog grooming website and admin platform for Bow Wow's Dog Spa, including a temporary launch placeholder, public booking flow, service/content/media management, retail catalog groundwork, and a PHP/MySQL backend built for shared-host deployment.
-- **Live URL:** https://bowwowsdogspa.com/
-- **Suggested GitHub topics:** `dog-grooming`, `booking`, `local-business`, `react`, `vite`, `php`, `mysql`, `admin-dashboard`, `sendgrid`, `shared-hosting`, `seo`
-
 Monorepo for the Bow Wow’s Dog Spa build, covering:
 
 - `frontend/public-app`: Public single-page site with booking + contact forms.
