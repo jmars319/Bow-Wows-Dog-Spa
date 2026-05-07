@@ -369,6 +369,7 @@ function BookingRequestsPage() {
   const [notesDirty, setNotesDirty] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [scheduleSettings, setScheduleSettings] = useState(null);
+  const dialogTitleId = useId();
 
   const load = useCallback(async () => {
     const response = await api.get('/booking-requests', { params: { status: statusFilter || undefined } });
@@ -383,6 +384,21 @@ function BookingRequestsPage() {
   useEffect(() => {
     api.get('/schedule/templates').then((response) => setScheduleSettings(response.data.data.settings));
   }, []);
+
+  useEffect(() => {
+    if (!selected) {
+      return undefined;
+    }
+
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') {
+        setSelected(null);
+      }
+    };
+
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [selected]);
 
   useEffect(() => {
     if (!selected) return;
@@ -404,6 +420,12 @@ function BookingRequestsPage() {
     setFeedback(null);
     setSelected(request);
     setNotes(request.admin_notes || '');
+    setNotesDirty(false);
+  };
+
+  const closeDetails = () => {
+    setSelected(null);
+    setFeedback(null);
     setNotesDirty(false);
   };
 
@@ -511,7 +533,7 @@ function BookingRequestsPage() {
               </button>
             </div>
           </div>
-          <div className="booking-layout">
+          <div className="booking-layout booking-layout--queue">
             <div className="booking-column">
               <div className="card">
                 <label className="field-label">Filter by status</label>
@@ -570,7 +592,7 @@ function BookingRequestsPage() {
                         {holdInfo && request.status === 'pending_confirmation' ? ` · ~${holdInfo.hoursRemaining}h hold left` : ''}
                       </p>
                       <button className="btn btn-tertiary" type="button">
-                        View details
+                        Open request
                       </button>
                     </article>
                   );
@@ -578,9 +600,22 @@ function BookingRequestsPage() {
                 {items.length === 0 && <div className="card">No booking requests found.</div>}
               </div>
             </div>
+          </div>
 
-            <div className="booking-detail card">
-              {selected ? (
+          {selected && (
+            <div className="modal" role="presentation">
+              <div className="modal__backdrop" onClick={closeDetails} />
+              <div className="modal__content booking-request-modal" role="dialog" aria-modal="true" aria-labelledby={dialogTitleId} onClick={(event) => event.stopPropagation()}>
+                <div className="modal__header">
+                  <div>
+                    <h3 id={dialogTitleId}>Booking Request</h3>
+                    <p className="muted small-text">Review request #{selected.id}, manage notes, and confirm or decline from one place.</p>
+                  </div>
+                  <button type="button" className="btn btn-link" onClick={closeDetails}>
+                    Close
+                  </button>
+                </div>
+
                 <div className="booking-detail__content">
                   <h2>{selected.customer_name}</h2>
                   <p className="muted small-text">Request #{selected.id}</p>
@@ -717,11 +752,9 @@ function BookingRequestsPage() {
                   </div>
                   {feedback && <p className={`save-feedback ${feedback.tone === 'error' ? 'is-error' : 'is-success'}`}>{feedback.message}</p>}
                 </div>
-              ) : (
-                <div className="muted">Select a booking to view full details.</div>
-              )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </ManualBookingLauncher>
@@ -1605,7 +1638,11 @@ function GalleryPage() {
   return (
     <div>
       <h1>Gallery</h1>
-      <p className="muted">Choose the media shown in the public gallery, before/after blocks, and trust-building photo sections.</p>
+      <p className="muted">Choose the media shown in the public gallery, before/after blocks, and trust-building photo sections. Upload once in the media library, then reuse the same photo here or in the hero.</p>
+      <div className="inline-note">
+        <strong>Keep it simple</strong>
+        <p className="muted small-text">Use this page to decide what appears publicly. Use the media library only for uploading and managing the source images.</p>
+      </div>
       <form className="card stack gap-sm" onSubmit={save}>
         <div className="grid two-col gap-sm">
           <label className="field-block">
@@ -2449,7 +2486,7 @@ function ContentPage() {
           </div>
         </EditorSection>
 
-        <EditorSection title="Hero" description="First-screen headline, supporting copy, and primary CTA labels." initiallyOpen>
+        <EditorSection title="Hero" description="First-screen headline, supporting copy, CTA labels, and the main hero image." initiallyOpen>
           <SectionEnabledToggle
             label="Show hero section"
             value={sections.hero?.enabled !== false}
@@ -2466,6 +2503,15 @@ function ContentPage() {
           <div className="field-block">
             <span className="field-label">Hero subheading</span>
             <RichTextEditor value={sections.hero?.subheading || ''} onChange={(value) => updateSection('hero', { subheading: value })} />
+          </div>
+          <div className="field-block">
+            <p className="muted small-text">Pick one strong photo from the shared media library. This keeps hero and gallery images in the same system instead of creating separate upload paths.</p>
+            <MediaPicker
+              label="Hero image"
+              media={sections.hero?.media || null}
+              onChange={(media) => updateSection('hero', { media_id: media?.id ?? null, media: media || null })}
+              uploadCategory="gallery"
+            />
           </div>
           <div className="grid two-col gap-sm">
             <label className="field-block">
@@ -2827,6 +2873,7 @@ function MediaPage() {
   return (
     <div>
       <h1>Media Library</h1>
+      <p className="muted">Upload source images here once, then reuse them in the hero, gallery, and products. This is the master library, not a second gallery editor.</p>
       <form className="card" onSubmit={upload}>
         <label className="field-block">
           <span className="field-label">File</span>

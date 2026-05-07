@@ -225,6 +225,18 @@ final class MediaService
             $usages[] = $legacyTotal . ' legacy gallery item' . ($legacyTotal === 1 ? '' : 's');
         }
 
+        $hero = Database::fetch(
+            'SELECT COUNT(*) AS total
+             FROM content_blocks
+             WHERE `key` = "hero"
+               AND JSON_UNQUOTE(JSON_EXTRACT(content_json, "$.media_id")) = :media_id',
+            ['media_id' => (string) $mediaId]
+        );
+        $heroTotal = (int) ($hero['total'] ?? 0);
+        if ($heroTotal > 0) {
+            $usages[] = 'the hero section';
+        }
+
         return $usages;
     }
 

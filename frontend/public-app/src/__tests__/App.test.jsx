@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { axiosGet, axiosPost } = vi.hoisted(() => ({
@@ -90,6 +90,7 @@ describe('public app', () => {
     axiosPost.mockReset();
     window.history.pushState({}, '', '/');
     document.head.innerHTML = '';
+    window.scrollTo = vi.fn();
   });
 
   it('renders the live products section and hides the footer when disabled', async () => {
@@ -166,5 +167,74 @@ describe('public app', () => {
     expect(document.getElementById('site-nav-drawer')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Privacy' })).toBeInTheDocument();
     expect(document.body).toHaveClass('has-site-nav-open');
+  });
+
+  it('keeps the next booking step near the top of the viewport when advancing the form', async () => {
+    const rect = ({ top = 0, height = 100, left = 0, width = 1200 } = {}) => ({
+      top,
+      bottom: top + height,
+      left,
+      right: left + width,
+      width,
+      height,
+      x: left,
+      y: top,
+      toJSON: () => ({}),
+    });
+
+    axiosGet
+      .mockResolvedValueOnce({
+        data: createPayload({
+          sections: {
+            booking: { enabled: true, title: 'Request appointment' },
+            services: { enabled: true, title: 'Services' },
+            retail: { enabled: false },
+          },
+          services: [
+            {
+              id: 7,
+              name: 'Bath & Brush',
+              duration_minutes: 30,
+              price_label: '$45+',
+            },
+          ],
+          retail_categories: [],
+        }),
+      })
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            availability: [{ time: '09:00:00', label: '9:00 AM', range_label: '9:00 AM - 9:30 AM' }],
+            duration_minutes: 30,
+            next_available: null,
+          },
+        },
+      });
+
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function mockRect() {
+      if (this.classList?.contains('site-header')) {
+        return rect({ top: 0, height: 84 });
+      }
+
+      if (this.classList?.contains('booking-stage__header')) {
+        return rect({ top: 920, height: 120 });
+      }
+
+      return rect();
+    });
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Bath & Brush $45+ 30 min' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Continue to available times' }));
+
+    await waitFor(() => {
+      expect(window.scrollTo).toHaveBeenCalledWith({
+        top: 818,
+        behavior: 'smooth',
+      });
+    });
+
+    boundsSpy.mockRestore();
   });
 });

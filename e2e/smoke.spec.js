@@ -109,14 +109,14 @@ test.describe.serial('stability smoke suite', () => {
     await login(page);
     await page.goto('/admin/booking');
     const requestCard = page.locator('.booking-card').filter({ hasText: ownerName }).first();
-    const detailPanel = page.locator('.booking-detail');
     await requestCard.click();
-    await page.getByRole('button', { name: 'Confirm' }).click();
+    const detailDialog = page.getByRole('dialog', { name: 'Booking Request' });
+    await detailDialog.getByRole('button', { name: 'Confirm' }).click();
     await expect(page.getByText('Booking confirmed.')).toBeVisible();
-    await expect(detailPanel.locator('.status-badge')).toContainText('Confirmed');
-    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(detailDialog.locator('.status-badge')).toContainText('Confirmed');
+    await detailDialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(page.getByText('Booking cancelled.')).toBeVisible();
-    await expect(detailPanel.locator('.status-badge')).toContainText('Cancelled');
+    await expect(detailDialog.locator('.status-badge')).toContainText('Cancelled');
   });
 
   test('media still attached to products cannot be deleted', async ({ page }) => {

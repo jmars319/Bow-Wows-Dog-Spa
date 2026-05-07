@@ -9,6 +9,10 @@ function run(command, args) {
   execFileSync(command, args, {
     cwd: rootDir,
     stdio: 'inherit',
+    env: {
+      ...process.env,
+      BOWWOW_SKIP_BROWSER_OPEN: '1',
+    },
   });
 }
 

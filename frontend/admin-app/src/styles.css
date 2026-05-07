@@ -199,6 +199,10 @@ textarea {
   align-items: flex-start;
 }
 
+.booking-layout--queue {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .booking-column {
   display: flex;
   flex-direction: column;
@@ -621,6 +625,10 @@ textarea {
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.2);
+}
+
+.booking-request-modal {
+  width: min(92vw, 960px);
 }
 
 .modal__header {

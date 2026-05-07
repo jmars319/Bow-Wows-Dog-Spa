@@ -168,7 +168,7 @@ function PublicPage() {
     const galleryItems = Array.isArray(data.gallery_items) ? data.gallery_items : [];
 
     applySeo(buildHomeSeo(settings, sections, galleryItems));
-    applyStructuredData(buildLocalBusinessSchema(settings, galleryItems));
+    applyStructuredData(buildLocalBusinessSchema(settings, sections.hero?.media, galleryItems));
   }, [data, loading, error]);
 
   useEffect(() => {
@@ -388,6 +388,7 @@ function HeroSection({ settings, content, primaryCta, secondaryCta }) {
   const heroSubheading =
     content.subheading ||
     `<p>Gentle grooming, spa baths, and comfort-focused care for dogs in ${servingAreaLabel}.</p><p>Request an appointment online and hear back within 24 hours.</p>`;
+  const heroMedia = content.media || null;
   const valuePoints = [
     settings.serving_area,
     'Appointment-based care',
@@ -395,7 +396,7 @@ function HeroSection({ settings, content, primaryCta, secondaryCta }) {
   ].filter(Boolean);
 
   return (
-    <section id="hero" className="hero-section">
+    <section id="hero" className={`hero-section ${heroMedia ? 'hero-section--with-media' : 'hero-section--without-media'}`}>
       <div className="container hero-grid">
         <div className="hero-copy">
           {textHasContent(content.eyebrow) && <p className="eyebrow">{content.eyebrow}</p>}
@@ -432,17 +433,35 @@ function HeroSection({ settings, content, primaryCta, secondaryCta }) {
           </div>
         </div>
 
-        <div className="hero-card">
-          <div className="hero-card__label">Why families book here</div>
-          <ul className="feature-list">
-            <li>Clear services and starting prices</li>
-            <li>Easy mobile-first appointment requests</li>
-            <li>Thoughtful handling for first-timers and sensitive dogs</li>
-          </ul>
-          <div className="hero-contact-card">
-            <span>Need help first?</span>
-            {settings.phone && <a href={phoneHref}>Call {settings.phone}</a>}
-            {settings.hours && <p>{settings.hours}</p>}
+        <div className={`hero-visual ${heroMedia ? 'hero-visual--has-media' : 'hero-visual--placeholder'}`}>
+          {heroMedia ? (
+            <div className="hero-visual__media">
+              <ResponsivePicture
+                media={heroMedia}
+                alt={heroMedia.alt_text || heroMedia.title || "Freshly groomed Bow Wow's Dog Spa client"}
+                loading="eager"
+                fetchPriority="high"
+              />
+            </div>
+          ) : (
+            <div className="hero-visual__placeholder" aria-hidden="true">
+              <p>Comfort-first care</p>
+              <strong>Colorful boutique results with a calm, neighborhood feel.</strong>
+            </div>
+          )}
+
+          <div className="hero-card">
+            <div className="hero-card__label">Why families book here</div>
+            <ul className="feature-list">
+              <li>Service-based time windows that fit the real visit length</li>
+              <li>Real staff review before confirmation, not a black-box scheduler</li>
+              <li>Thoughtful handling for seniors, first-timers, and sensitive dogs</li>
+            </ul>
+            <div className="hero-contact-card">
+              <span>Need help first?</span>
+              {settings.phone && <a href={phoneHref}>Call {settings.phone}</a>}
+              {settings.hours && <p>{settings.hours}</p>}
+            </div>
           </div>
         </div>
       </div>
@@ -562,6 +581,9 @@ function ServicesSection({ content, services, settings, primaryCta }) {
 }
 
 function BookingSection({ settings, content, services }) {
+  const bookingStageRef = useRef(null);
+  const activeStepHeaderRef = useRef(null);
+  const hasMountedStepRef = useRef(false);
   const [step, setStep] = useState(1);
   const [selectedServiceIds, setSelectedServiceIds] = useState([]);
   const [dogCount, setDogCount] = useState(1);
@@ -571,11 +593,14 @@ function BookingSection({ settings, content, services }) {
   const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [holdToken, setHoldToken] = useState(null);
+  const [holdExpiresAt, setHoldExpiresAt] = useState(null);
+  const [holdClock, setHoldClock] = useState(Date.now());
   const [nextAvailableSuggestion, setNextAvailableSuggestion] = useState(null);
   const [slotError, setSlotError] = useState(null);
   const [flowStatus, setFlowStatus] = useState(null);
   const [submitStatus, setSubmitStatus] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [refreshingHold, setRefreshingHold] = useState(false);
   const [form, setForm] = useState({
     owner_name: '',
     phone: '',
@@ -594,6 +619,65 @@ function BookingSection({ settings, content, services }) {
   const availabilityMessage = content.availability_note || 'Available times update based on selected services and number of dogs.';
   const selectedServicesLabel = selectedServices.map((service) => service.name).join(', ');
   const maxReachableStep = selectedSlot ? (canIntakeContinue(form) ? 4 : 3) : (selectedServiceIds.length > 0 ? 2 : 1);
+  const holdRemainingMs = holdExpiresAt ? Math.max(0, holdExpiresAt - holdClock) : 0;
+  const holdRemainingLabel = holdToken && holdExpiresAt ? formatHoldRemaining(holdRemainingMs) : null;
+
+  const clearSelectedTime = () => {
+    setSelectedSlot(null);
+    setHoldToken(null);
+    setHoldExpiresAt(null);
+  };
+
+  const applyHoldState = (slot, hold) => {
+    setSelectedSlot((current) => ({
+      ...(current || {}),
+      ...(slot || {}),
+      end_time: hold?.end_time || slot?.end_time || current?.end_time || null,
+    }));
+    setHoldToken(hold?.hold_token || null);
+    if (hold?.expires_in_minutes) {
+      const now = Date.now();
+      setHoldClock(now);
+      setHoldExpiresAt(now + Number(hold.expires_in_minutes) * 60 * 1000);
+    } else {
+      setHoldExpiresAt(null);
+    }
+    setNextAvailableSuggestion(null);
+  };
+
+  const buildSlotConflictMessage = (message, nextAvailable) => {
+    if (nextAvailable?.date && nextAvailable.date !== bookingDate) {
+      setBookingDate(nextAvailable.date);
+    }
+    setNextAvailableSuggestion(nextAvailable);
+    return nextAvailable ? `${message} Nearest available: ${formatSuggestionSummary(nextAvailable)}.` : message;
+  };
+
+  const keepActiveStageInView = () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const target = activeStepHeaderRef.current || bookingStageRef.current;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const siteHeader = document.querySelector('.site-header');
+    const headerHeight = siteHeader instanceof HTMLElement ? siteHeader.getBoundingClientRect().height : 0;
+    const topOffset = headerHeight + 18;
+    const rect = target.getBoundingClientRect();
+    const topIsVisible = rect.top >= topOffset && rect.top <= window.innerHeight - 48;
+
+    if (topIsVisible) {
+      return;
+    }
+
+    window.scrollTo({
+      top: Math.max(0, window.scrollY + rect.top - topOffset),
+      behavior: 'smooth',
+    });
+  };
 
   useEffect(() => {
     setForm((current) => {
@@ -612,8 +696,7 @@ function BookingSection({ settings, content, services }) {
     if (selectedServiceIds.length === 0) {
       setAvailability([]);
       setAvailabilityMeta({ duration_minutes: 0 });
-      setSelectedSlot(null);
-      setHoldToken(null);
+      clearSelectedTime();
       setNextAvailableSuggestion(null);
       setSlotError(null);
       return;
@@ -661,24 +744,60 @@ function BookingSection({ settings, content, services }) {
   }, [bookingDate, dogCount, durationSummary, holdToken, selectedServiceIds]);
 
   useEffect(() => {
+    if (!holdToken || !holdExpiresAt) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setHoldClock(Date.now());
+    }, 15000);
+
+    return () => window.clearInterval(intervalId);
+  }, [holdExpiresAt, holdToken]);
+
+  useEffect(() => {
     if (!selectedSlot || loadingAvailability) {
       return;
     }
 
     const slotStillVisible = availability.some((slot) => slot.time === selectedSlot.time);
     if (!slotStillVisible) {
-      setSelectedSlot(null);
-      setHoldToken(null);
+      clearSelectedTime();
       setSlotError('Available times updated. Please choose a new time that matches the current services and dog count.');
       setStep(2);
     }
   }, [availability, loadingAvailability, selectedSlot]);
 
+  useEffect(() => {
+    if (!holdToken || !holdExpiresAt || holdRemainingMs > 0 || step < 3) {
+      return;
+    }
+
+    clearSelectedTime();
+    setStep(2);
+    setFlowStatus({
+      tone: 'error',
+      message: 'That reserved time expired while you were filling out the request. Please choose a fresh time before continuing.',
+    });
+  }, [holdExpiresAt, holdRemainingMs, holdToken, step]);
+
+  useEffect(() => {
+    if (!hasMountedStepRef.current) {
+      hasMountedStepRef.current = true;
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      keepActiveStageInView();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [step]);
+
   const toggleService = (serviceId) => {
     setFlowStatus(null);
     setSubmitStatus(null);
-    setSelectedSlot(null);
-    setHoldToken(null);
+    clearSelectedTime();
     setNextAvailableSuggestion(null);
     setSelectedServiceIds((current) =>
       current.includes(serviceId) ? current.filter((id) => id !== serviceId) : [...current, serviceId],
@@ -701,8 +820,7 @@ function BookingSection({ settings, content, services }) {
 
     setFlowStatus(null);
     setSubmitStatus(null);
-    setSelectedSlot(null);
-    setHoldToken(null);
+    clearSelectedTime();
 
     if (nextAvailableSuggestion.date && nextAvailableSuggestion.date !== bookingDate) {
       setBookingDate(nextAvailableSuggestion.date);
@@ -726,18 +844,52 @@ function BookingSection({ settings, content, services }) {
         previous_hold_token: holdToken,
       });
 
-      setSelectedSlot(slot);
-      setHoldToken(response.data.data.hold_token);
-      setNextAvailableSuggestion(null);
+      applyHoldState(slot, response.data.data);
       setStep(3);
     } catch (error) {
       const message = error.response?.data?.error?.message || 'That time is no longer available.';
       const nextAvailable = error.response?.data?.error?.next_available || null;
-      setNextAvailableSuggestion(nextAvailable);
-      if (nextAvailable?.date && nextAvailable.date !== bookingDate) {
-        setBookingDate(nextAvailable.date);
-      }
-      setSlotError(nextAvailable ? `${message} Nearest available: ${formatSuggestionSummary(nextAvailable)}.` : message);
+      setSlotError(buildSlotConflictMessage(message, nextAvailable));
+    }
+  };
+
+  const refreshSelectedHold = async (targetStep = 4) => {
+    if (!selectedSlot) {
+      return false;
+    }
+
+    setRefreshingHold(true);
+    setFlowStatus(null);
+    setSubmitStatus(null);
+
+    try {
+      const response = await axios.post('/api/public/booking-hold', {
+        date: bookingDate,
+        time: selectedSlot.time,
+        selected_services: selectedServiceIds,
+        pet_count: dogCount,
+        previous_hold_token: holdToken,
+      });
+
+      applyHoldState(selectedSlot, response.data.data);
+      setStep(targetStep);
+      setFlowStatus({
+        tone: 'success',
+        message: 'Time refreshed successfully. You can review and submit with the latest availability check already completed.',
+      });
+      return true;
+    } catch (error) {
+      const message = error.response?.data?.error?.message || 'That time is no longer available.';
+      const nextAvailable = error.response?.data?.error?.next_available || null;
+      clearSelectedTime();
+      setStep(2);
+      setFlowStatus({
+        tone: 'error',
+        message: buildSlotConflictMessage(message, nextAvailable),
+      });
+      return false;
+    } finally {
+      setRefreshingHold(false);
     }
   };
 
@@ -751,8 +903,7 @@ function BookingSection({ settings, content, services }) {
 
   const addAnotherDog = () => {
     setDogCount((count) => count + 1);
-    setSelectedSlot(null);
-    setHoldToken(null);
+    clearSelectedTime();
     setNextAvailableSuggestion(null);
     setFlowStatus(null);
     setSubmitStatus(null);
@@ -760,7 +911,7 @@ function BookingSection({ settings, content, services }) {
     setStep(2);
   };
 
-  const changeStep = (nextStep) => {
+  const changeStep = async (nextStep) => {
     setFlowStatus(null);
     setSubmitStatus(null);
 
@@ -784,6 +935,11 @@ function BookingSection({ settings, content, services }) {
     if (nextStep >= 4 && !canIntakeContinue(form)) {
       setStep(3);
       setFlowStatus({ tone: 'error', message: 'Complete the owner details plus each dog’s name and approximate weight before reviewing.' });
+      return;
+    }
+
+    if (nextStep >= 4) {
+      await refreshSelectedHold(nextStep);
       return;
     }
 
@@ -830,8 +986,7 @@ function BookingSection({ settings, content, services }) {
       setDogCount(1);
       setBookingDate(todayString());
       setAvailability([]);
-      setSelectedSlot(null);
-      setHoldToken(null);
+      clearSelectedTime();
       setNextAvailableSuggestion(null);
       setForm({
         owner_name: '',
@@ -848,8 +1003,7 @@ function BookingSection({ settings, content, services }) {
       const message = error.response?.data?.error?.message || 'Unable to submit your request right now.';
       const nextAvailable = error.response?.data?.error?.next_available || null;
       if (requiresNewSlot(message)) {
-        setSelectedSlot(null);
-        setHoldToken(null);
+        clearSelectedTime();
         setNextAvailableSuggestion(nextAvailable);
         if (nextAvailable?.date && nextAvailable.date !== bookingDate) {
           setBookingDate(nextAvailable.date);
@@ -866,8 +1020,6 @@ function BookingSection({ settings, content, services }) {
   };
 
   const canContinueToSlots = selectedServiceIds.length > 0;
-  const canContinueToReview = canIntakeContinue(form);
-
   return (
     <section id="booking" className="section section--booking">
       <div className="container">
@@ -881,7 +1033,7 @@ function BookingSection({ settings, content, services }) {
           <div className="booking-card">
             <BookingSteps step={step} onStepChange={changeStep} maxStep={maxReachableStep} />
 
-            <div className="booking-stage">
+            <div ref={bookingStageRef} className="booking-stage">
               {flowStatus && (
                 <p
                   role={flowStatus.tone === 'error' ? 'alert' : 'status'}
@@ -895,7 +1047,7 @@ function BookingSection({ settings, content, services }) {
 
               {step === 1 && (
                 <>
-                  <div className="booking-stage__header">
+                  <div ref={activeStepHeaderRef} className="booking-stage__header">
                     <h3>Step 1: Select services</h3>
                     <p>Choose one or more services, then tell us how many dogs you’re bringing.</p>
                   </div>
@@ -927,8 +1079,7 @@ function BookingSection({ settings, content, services }) {
                         aria-label="Remove one dog from this request"
                         onClick={() => {
                           setDogCount((count) => Math.max(1, count - 1));
-                          setSelectedSlot(null);
-                          setHoldToken(null);
+                          clearSelectedTime();
                           setNextAvailableSuggestion(null);
                           setFlowStatus(null);
                           setSubmitStatus(null);
@@ -942,8 +1093,7 @@ function BookingSection({ settings, content, services }) {
                         aria-label="Add one dog to this request"
                         onClick={() => {
                           setDogCount((count) => count + 1);
-                          setSelectedSlot(null);
-                          setHoldToken(null);
+                          clearSelectedTime();
                           setNextAvailableSuggestion(null);
                           setFlowStatus(null);
                           setSubmitStatus(null);
@@ -972,7 +1122,7 @@ function BookingSection({ settings, content, services }) {
 
               {step === 2 && (
                 <>
-                  <div className="booking-stage__header">
+                  <div ref={activeStepHeaderRef} className="booking-stage__header">
                     <h3>Step 2: Select date & time</h3>
                     <p>{availabilityMessage}</p>
                   </div>
@@ -990,8 +1140,7 @@ function BookingSection({ settings, content, services }) {
                       min={todayString()}
                       onChange={(event) => {
                         setBookingDate(event.target.value);
-                        setSelectedSlot(null);
-                        setHoldToken(null);
+                        clearSelectedTime();
                         setNextAvailableSuggestion(null);
                         setSubmitStatus(null);
                         setFlowStatus(null);
@@ -1062,7 +1211,7 @@ function BookingSection({ settings, content, services }) {
 
               {step === 3 && (
                 <>
-                  <div className="booking-stage__header">
+                  <div ref={activeStepHeaderRef} className="booking-stage__header">
                     <h3>Step 3: Intake details</h3>
                     <p>Share owner, dog, vet, and paperwork details. We keep the form focused and easy on mobile.</p>
                   </div>
@@ -1070,6 +1219,12 @@ function BookingSection({ settings, content, services }) {
                   <div className="booking-summary-banner">
                     <strong>Selected appointment:</strong> {formatDateLong(bookingDate)} · {selectedSlot?.range_label || selectedSlot?.label}
                   </div>
+
+                  {holdRemainingLabel && (
+                    <div className="booking-summary-banner booking-summary-banner--hold">
+                      <strong>Reserved while you finish:</strong> about {holdRemainingLabel} left before this time needs to be refreshed again.
+                    </div>
+                  )}
 
                   <form className="booking-form-grid" onSubmit={(event) => event.preventDefault()}>
                     <div className="field-group">
@@ -1261,8 +1416,8 @@ function BookingSection({ settings, content, services }) {
                     <button className="btn btn-outline" type="button" onClick={() => changeStep(2)}>
                       Back
                     </button>
-                    <button className="btn btn-primary" type="button" onClick={() => changeStep(4)}>
-                      Review request
+                    <button className="btn btn-primary" type="button" onClick={() => changeStep(4)} disabled={refreshingHold}>
+                      {refreshingHold ? 'Refreshing time…' : 'Review request'}
                     </button>
                   </div>
                 </>
@@ -1270,7 +1425,7 @@ function BookingSection({ settings, content, services }) {
 
               {step === 4 && (
                 <form onSubmit={submitBooking}>
-                  <div className="booking-stage__header">
+                  <div ref={activeStepHeaderRef} className="booking-stage__header">
                     <h3>Step 4: Review & submit</h3>
                     <p>This is a request. {appointmentNotice}</p>
                   </div>
@@ -1278,6 +1433,12 @@ function BookingSection({ settings, content, services }) {
                   <div className="booking-summary-banner booking-summary-banner--notice">
                     <strong>Request review window:</strong> Our team reviews requests and confirms within 24 hours.
                   </div>
+
+                  {holdRemainingLabel && (
+                    <div className="booking-summary-banner booking-summary-banner--hold">
+                      <strong>Time currently reserved:</strong> about {holdRemainingLabel} left on this request window.
+                    </div>
+                  )}
 
                   <div className="review-grid">
                     <article className="review-card">
@@ -1884,7 +2045,7 @@ function SimplePage({ fallbackTitle, blockKey }) {
     }
 
     applySeo(buildSimpleSeo(blockKey, title, items, section.enabled !== false, settings));
-    applyStructuredData(buildLocalBusinessSchema(settings, galleryItems));
+    applyStructuredData(buildLocalBusinessSchema(settings, data?.sections?.hero?.media, galleryItems));
   }, [blockKey, title, items, section.enabled, settings, galleryItems, loading, error, data]);
 
   if (loading) {
@@ -2069,7 +2230,7 @@ function BrandLockup({ compact = false }) {
   );
 }
 
-function ResponsivePicture({ media, alt }) {
+function ResponsivePicture({ media, alt, loading = 'lazy', fetchPriority = undefined }) {
   if (!media) {
     return null;
   }
@@ -2083,7 +2244,8 @@ function ResponsivePicture({ media, alt }) {
         alt={alt || media.alt_text || media.title || "Bow Wow's Dog Spa gallery image"}
         width={media.intrinsic_width || undefined}
         height={media.intrinsic_height || undefined}
-        loading="lazy"
+        loading={loading}
+        fetchPriority={fetchPriority}
       />
     </picture>
   );
@@ -2168,7 +2330,7 @@ function buildHomeSeo(settings, sections, galleryItems) {
     title,
     description,
     path: '/',
-    image: pickSeoImage(galleryItems),
+    image: pickSeoImage(sections.hero?.media, galleryItems),
     siteName: businessName,
     robots: 'index,follow,max-image-preview:large',
   };
@@ -2244,7 +2406,7 @@ function applyStructuredData(schema) {
   script.textContent = JSON.stringify(schema);
 }
 
-function buildLocalBusinessSchema(settings, galleryItems) {
+function buildLocalBusinessSchema(settings, heroMedia, galleryItems) {
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'LocalBusiness',
@@ -2254,7 +2416,7 @@ function buildLocalBusinessSchema(settings, galleryItems) {
   schema.name = name;
   schema.url = toCanonicalUrl('/');
 
-  const image = pickSeoImage(galleryItems);
+  const image = pickSeoImage(heroMedia, galleryItems);
   if (textHasContent(image)) {
     schema.image = image;
   }
@@ -2289,7 +2451,12 @@ function normalizeOpeningHours(value) {
     .filter((entry) => /^[A-Z][a-z](?:-[A-Z][a-z])?\s+\d/.test(entry));
 }
 
-function pickSeoImage(galleryItems) {
+function pickSeoImage(heroMedia, galleryItems) {
+  const heroPath = heroMedia?.fallback_url || heroMedia?.original_url || '';
+  if (textHasContent(heroPath)) {
+    return toAbsoluteUrl(heroPath);
+  }
+
   if (Array.isArray(galleryItems)) {
     for (const item of galleryItems) {
       const media = item?.primary_media || item?.secondary_media;
@@ -2416,6 +2583,17 @@ function requiresNewSlot(message) {
     'choose another time',
     'currently being requested',
   ].some((needle) => normalized.includes(needle));
+}
+
+function formatHoldRemaining(milliseconds) {
+  const totalMinutes = Math.max(1, Math.ceil(milliseconds / 60000));
+  if (totalMinutes >= 60) {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+
+  return `${totalMinutes}m`;
 }
 
 function escapeHtml(value) {

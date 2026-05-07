@@ -1,20 +1,26 @@
 :root {
   scroll-behavior: smooth;
   color-scheme: light;
-  --background-primary: #faf9f6;
-  --background-secondary: #f1f3f2;
+  --background-primary: #fbfaf7;
+  --background-secondary: #f3f4f8;
   --surface-card: #ffffff;
   --surface-muted: rgba(255, 255, 255, 0.66);
-  --accent-primary: #8fb6b1;
-  --accent-primary-soft: #bfd8d5;
-  --accent-secondary: #d6cde8;
-  --accent-secondary-soft: #e9e4f2;
-  --text-primary: #2f3a3a;
-  --text-secondary: #5f6f6f;
-  --border-subtle: #d9e2e1;
-  --shadow-soft: 0 18px 48px rgba(47, 58, 58, 0.08);
-  --shadow-strong: 0 24px 70px rgba(47, 58, 58, 0.14);
-  --success: #2e6f5f;
+  --accent-blue: #2b6dff;
+  --accent-blue-soft: rgba(43, 109, 255, 0.15);
+  --accent-purple: #874dff;
+  --accent-purple-soft: rgba(135, 77, 255, 0.13);
+  --accent-green: #11b67c;
+  --accent-green-soft: rgba(17, 182, 124, 0.13);
+  --accent-primary: var(--accent-blue);
+  --accent-primary-soft: rgba(43, 109, 255, 0.18);
+  --accent-secondary: var(--accent-purple);
+  --accent-secondary-soft: rgba(135, 77, 255, 0.12);
+  --text-primary: #1d2433;
+  --text-secondary: #586173;
+  --border-subtle: #d9deea;
+  --shadow-soft: 0 18px 48px rgba(29, 36, 51, 0.08);
+  --shadow-strong: 0 30px 85px rgba(29, 36, 51, 0.18);
+  --success: #138b60;
   --error: #a95757;
   font-family: 'Avenir Next', 'Trebuchet MS', sans-serif;
   color: var(--text-primary);
@@ -34,8 +40,9 @@ body,
 body {
   margin: 0;
   background:
-    radial-gradient(circle at top left, rgba(191, 216, 213, 0.35), transparent 32%),
-    radial-gradient(circle at top right, rgba(214, 205, 232, 0.28), transparent 30%),
+    radial-gradient(circle at top left, rgba(43, 109, 255, 0.16), transparent 32%),
+    radial-gradient(circle at top right, rgba(135, 77, 255, 0.13), transparent 30%),
+    radial-gradient(circle at 50% 12%, rgba(17, 182, 124, 0.1), transparent 26%),
     var(--background-primary);
   color: var(--text-primary);
   overflow-x: hidden;
@@ -130,18 +137,18 @@ select:focus-visible {
 }
 
 .section--soft {
-  background: linear-gradient(180deg, rgba(241, 243, 242, 0.88), rgba(250, 249, 246, 0.88));
+  background: linear-gradient(180deg, rgba(242, 245, 255, 0.82), rgba(251, 250, 247, 0.92));
 }
 
 .section--booking {
   background:
-    linear-gradient(180deg, rgba(191, 216, 213, 0.22), rgba(233, 228, 242, 0.18)),
+    linear-gradient(180deg, rgba(43, 109, 255, 0.12), rgba(135, 77, 255, 0.1) 56%, rgba(17, 182, 124, 0.08)),
     var(--background-primary);
 }
 
 .section--contact {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(241, 243, 242, 0.8));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(243, 244, 248, 0.84));
 }
 
 .link-chip {
@@ -288,7 +295,35 @@ select:focus-visible {
 }
 
 .hero-section {
-  padding: 3rem 0 4rem;
+  position: relative;
+  padding: 3.35rem 0 4.6rem;
+  overflow: hidden;
+}
+
+.hero-section::before,
+.hero-section::after {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(18px);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.hero-section::before {
+  top: 0.4rem;
+  right: -4rem;
+  width: 15rem;
+  height: 15rem;
+  background: radial-gradient(circle, rgba(135, 77, 255, 0.24), transparent 68%);
+}
+
+.hero-section::after {
+  left: -3rem;
+  bottom: -2rem;
+  width: 14rem;
+  height: 14rem;
+  background: radial-gradient(circle, rgba(17, 182, 124, 0.18), transparent 68%);
 }
 
 .hero-grid,
@@ -314,6 +349,16 @@ select:focus-visible {
 .hero-copy h1 {
   font-size: clamp(2.5rem, 7vw, 5rem);
   max-width: 12ch;
+}
+
+.hero-copy,
+.hero-visual {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-subheading {
+  max-width: 36rem;
 }
 
 .hero-subheading,
@@ -370,14 +415,14 @@ select:focus-visible {
 }
 
 .btn-primary {
-  background: var(--accent-primary);
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
   color: #fff;
-  box-shadow: 0 14px 30px rgba(143, 182, 177, 0.32);
+  box-shadow: 0 18px 34px rgba(43, 109, 255, 0.24);
 }
 
 .btn-outline {
-  background: transparent;
-  border: 1px solid var(--accent-primary);
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(43, 109, 255, 0.24);
   color: var(--text-primary);
 }
 
@@ -388,7 +433,8 @@ select:focus-visible {
   padding: 0.45rem 0.8rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.76);
-  border: 1px solid rgba(217, 226, 225, 0.9);
+  border: 1px solid rgba(135, 77, 255, 0.16);
+  box-shadow: 0 10px 22px rgba(29, 36, 51, 0.06);
   font-size: 0.92rem;
 }
 
@@ -421,8 +467,11 @@ select:focus-visible {
 }
 
 .hero-card {
+  margin: -4.5rem 1rem 0 auto;
+  width: min(100%, 24rem);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(241, 243, 242, 0.92));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(244, 246, 255, 0.92));
+  backdrop-filter: blur(18px);
 }
 
 .hero-card__label {
@@ -430,7 +479,7 @@ select:focus-visible {
   margin-bottom: 1rem;
   padding: 0.45rem 0.8rem;
   border-radius: 999px;
-  background: var(--accent-secondary-soft);
+  background: linear-gradient(135deg, rgba(135, 77, 255, 0.14), rgba(17, 182, 124, 0.14));
   color: var(--text-primary);
   font-size: 0.88rem;
 }
@@ -448,8 +497,71 @@ select:focus-visible {
 
 .hero-contact-card a,
 .text-link {
-  color: var(--success);
+  color: var(--accent-blue);
   font-weight: 700;
+}
+
+.hero-visual {
+  display: grid;
+  align-items: end;
+}
+
+.hero-visual__media,
+.hero-visual__placeholder {
+  min-height: 420px;
+  border-radius: 34px;
+  overflow: hidden;
+  border: 1px solid rgba(135, 77, 255, 0.16);
+  box-shadow: var(--shadow-strong);
+}
+
+.hero-visual__media {
+  background:
+    linear-gradient(160deg, rgba(43, 109, 255, 0.16), rgba(135, 77, 255, 0.1), rgba(17, 182, 124, 0.08)),
+    #d9dff0;
+}
+
+.hero-visual__media .responsive-picture,
+.hero-visual__media picture {
+  display: block;
+  height: 100%;
+}
+
+.hero-visual__media .responsive-picture img {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  object-fit: cover;
+}
+
+.hero-visual__placeholder {
+  display: grid;
+  align-content: end;
+  gap: 0.6rem;
+  padding: 1.5rem;
+  background:
+    radial-gradient(circle at top left, rgba(43, 109, 255, 0.42), transparent 34%),
+    radial-gradient(circle at top right, rgba(135, 77, 255, 0.36), transparent 34%),
+    linear-gradient(145deg, rgba(17, 182, 124, 0.2), rgba(255, 255, 255, 0.92));
+}
+
+.hero-visual__placeholder p,
+.hero-visual__placeholder strong {
+  margin: 0;
+}
+
+.hero-visual__placeholder p {
+  color: rgba(29, 36, 51, 0.76);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.76rem;
+}
+
+.hero-visual__placeholder strong {
+  max-width: 15ch;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  line-height: 1.02;
 }
 
 .hero-support-link {
@@ -577,7 +689,7 @@ select:focus-visible {
 
 .booking-step.is-active {
   border-color: var(--accent-primary);
-  background: rgba(191, 216, 213, 0.18);
+  background: linear-gradient(135deg, rgba(43, 109, 255, 0.12), rgba(135, 77, 255, 0.08));
   color: var(--text-primary);
 }
 
@@ -628,8 +740,8 @@ select:focus-visible {
 }
 
 .service-chip-card.is-active {
-  border-color: var(--accent-primary);
-  background: rgba(191, 216, 213, 0.16);
+  border-color: rgba(43, 109, 255, 0.4);
+  background: linear-gradient(135deg, rgba(43, 109, 255, 0.12), rgba(135, 77, 255, 0.06));
 }
 
 .service-chip-card span {
@@ -671,8 +783,13 @@ select:focus-visible {
 }
 
 .booking-summary-banner--notice {
-  background: rgba(191, 216, 213, 0.18);
-  border-color: rgba(143, 182, 177, 0.45);
+  background: linear-gradient(135deg, rgba(43, 109, 255, 0.1), rgba(135, 77, 255, 0.08));
+  border-color: rgba(43, 109, 255, 0.22);
+}
+
+.booking-summary-banner--hold {
+  background: linear-gradient(135deg, rgba(17, 182, 124, 0.12), rgba(43, 109, 255, 0.08));
+  border-color: rgba(17, 182, 124, 0.24);
 }
 
 .next-available-card {
@@ -680,7 +797,7 @@ select:focus-visible {
   padding: 1rem;
   border-radius: 18px;
   background: var(--surface-card);
-  border: 1px solid rgba(143, 182, 177, 0.42);
+  border: 1px solid rgba(43, 109, 255, 0.28);
   display: grid;
   gap: 0.65rem;
 }
@@ -727,8 +844,8 @@ select:focus-visible {
 }
 
 .slot-button.is-active {
-  border-color: var(--accent-primary);
-  background: rgba(191, 216, 213, 0.16);
+  border-color: rgba(43, 109, 255, 0.42);
+  background: linear-gradient(135deg, rgba(43, 109, 255, 0.12), rgba(17, 182, 124, 0.08));
 }
 
 .slot-button span {
@@ -803,7 +920,7 @@ select:focus-visible {
 .sidebar-card--accent,
 .contact-card--note {
   background:
-    linear-gradient(180deg, rgba(191, 216, 213, 0.22), rgba(233, 228, 242, 0.16)),
+    linear-gradient(180deg, rgba(43, 109, 255, 0.12), rgba(135, 77, 255, 0.1), rgba(17, 182, 124, 0.08)),
     var(--surface-card);
 }
 
@@ -895,7 +1012,7 @@ select:focus-visible {
 
 .retail-card__media {
   background:
-    linear-gradient(180deg, rgba(191, 216, 213, 0.16), rgba(233, 228, 242, 0.12)),
+    linear-gradient(180deg, rgba(43, 109, 255, 0.12), rgba(135, 77, 255, 0.1), rgba(17, 182, 124, 0.08)),
     var(--surface-card);
 }
 
@@ -962,6 +1079,16 @@ select:focus-visible {
   .hero-copy h1 {
     font-size: clamp(2.25rem, 13vw, 4rem);
     max-width: 11ch;
+  }
+
+  .hero-visual__media,
+  .hero-visual__placeholder {
+    min-height: 320px;
+  }
+
+  .hero-card {
+    width: 100%;
+    margin: 1rem 0 0;
   }
 
   .hero-actions .btn {
@@ -1032,8 +1159,8 @@ select:focus-visible {
   gap: 1rem;
   margin-top: 1.25rem;
   background:
-    linear-gradient(180deg, rgba(191, 216, 213, 0.16), rgba(233, 228, 242, 0.12)),
-    rgba(241, 243, 242, 0.92);
+    linear-gradient(135deg, rgba(43, 109, 255, 0.12), rgba(135, 77, 255, 0.1), rgba(17, 182, 124, 0.08)),
+    rgba(243, 244, 248, 0.92);
 }
 
 .section-cta strong {

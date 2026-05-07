@@ -33,6 +33,7 @@ final class SiteContentService
             'subheading' => '<p>Bow Wow’s Dog Spa provides appointment-based grooming and bath care for families looking for a calm, reliable experience.</p><p>Request a visit online, then our team will review the details and follow up directly.</p>',
             'cta_text' => 'Request Appointment',
             'cta_secondary' => 'View Services',
+            'media_id' => null,
         ],
         'trust' => [
             'enabled' => true,
@@ -162,6 +163,8 @@ final class SiteContentService
             }
         }
 
+        $blocks['hero'] = $this->hydrateHeroSection($blocks['hero'] ?? []);
+
         $galleryItems = $this->gallery->list(true);
         if ($galleryItems === []) {
             $galleryItems = $this->legacyGalleryFallback();
@@ -229,6 +232,11 @@ final class SiteContentService
     {
         $enabled = isset($value['enabled']) ? (bool) $value['enabled'] : true;
         unset($value['enabled']);
+
+        if ($key === 'hero') {
+            $value['media_id'] = !empty($value['media_id']) ? (int) $value['media_id'] : null;
+            unset($value['media']);
+        }
 
         if (in_array($key, $this->listSections, true)) {
             if (isset($value['items']) && is_array($value['items'])) {
@@ -339,5 +347,13 @@ final class SiteContentService
         }
 
         return $value;
+    }
+
+    private function hydrateHeroSection(array $section): array
+    {
+        $mediaId = !empty($section['media_id']) ? (int) $section['media_id'] : null;
+        $section['media_id'] = $mediaId;
+        $section['media'] = $mediaId ? $this->media->find($mediaId) : null;
+        return $section;
     }
 }
