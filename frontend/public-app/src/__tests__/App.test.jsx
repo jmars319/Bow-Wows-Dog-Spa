@@ -90,6 +90,7 @@ describe('public app', () => {
     axiosPost.mockReset();
     window.history.pushState({}, '', '/');
     document.head.innerHTML = '';
+    document.body.className = '';
     window.scrollTo = vi.fn();
   });
 
@@ -225,7 +226,7 @@ describe('public app', () => {
 
     render(<App />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Bath & Brush $45+ 30 min' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Bath & Brush/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Continue to available times' }));
 
     await waitFor(() => {
