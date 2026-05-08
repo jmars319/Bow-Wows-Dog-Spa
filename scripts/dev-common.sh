@@ -38,11 +38,11 @@ COLOR_YELLOW=$'\033[33m'
 COLOR_BLUE=$'\033[36m'
 
 function log() {
-  printf '[dev] %s\n' "$*"
+  printf '%s[dev][INFO]%s %s\n' "$COLOR_BLUE" "$COLOR_RESET" "$*"
 }
 
 function error() {
-  printf >&2 '[dev][error] %s\n' "$*"
+  printf >&2 '%s[dev][ERROR]%s %s\n' "$COLOR_RED" "$COLOR_RESET" "$*"
 }
 
 function colorize() {

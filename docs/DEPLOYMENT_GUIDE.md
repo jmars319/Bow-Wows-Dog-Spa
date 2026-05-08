@@ -14,16 +14,16 @@ This project is optimized for GoDaddy shared hosting with manual ZIP uploads. Fo
 From the repo root:
 
 ```bash
-bash scripts/make-deploy-zips.sh   # builds both SPAs + placeholder, outputs deploy-*.zip
+bash scripts/make-deploy-zips.sh   # builds both SPAs + placeholder, outputs frontend-deploy.zip and backend-deploy.zip
 bash scripts/check-deploy-zips.sh  # optional sanity check
 ```
 
-The build script compiles the React SPAs, refreshes placeholder/logo assets, and writes fresh `deploy-frontend.zip` and `deploy-backend.zip` to the repo root.
+The build script compiles the React SPAs, refreshes placeholder/logo assets, and writes fresh `frontend-deploy.zip` and `backend-deploy.zip` to the repo root.
 
 Default release posture:
 
-- `deploy-backend.zip` excludes `backend/.env`, `backend/.env.production`, runtime uploads/media, and CLI-only backend tools.
-- `deploy-frontend.zip` contains the live public site at `/`, the admin SPA at `/admin`, and the archived placeholder at `/placeholder`.
+- `backend-deploy.zip` excludes `backend/.env`, `backend/.env.production`, runtime uploads/media, and CLI-only backend tools.
+- `frontend-deploy.zip` contains the live public site at `/`, the admin SPA at `/admin`, and the archived placeholder at `/placeholder`.
 
 If you intentionally want the CLI migration/admin tools in the backend bundle, opt in explicitly:
 
@@ -34,7 +34,7 @@ INCLUDE_CLI_TOOLS_IN_DEPLOY=true bash scripts/check-deploy-zips.sh
 
 ## 3. Configure the backend
 
-1. Upload `deploy-backend.zip` to your hosting account (e.g., `/home/{user}/bowwow-backend` or a subfolder under `public_html/api`).
+1. Upload `backend-deploy.zip` to your hosting account (e.g., `/home/{user}/bowwow-backend` or a subfolder under `public_html/api`).
 2. Extract the ZIP; the contents include `backend/public`, `src`, `config`, `db`, and `migrations`. CLI scripts are excluded unless you built with `INCLUDE_CLI_TOOLS_IN_DEPLOY=true`.
 3. Copy `backend/.env.example` to `backend/.env`, then update the values (each block is labeled in the file):
    - `APP_URL` (usually `https://bowwowsdogspa.com`)
@@ -85,7 +85,7 @@ The CLI script prompts for email/password (or reads `ADMIN_EMAIL` / `ADMIN_PASSW
 
 ## 5. Deploy the front-end
 
-1. Upload `deploy-frontend.zip` into your `public_html` (or subdomain) directory.
+1. Upload `frontend-deploy.zip` into your `public_html` (or subdomain) directory.
 2. Extract; the archive already contains the correct structure:
    - `/index.html` + `/index.php` + `/.htaccess` → public SPA mounted at the site root
    - `/error-documents/` → branded static Apache fallback pages for `403`, `404`, `500`, and `503`

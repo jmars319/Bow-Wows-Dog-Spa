@@ -3,10 +3,40 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "npm run build:public && npm run build:admin",
+    "build:public": "npm --prefix frontend/public-app run build",
+    "build:admin": "npm --prefix frontend/admin-app run build",
+    "doctor": "bash ./scripts/doctor.sh",
+    "verify": "bash ./scripts/dev-verify.sh",
+    "dev:start": "bash ./scripts/dev-start.sh",
+    "dev:stop": "bash ./scripts/dev-stop.sh",
+    "dev:restart": "bash ./scripts/dev-restart.sh",
+    "dev:status": "bash ./scripts/dev-status.sh",
+    "fe:start": "bash ./scripts/dev-frontend-start.sh",
+    "fe:stop": "bash ./scripts/dev-frontend-stop.sh",
+    "fe:restart": "bash ./scripts/dev-frontend-restart.sh",
+    "public:start": "bash ./scripts/dev-frontend-start.sh",
+    "public:stop": "bash ./scripts/dev-frontend-stop.sh",
+    "public:restart": "bash ./scripts/dev-frontend-restart.sh",
+    "admin:start": "bash ./scripts/dev-admin-start.sh",
+    "admin:stop": "bash ./scripts/dev-admin-stop.sh",
+    "admin:restart": "bash ./scripts/dev-admin-restart.sh",
+    "be:start": "bash ./scripts/dev-backend-start.sh",
+    "be:stop": "bash ./scripts/dev-backend-stop.sh",
+    "be:restart": "bash ./scripts/dev-backend-restart.sh",
+    "deploy:make": "bash ./scripts/make-deploy-zips.sh",
+    "deploy:check": "bash ./scripts/check-deploy-zips.sh",
+    "deploy:placeholder": "bash ./scripts/make-placeholder-deploy-zip.sh",
+    "test:public": "npm --prefix frontend/public-app run test",
+    "test:admin": "npm --prefix frontend/admin-app run test",
     "test:e2e": "playwright test",
     "test:all": "bash ./scripts/test-all.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0"
+  },
+  "packageManager": "npm@11.6.1",
+  "engines": {
+    "node": ">=22.12.0 <23"
   }
 }

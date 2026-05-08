@@ -72,7 +72,7 @@ Generic helper scripts live under `scripts/` (see `Generic-Scripts-Reference.md`
 | `bash scripts/dev-verify.sh` | Full smoke test: stop → start → check (backend/public/admin) → restart → re-check. |
 | `bash scripts/verify-public-error-pages.sh` | Verify public status-route codes, static error documents, and maintenance behavior against a staged frontend bundle. |
 | `bash scripts/make-placeholder-deploy-zip.sh` | Build `deploy-placeholder.zip` for the temporary root placeholder only, without exposing the unfinished public SPA. |
-| `bash scripts/make-deploy-zips.sh` | Builds React apps, refreshes placeholder assets, and produces `deploy-frontend.zip` + `deploy-backend.zip`. |
+| `bash scripts/make-deploy-zips.sh` | Builds React apps, refreshes placeholder assets, and produces `frontend-deploy.zip` + `backend-deploy.zip`. |
 | `bash scripts/check-deploy-zips.sh` | Quick sanity-check of the generated deploy archives. |
 
 - Copy `scripts/dev-config.example.sh` to `.dev/dev-config.sh` to override default ports/paths (backend/public/admin).

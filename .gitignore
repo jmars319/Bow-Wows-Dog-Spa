@@ -10,6 +10,8 @@ backend/.env
 **/.env.production
 references/
 deploy-*.zip
+frontend-deploy*.zip
+backend-deploy*.zip
 *.DS_Store
 .build/
 .dev/

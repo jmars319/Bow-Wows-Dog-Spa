@@ -38,7 +38,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
           cache: 'npm'
           cache-dependency-path: |
             package-lock.json
@@ -50,6 +50,9 @@ jobs:
           npm ci
           npm ci --prefix frontend/public-app
           npm ci --prefix frontend/admin-app
+
+      - name: Run project doctor
+        run: npm run doctor
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium

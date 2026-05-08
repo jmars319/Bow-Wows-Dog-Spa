@@ -5,7 +5,13 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/.build/placeholder-deploy"
 STAGING="$BUILD_DIR/public"
 
-log() { printf '[placeholder-deploy] %s\n' "$*"; }
+COLOR_RESET="\033[0m"
+COLOR_BLUE="\033[0;34m"
+COLOR_GREEN="\033[0;32m"
+
+log_info() { printf "%b[INFO]%b %s\n" "$COLOR_BLUE" "$COLOR_RESET" "$*"; }
+log_success() { printf "%b[OK]%b %s\n" "$COLOR_GREEN" "$COLOR_RESET" "$*"; }
+log() { log_info "$*"; }
 
 log "Cleaning previous placeholder deploy artifact"
 rm -f "$ROOT_DIR/deploy-placeholder.zip"
@@ -30,4 +36,4 @@ pushd "$STAGING" >/dev/null
 zip -rq "$ROOT_DIR/deploy-placeholder.zip" .
 popd >/dev/null
 
-log "Created deploy-placeholder.zip"
+log_success "Created deploy-placeholder.zip"

@@ -7,7 +7,17 @@ FRONT_STAGING="$BUILD_DIR/frontend"
 BACKEND_STAGING="$BUILD_DIR/backend"
 INCLUDE_CLI_TOOLS_IN_DEPLOY="${INCLUDE_CLI_TOOLS_IN_DEPLOY:-false}"
 
-log() { printf '[deploy] %s\n' "$*"; }
+COLOR_RESET="\033[0m"
+COLOR_BLUE="\033[0;34m"
+COLOR_GREEN="\033[0;32m"
+COLOR_YELLOW="\033[0;33m"
+COLOR_RED="\033[0;31m"
+
+log_info() { printf "%b[INFO]%b %s\n" "$COLOR_BLUE" "$COLOR_RESET" "$*"; }
+log_success() { printf "%b[OK]%b %s\n" "$COLOR_GREEN" "$COLOR_RESET" "$*"; }
+log_warn() { printf "%b[WARN]%b %s\n" "$COLOR_YELLOW" "$COLOR_RESET" "$*" >&2; }
+log_error() { printf "%b[ERROR]%b %s\n" "$COLOR_RED" "$COLOR_RESET" "$*" >&2; }
+log() { log_info "$*"; }
 
 is_true() {
   local value
@@ -19,12 +29,12 @@ is_true() {
 }
 
 log "Cleaning previous artifacts"
-rm -f "$ROOT_DIR"/deploy-*.zip
+rm -f "$ROOT_DIR"/frontend-deploy*.zip "$ROOT_DIR"/backend-deploy*.zip "$ROOT_DIR"/deploy-*.zip
 rm -rf "$BUILD_DIR"
 mkdir -p "$FRONT_STAGING" "$BACKEND_STAGING"
 
 log "Refreshing brand assets"
-php "$ROOT_DIR/scripts/generate-logo-webp.php" || log "Skipping logo WebP regeneration (GD extension required)"
+php "$ROOT_DIR/scripts/generate-logo-webp.php" || log_warn "Skipping logo WebP regeneration (GD extension required)"
 
 log "Building public SPA"
 pushd "$ROOT_DIR/frontend/public-app" >/dev/null
@@ -60,9 +70,9 @@ BACKEND_EXCLUDES=(
 )
 
 if is_true "$INCLUDE_CLI_TOOLS_IN_DEPLOY"; then
-  log "Including backend CLI tools in deploy-backend.zip by explicit request"
+  log_warn "Including backend CLI tools in backend-deploy.zip by explicit request"
 else
-  log "Excluding backend CLI tools from deploy-backend.zip (default)"
+  log "Excluding backend CLI tools from backend-deploy.zip (default)"
   BACKEND_EXCLUDES+=(--exclude 'scripts/')
 fi
 
@@ -70,14 +80,15 @@ rsync -a \
   "${BACKEND_EXCLUDES[@]}" \
   "$ROOT_DIR/backend/" "$BACKEND_STAGING/backend/"
 
-log "Creating deploy-frontend.zip"
+log "Creating frontend-deploy.zip"
 pushd "$FRONT_STAGING" >/dev/null
-zip -rq "$ROOT_DIR/deploy-frontend.zip" .
+zip -rq "$ROOT_DIR/frontend-deploy.zip" .
 popd >/dev/null
 
-log "Creating deploy-backend.zip"
+log "Creating backend-deploy.zip"
 pushd "$BACKEND_STAGING" >/dev/null
-zip -rq "$ROOT_DIR/deploy-backend.zip" backend
+zip -rq "$ROOT_DIR/backend-deploy.zip" backend
 popd >/dev/null
 
 bash "$ROOT_DIR/scripts/check-deploy-zips.sh"
+log_success "Created frontend-deploy.zip and backend-deploy.zip"
