@@ -8,3 +8,8 @@
 # export BACKEND_DIR="$ROOT_DIR/backend"
 # export FRONTEND_PUBLIC_DIR="$ROOT_DIR/frontend/public-app"
 # export FRONTEND_ADMIN_DIR="$ROOT_DIR/frontend/admin-app"
+
+# Browser auto-open behavior:
+# export DEV_BROWSER_OPEN=1  # Set to 0 to skip opening a browser.
+# export DEV_BROWSER=safari  # macOS default: safari. Windows default: chrome.
+# export DEV_BROWSER=chrome  # Alternate examples: chrome, edge, firefox, default.
