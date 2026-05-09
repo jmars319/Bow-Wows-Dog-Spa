@@ -11,7 +11,7 @@ log_status "frontend" "info" "Starting public SPA on ${DEV_HOST}:${FRONTEND_PORT
 
 pushd "$FRONTEND_PUBLIC_DIR" >/dev/null
 export VITE_ADMIN_PROXY_TARGET="http://${DEV_HOST}:${ADMIN_PORT}"
-nohup npm run dev -- --host "$DEV_HOST" --port "$FRONTEND_PORT" > "$(log_file frontend)" 2>&1 &
+nohup npm run dev -- --host "$DEV_HOST" --port "$FRONTEND_PORT" --strictPort > "$(log_file frontend)" 2>&1 &
 PID=$!
 popd >/dev/null
 

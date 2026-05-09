@@ -10,7 +10,7 @@ ensure_not_running "admin"
 log_status "admin" "info" "Starting admin SPA on ${DEV_HOST}:${ADMIN_PORT}"
 
 pushd "$FRONTEND_ADMIN_DIR" >/dev/null
-nohup npm run dev -- --host "$DEV_HOST" --port "$ADMIN_PORT" > "$(log_file admin)" 2>&1 &
+nohup npm run dev -- --host "$DEV_HOST" --port "$ADMIN_PORT" --strictPort > "$(log_file admin)" 2>&1 &
 PID=$!
 popd >/dev/null
 

@@ -13,9 +13,9 @@ for required in curl lsof; do
 done
 
 DEFAULT_DEV_HOST="127.0.0.1"
-DEFAULT_BACKEND_PORT="8088"
-DEFAULT_FRONTEND_PORT="5173"
-DEFAULT_ADMIN_PORT="5174"
+DEFAULT_BACKEND_PORT="3316"
+DEFAULT_FRONTEND_PORT="3206"
+DEFAULT_ADMIN_PORT="3406"
 
 if [[ -f "$ROOT_DIR/.dev/dev-config.sh" ]]; then
   # shellcheck disable=SC1090
