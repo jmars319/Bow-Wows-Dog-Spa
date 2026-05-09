@@ -10,7 +10,7 @@ Monorepo for the Bow Wow’s Dog Spa build, covering:
 
 ## Current Reality
 
-This repo contains both the temporary noindex placeholder deployment and the full public/admin platform. Until the owners approve the full build, deploy `deploy-placeholder.zip` from `bash scripts/make-placeholder-deploy-zip.sh`; the full app remains in the repo and can be packaged with `bash scripts/make-deploy-zips.sh` when it is time to launch.
+This repo contains two separate deployment surfaces: the full public/admin platform and a temporary noindex placeholder mini site. Use `bash scripts/make-deploy-zips.sh` for the full site, or `bash scripts/make-placeholder-deploy-zip.sh` when the domain should show only the standalone placeholder.
 
 ## Quick start
 
@@ -49,14 +49,12 @@ See `docs/DEPLOYMENT_GUIDE.md` for cPanel deployment steps and `docs/OPERATOR_NO
 
 Missing `.env` results in a clear bootstrap error so the backend never runs with partial config.
 
-## Public site & placeholder archive
+## Public site routing
 
 - `/` serves the full public SPA.
 - `/status/access-denied`, `/status/not-found`, `/status/server-error`, and `/status/maintenance` provide branded full-page status routes for intentional redirects and support flows.
-- `/placeholder/` preserves the former placeholder page as a separate archived surface and is not linked from the live site.
 - `/admin/login` is the real admin surface.
 - `/api/*` is the PHP backend entrypoint.
-- Old `/preview` and `/current` URLs redirect to `/` so stale bookmarks keep working.
 - Unknown public URLs now return a real `404` while still landing in the public app shell.
 - If a `maintenance.flag` file exists in the deployed document root, public routes return a real `503` and Apache serves the branded maintenance document while `/admin/*`, `/api/admin/*`, and `/api/health` stay reachable.
 
@@ -71,8 +69,8 @@ Generic helper scripts live under `scripts/` (see `Generic-Scripts-Reference.md`
 | `bash scripts/dev-status.sh` | Show PID + port status for backend/public/admin services. |
 | `bash scripts/dev-verify.sh` | Full smoke test: stop → start → check (backend/public/admin) → restart → re-check. |
 | `bash scripts/verify-public-error-pages.sh` | Verify public status-route codes, static error documents, and maintenance behavior against a staged frontend bundle. |
-| `bash scripts/make-placeholder-deploy-zip.sh` | Build `deploy-placeholder.zip` for the temporary root placeholder only, without exposing the unfinished public SPA. |
-| `bash scripts/make-deploy-zips.sh` | Builds React apps, refreshes placeholder assets, and produces `frontend-deploy.zip` + `backend-deploy.zip`. |
+| `bash scripts/make-placeholder-deploy-zip.sh` | Build `deploy-placeholder.zip` as a standalone root placeholder mini site. |
+| `bash scripts/make-deploy-zips.sh` | Builds React apps, refreshes public logo assets, and produces `frontend-deploy.zip` + `backend-deploy.zip`. |
 | `bash scripts/check-deploy-zips.sh` | Quick sanity-check of the generated deploy archives. |
 
 - Copy `scripts/dev-config.example.sh` to `.dev/dev-config.sh` to override default ports/paths (backend/public/admin).
@@ -80,8 +78,8 @@ Generic helper scripts live under `scripts/` (see `Generic-Scripts-Reference.md`
 - In dev, browse everything from `http://127.0.0.1:5173/`: the public SPA lives at `/` and the admin SPA is available at `/admin/login`. The admin Vite server still runs separately on `5174` by default, but only as an internal upstream for the shared `5173` origin (adjust ports via `.dev/dev-config.sh`).
 - Deploy zips exclude secrets and runtime state by default, including `backend/.env`, `backend/.env.production`, `backend/uploads/`, generated media, and CLI-only backend scripts.
 - If you intentionally need the backend CLI tools on-host, rebuild with `INCLUDE_CLI_TOOLS_IN_DEPLOY=true bash scripts/make-deploy-zips.sh`.
-- The frontend deploy zip includes the live root SPA, the admin SPA under `/admin`, and the archived placeholder files under `/placeholder`.
-- While the full site is waiting on approval, run `bash scripts/make-placeholder-deploy-zip.sh` and deploy `deploy-placeholder.zip` to the domain document root. It ships the branded noindex placeholder, favicon/error assets, legal pages, and root Apache rules only.
+- The frontend deploy zip includes the live root SPA, the admin SPA under `/admin`, and shared root assets. It does not include the placeholder.
+- While the full site is waiting on approval, run `bash scripts/make-placeholder-deploy-zip.sh` and deploy `deploy-placeholder.zip` to the domain document root. It ships the branded noindex placeholder, `/assets` logos, favicon/error assets, legal pages, and root Apache rules only.
 
 ## Testing
 
@@ -127,7 +125,7 @@ npm run test:all
 
 Verify these on the real Apache/GoDaddy host after each deploy:
 
-- Routing: `/` loads the live site, `/preview` redirects to `/`, `/current` redirects to `/`, `/admin/login` works, `/privacy` plus `/terms` render correctly, unknown public URLs return a branded `404`, and `/status/maintenance` returns a branded `503`.
+- Routing: `/` loads the live site, `/admin/login` works, `/privacy` plus `/terms` render correctly, unknown public URLs return a branded `404`, and `/status/maintenance` returns a branded `503`.
 - Maintenance mode: creating `maintenance.flag` in the document root serves the branded `503` document for public routes while `/admin/login`, `/api/admin/*`, and `/api/health` remain reachable; removing the file restores normal public traffic.
 - Backend: `/api/public/site` returns expected JSON, schedule lookup works, booking hold works, and booking request submission works.
 - Calendar sync groundwork: `/admin/calendar-sync` loads, provider slots save/delete, and confirmed booking transitions do not error when the sync queue tables are present.
@@ -136,4 +134,4 @@ Verify these on the real Apache/GoDaddy host after each deploy:
 
 Use `/admin/system` after logging in for non-public environment checks such as DB, uploads, and SendGrid configuration.
 
-Brand assets live under `frontend/public-app/src/assets/logos/` (with PNG + WebP variants) and are reused by the archived placeholder as well as the React SPAs.
+Brand assets live under `frontend/public-app/src/assets/logos/` (with PNG + WebP variants). The placeholder deploy syncs those assets into its standalone `/assets` directory when packaging the mini site.

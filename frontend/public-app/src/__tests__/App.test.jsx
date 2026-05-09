@@ -104,6 +104,29 @@ describe('public app', () => {
     expect(screen.queryByText('Trusted neighborhood boutique grooming for Greater Winston-Salem and Triad families.')).not.toBeInTheDocument();
   });
 
+  it('renders the CompliAssure seal when the public footer is enabled', async () => {
+    axiosGet.mockResolvedValueOnce({
+      data: createPayload({
+        sections: {
+          footer: { enabled: true, tagline: 'Trusted neighborhood boutique grooming for Greater Winston-Salem and Triad families.' },
+        },
+      }),
+    });
+
+    render(<App />);
+
+    const seal = await screen.findByAltText('CompliAssure SiteSeal');
+    expect(screen.getByText('Site Security')).toBeInTheDocument();
+    expect(seal).toHaveAttribute(
+      'src',
+      'https://www.rapidscansecure.com/siteseal/Seal.aspx?code=65,1A16737D200DD8330060FA24C50C3C48F287EC3C',
+    );
+    expect(seal.closest('a')).toHaveAttribute(
+      'href',
+      'https://www.rapidscansecure.com/siteseal/Verify.aspx?code=65,1A16737D200DD8330060FA24C50C3C48F287EC3C',
+    );
+  });
+
   it('shows unavailable messaging for disabled legal pages without rendering the footer', async () => {
     window.history.pushState({}, '', '/privacy');
     axiosGet.mockResolvedValueOnce({

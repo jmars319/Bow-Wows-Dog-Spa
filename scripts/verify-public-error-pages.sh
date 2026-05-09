@@ -126,8 +126,15 @@ verify_runtime_routes() {
   assert_status "/" "200"
   assert_status "/privacy" "200"
   assert_status "/terms" "200"
-  assert_status "/preview" "301"
-  assert_headers_contain "Location: /"
+
+  assert_status "/preview" "404"
+  assert_headers_contain "X-Robots-Tag: noindex, nofollow"
+
+  assert_status "/current" "404"
+  assert_headers_contain "X-Robots-Tag: noindex, nofollow"
+
+  assert_status "/placeholder" "404"
+  assert_headers_contain "X-Robots-Tag: noindex, nofollow"
 
   assert_status "/status/access-denied" "403"
   assert_headers_contain "X-Robots-Tag: noindex, nofollow"

@@ -69,8 +69,7 @@
 - `/` is now the live public SPA.
 - `/status/access-denied`, `/status/not-found`, `/status/server-error`, and `/status/maintenance` are the branded full-page public status routes.
 - Unknown public URLs now return a real `404`.
-- `/placeholder/` preserves the former placeholder page in its own folder so it can still be referenced without affecting the main site.
-- `/preview` and `/current` are legacy paths that redirect to `/` for compatibility.
+- Legacy launch surfaces are not served by the full-site deployment.
 - `/admin/login` is the real admin surface.
 - `/api/*` is the backend entrypoint.
 

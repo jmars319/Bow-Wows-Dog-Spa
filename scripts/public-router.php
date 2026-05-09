@@ -11,11 +11,6 @@ if ($requestPath !== '/' && $existingFile && str_starts_with($existingFile, $doc
     return false;
 }
 
-if ($normalizedPath === '/preview' || $normalizedPath === '/current') {
-    header('Location: /', true, 301);
-    exit;
-}
-
 if ($normalizedPath === '/api/health') {
     http_response_code(200);
     header('Content-Type: application/json; charset=utf-8');

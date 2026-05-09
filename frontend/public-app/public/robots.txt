@@ -2,6 +2,5 @@ User-agent: *
 Allow: /
 Disallow: /admin/
 Disallow: /api/
-Disallow: /placeholder/
 
 Sitemap: https://bowwowsdogspa.com/sitemap.xml

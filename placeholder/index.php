@@ -10,9 +10,6 @@ header('Referrer-Policy: strict-origin-when-cross-origin', true);
 header('Permissions-Policy: geolocation=(), microphone=(), camera=()', true);
 header('Strict-Transport-Security: max-age=31536000; includeSubDomains', true);
 
-$requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
-$isRootSurface = rtrim($requestPath, '/') === '';
-
 $business = "Bow Wow's Dog Spa";
 $phone = '(336) 842-3723';
 $phoneHref = 'tel:+13368423723';
@@ -20,12 +17,13 @@ $email = 'bowwowsdogspa@gmail.com';
 $address = '11141 Old U.S. Hwy 52 #4, Winston-Salem, NC 27107';
 $servingArea = 'Serving Greater Winston-Salem and the Triad area';
 $tagline = 'Comfort-first dog grooming care';
-$canonicalUrl = $isRootSurface ? 'https://bowwowsdogspa.com/' : 'https://bowwowsdogspa.com/placeholder/';
-$assetBase = '/placeholder/assets';
-$logoPng = 'https://bowwowsdogspa.com/placeholder/assets/logo-primary.png';
-$intro = $isRootSurface
-    ? "The full Bow Wow's Dog Spa website is being finalized. For now, this temporary page gives customers the essentials while booking and service content gets final approval."
-    : "This placeholder is ready to deploy as the temporary public surface while the full Bow Wow's Dog Spa website waits for final approval.";
+$canonicalUrl = 'https://bowwowsdogspa.com/';
+$assetBase = '/assets';
+$logoPng = 'https://bowwowsdogspa.com/assets/logo-primary.png';
+$compliAssureCode = '65,1A16737D200DD8330060FA24C50C3C48F287EC3C';
+$compliAssureSealImage = 'https://www.rapidscansecure.com/siteseal/Seal.aspx?code=' . $compliAssureCode;
+$compliAssureVerifyUrl = 'https://www.rapidscansecure.com/siteseal/Verify.aspx?code=' . $compliAssureCode;
+$intro = "The full Bow Wow's Dog Spa website is being finalized. For now, this temporary page gives customers the essentials while booking and service content gets final approval.";
 $highlights = [
     'Appointment-based grooming and spa care',
     'Neighborhood service for Midway, Winston-Salem, and nearby Triad families',
@@ -198,6 +196,35 @@ $structuredData = [
         padding-top: 1rem;
       }
 
+      .site-seal {
+        margin-top: 1rem;
+      }
+
+      .site-seal__label {
+        color: #4f5f5f;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .site-seal__link {
+        align-items: center;
+        background: #ffffff;
+        border: 1px solid rgba(47, 58, 58, 0.1);
+        border-radius: 8px;
+        display: inline-flex;
+        margin-top: 0.5rem;
+        padding: 0.45rem;
+      }
+
+      .site-seal__link img {
+        display: block;
+        height: auto;
+        max-width: min(160px, 100%);
+        width: 160px;
+      }
+
       @media (min-width: 760px) {
         .hero {
           grid-template-columns: 0.8fr 1.2fr;
@@ -242,6 +269,12 @@ $structuredData = [
           </div>
           <footer>
             <p>Website by <a href="https://jamarq.digital">JAMARQ Digital</a>. Temporary placeholder while the approved public site is finalized.</p>
+            <div class="site-seal">
+              <div class="site-seal__label">Site Security</div>
+              <a class="site-seal__link" href="<?php echo htmlspecialchars($compliAssureVerifyUrl, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer" aria-label="Verify Bow Wow's Dog Spa site security">
+                <img src="<?php echo htmlspecialchars($compliAssureSealImage, ENT_QUOTES, 'UTF-8'); ?>" alt="CompliAssure SiteSeal" width="160" height="69" loading="lazy" decoding="async">
+              </a>
+            </div>
           </footer>
         </section>
       </main>

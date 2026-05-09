@@ -11,21 +11,12 @@ ErrorDocument 503 /error-documents/503.html
 Header always set Retry-After "3600" env=BOWWOW_MAINTENANCE
 </IfModule>
 
-# Legacy compatibility for the retired preview/current surfaces.
-RewriteRule ^preview/?$ https://bowwowsdogspa.com/ [R=301,L,NE]
-RewriteRule ^preview/(.*)$ https://bowwowsdogspa.com/$1 [R=301,L,NE]
-RewriteRule ^current/?$ https://bowwowsdogspa.com/ [R=301,L,NE]
-RewriteRule ^current/(.*)$ https://bowwowsdogspa.com/$1 [R=301,L,NE]
-
 # Canonical host + scheme. Keep this at the server layer so requests land on
 # the non-www HTTPS origin in a single hop without PHP/frontend involvement.
 RewriteCond %{HTTP_HOST} ^www\.bowwowsdogspa\.com$ [NC,OR]
 RewriteCond %{HTTPS} !=on
 RewriteCond %{HTTP:X-Forwarded-Proto} !https [NC]
 RewriteRule ^ https://bowwowsdogspa.com%{REQUEST_URI} [R=301,L,NE]
-
-# Archived placeholder surface.
-RewriteRule ^placeholder/?$ placeholder/index.php [QSA,L]
 
 # serve existing static files/directories
 RewriteCond %{REQUEST_FILENAME} -f [OR]
@@ -37,7 +28,6 @@ RewriteCond %{REQUEST_URI} !^/admin(?:/|$) [NC]
 RewriteCond %{REQUEST_URI} !^/api/health/?$ [NC]
 RewriteCond %{REQUEST_URI} !^/api/admin(?:/|$) [NC]
 RewriteCond %{REQUEST_URI} !^/error-documents(?:/|$) [NC]
-RewriteCond %{REQUEST_URI} !^/placeholder(?:/|$) [NC]
 RewriteRule ^ - [R=503,L,E=BOWWOW_MAINTENANCE:1]
 
 RewriteRule ^admin(?:/.*)?$ admin/index.html [QSA,L]

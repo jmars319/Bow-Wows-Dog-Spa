@@ -8,20 +8,24 @@ STAGING="$BUILD_DIR/public"
 COLOR_RESET="\033[0m"
 COLOR_BLUE="\033[0;34m"
 COLOR_GREEN="\033[0;32m"
+COLOR_YELLOW="\033[0;33m"
 
 log_info() { printf "%b[INFO]%b %s\n" "$COLOR_BLUE" "$COLOR_RESET" "$*"; }
 log_success() { printf "%b[OK]%b %s\n" "$COLOR_GREEN" "$COLOR_RESET" "$*"; }
+log_warn() { printf "%b[WARN]%b %s\n" "$COLOR_YELLOW" "$COLOR_RESET" "$*" >&2; }
 log() { log_info "$*"; }
 
 log "Cleaning previous placeholder deploy artifact"
 rm -f "$ROOT_DIR/deploy-placeholder.zip"
 rm -rf "$BUILD_DIR"
-mkdir -p "$STAGING/placeholder"
+mkdir -p "$STAGING/assets"
+
+log "Refreshing placeholder brand assets"
+php "$ROOT_DIR/scripts/generate-logo-webp.php" --sync-placeholder || log_warn "Skipping logo WebP regeneration (GD extension required)"
 
 log "Copying placeholder surface"
-rsync -a --exclude '.gitignore' --exclude '.DS_Store' "$ROOT_DIR/placeholder/assets/" "$STAGING/placeholder/assets/"
+rsync -a --exclude '.gitignore' --exclude '.DS_Store' "$ROOT_DIR/placeholder/assets/" "$STAGING/assets/"
 cp "$ROOT_DIR/placeholder/index.php" "$STAGING/index.php"
-cp "$ROOT_DIR/placeholder/index.php" "$STAGING/placeholder/index.php"
 cp "$ROOT_DIR/placeholder/root.htaccess" "$STAGING/.htaccess"
 cp "$ROOT_DIR/placeholder/robots.txt" "$STAGING/robots.txt"
 cp "$ROOT_DIR/privacy.html" "$STAGING/privacy.html"

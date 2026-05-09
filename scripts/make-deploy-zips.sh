@@ -47,10 +47,8 @@ npm run build
 popd >/dev/null
 
 log "Preparing frontend bundle"
-rsync -a --exclude '.gitignore' --exclude '.DS_Store' "$ROOT_DIR/placeholder/" "$FRONT_STAGING/placeholder/"
 rsync -a "$ROOT_DIR/frontend/public-app/dist/" "$FRONT_STAGING/"
 rsync -a "$ROOT_DIR/frontend/admin-app/dist/" "$FRONT_STAGING/admin/"
-cp "$ROOT_DIR/placeholder/index.php" "$FRONT_STAGING/placeholder/index.php"
 cp "$ROOT_DIR/index.php" "$FRONT_STAGING/index.php"
 cp "$ROOT_DIR/.htaccess" "$FRONT_STAGING/.htaccess"
 if [ -d "$ROOT_DIR/public-root" ]; then

@@ -14,16 +14,23 @@ This project is optimized for GoDaddy shared hosting with manual ZIP uploads. Fo
 From the repo root:
 
 ```bash
-bash scripts/make-deploy-zips.sh   # builds both SPAs + placeholder, outputs frontend-deploy.zip and backend-deploy.zip
+bash scripts/make-deploy-zips.sh   # builds both SPAs, outputs frontend-deploy.zip and backend-deploy.zip
 bash scripts/check-deploy-zips.sh  # optional sanity check
 ```
 
-The build script compiles the React SPAs, refreshes placeholder/logo assets, and writes fresh `frontend-deploy.zip` and `backend-deploy.zip` to the repo root.
+The build script compiles the React SPAs, refreshes public logo assets, and writes fresh `frontend-deploy.zip` and `backend-deploy.zip` to the repo root.
+
+For a temporary placeholder-only deployment, build the standalone mini site instead:
+
+```bash
+bash scripts/make-placeholder-deploy-zip.sh   # outputs deploy-placeholder.zip
+```
 
 Default release posture:
 
 - `backend-deploy.zip` excludes `backend/.env`, `backend/.env.production`, runtime uploads/media, and CLI-only backend tools.
-- `frontend-deploy.zip` contains the live public site at `/`, the admin SPA at `/admin`, and the archived placeholder at `/placeholder`.
+- `frontend-deploy.zip` contains the live public site at `/`, the admin SPA at `/admin`, and shared root assets. It does not contain the placeholder.
+- `deploy-placeholder.zip` is a separate root-only mini site with its own `index.php`, `.htaccess`, `robots.txt`, legal pages, error documents, and `/assets` logos.
 
 If you intentionally want the CLI migration/admin tools in the backend bundle, opt in explicitly:
 
@@ -89,7 +96,6 @@ The CLI script prompts for email/password (or reads `ADMIN_EMAIL` / `ADMIN_PASSW
 2. Extract; the archive already contains the correct structure:
    - `/index.html` + `/index.php` + `/.htaccess` → public SPA mounted at the site root
    - `/error-documents/` → branded static Apache fallback pages for `403`, `404`, `500`, and `503`
-   - `/placeholder/` → archived placeholder page + static assets (logos)
    - `/admin/` → admin SPA build
 3. Keep `backend` as a sibling directory of the deployed front-end so `/api` can be routed into `backend/public`.
 4. Both SPAs expect the PHP API to be reachable at `/api`, so keep the backend’s `/public` folder mounted at `/api`.
@@ -97,11 +103,8 @@ The CLI script prompts for email/password (or reads `ADMIN_EMAIL` / `ADMIN_PASSW
 Routing expectations on the live host:
 
 - `/` serves the live site.
-- `/preview` redirects to `/`.
-- `/current` redirects to `/`.
 - `/status/access-denied`, `/status/not-found`, `/status/server-error`, and `/status/maintenance` render the branded public status views.
 - Unknown public URLs return a real `404`.
-- `/placeholder/` remains archived and isolated.
 - `/admin/login` is the real admin surface.
 - `/api/*` is the backend entrypoint.
 
@@ -124,12 +127,10 @@ The root `.htaccess` now supports a simple file-based maintenance toggle:
 ### Routing
 
 1. Visit `/` and confirm the live public site renders.
-2. Visit `/preview` and confirm it redirects to `/`.
-3. Visit `/current` and confirm it redirects to `/`.
-4. Visit an unknown public URL such as `/missing-page-check` and confirm you get the branded `404` page with Back + Home actions.
-5. Visit `/status/access-denied`, `/status/not-found`, `/status/server-error`, and `/status/maintenance` and confirm each loads the expected branded state with the correct HTTP status.
-6. Visit `/admin/login` and confirm the admin login renders correctly.
-7. Visit `/privacy` and `/terms` and confirm the legal pages load with the correct root assets.
+2. Visit an unknown public URL such as `/missing-page-check` and confirm it returns the branded `404` page with Back + Home actions.
+3. Visit `/status/access-denied`, `/status/not-found`, `/status/server-error`, and `/status/maintenance` and confirm each loads the expected branded state with the correct HTTP status.
+4. Visit `/admin/login` and confirm the admin login renders correctly.
+5. Visit `/privacy` and `/terms` and confirm the legal pages load with the correct root assets.
 
 ### Maintenance mode
 

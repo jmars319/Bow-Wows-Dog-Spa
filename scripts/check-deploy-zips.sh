@@ -88,6 +88,18 @@ if echo "$BACKEND_FILES" | grep -Fq 'backend/uploads/'; then
   fail "backend zip should not include uploads/"
 fi
 
+if echo "$FRONTEND_FILES" | grep -Eq '^placeholder(/|$)'; then
+  fail "frontend zip should not include placeholder/"
+fi
+
+if echo "$FRONTEND_FILES" | grep -Eq '^current(/|$)'; then
+  fail "frontend zip should not include current/"
+fi
+
+if echo "$FRONTEND_FILES" | grep -Eiq '(^|/)gate\.php$'; then
+  fail "frontend zip should not include gate.php"
+fi
+
 for required_frontend_file in \
   ".htaccess" \
   "index.php" \

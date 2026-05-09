@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { BrowserRouter, Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import logoPrimaryPng from './assets/logos/logo-primary.png';
 import logoPrimaryWebp from './assets/logos/logo-primary.webp';
@@ -12,6 +12,10 @@ const DEFAULT_SEO_DESCRIPTION =
 const DEFAULT_OG_IMAGE = `${CANONICAL_ORIGIN}/share-logo.png`;
 const LOGO_WIDTH = 1536;
 const LOGO_HEIGHT = 1024;
+const COMPLIASSURE_SITE_SEAL = {
+  imageUrl: 'https://www.rapidscansecure.com/siteseal/Seal.aspx?code=65,1A16737D200DD8330060FA24C50C3C48F287EC3C',
+  verifyUrl: 'https://www.rapidscansecure.com/siteseal/Verify.aspx?code=65,1A16737D200DD8330060FA24C50C3C48F287EC3C',
+};
 
 const SECTION_LINKS = [
   { id: 'hero', label: 'Home' },
@@ -116,10 +120,6 @@ function App() {
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/" element={<SiteContentRoute><PublicPage /></SiteContentRoute>} />
-        <Route path="/preview" element={<Navigate to="/" replace />} />
-        <Route path="/preview/*" element={<Navigate to="/" replace />} />
-        <Route path="/current" element={<Navigate to="/" replace />} />
-        <Route path="/current/*" element={<Navigate to="/" replace />} />
         <Route path="/privacy" element={<SiteContentRoute><SimplePage fallbackTitle="Privacy Policy" blockKey="privacy" /></SiteContentRoute>} />
         <Route path="/terms" element={<SiteContentRoute><SimplePage fallbackTitle="Terms & Conditions" blockKey="terms" /></SiteContentRoute>} />
         <Route path="/status/access-denied" element={<StatusPage pageKey="accessDenied" />} />
@@ -1981,6 +1981,7 @@ function Footer({ sections, legalSections, settings, content, primaryCta }) {
               {primaryCta.label}
             </a>
           )}
+          <SiteSecuritySeal />
         </div>
 
         <div>
@@ -2003,6 +2004,30 @@ function Footer({ sections, legalSections, settings, content, primaryCta }) {
         Website by <a href="https://jamarq.digital" target="_blank" rel="noopener noreferrer">JAMARQ Digital</a>
       </div>
     </footer>
+  );
+}
+
+function SiteSecuritySeal() {
+  return (
+    <div className="site-seal">
+      <div className="site-seal__label">Site Security</div>
+      <a
+        className="site-seal__link"
+        href={COMPLIASSURE_SITE_SEAL.verifyUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Verify Bow Wow's Dog Spa site security"
+      >
+        <img
+          src={COMPLIASSURE_SITE_SEAL.imageUrl}
+          alt="CompliAssure SiteSeal"
+          width="160"
+          height="69"
+          loading="lazy"
+          decoding="async"
+        />
+      </a>
+    </div>
   );
 }
 
@@ -2161,6 +2186,7 @@ function StatusFooter() {
         <div>
           <BrandLockup compact />
           <p className="footer-tagline">Official Bow Wow’s Dog Spa website</p>
+          <SiteSecuritySeal />
         </div>
 
         <div>

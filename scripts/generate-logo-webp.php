@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $sourceDir = $root . '/frontend/public-app/src/assets/logos';
+$syncPlaceholder = in_array('--sync-placeholder', $argv ?? [], true);
 $placeholderDir = $root . '/placeholder/assets';
 $files = glob($sourceDir . '/*.png');
 
@@ -13,12 +14,19 @@ if (!$files) {
     exit(1);
 }
 
+if ($syncPlaceholder && !is_dir($placeholderDir) && !mkdir($placeholderDir, 0775, true)) {
+    fwrite(STDERR, "Unable to create placeholder asset directory: {$placeholderDir}\n");
+    exit(1);
+}
+
 foreach ($files as $file) {
     $basename = pathinfo($file, PATHINFO_FILENAME);
     $webpPath = $sourceDir . '/' . $basename . '.webp';
     convertToWebp($file, $webpPath);
-    copy($webpPath, $placeholderDir . '/' . basename($webpPath));
-    copy($file, $placeholderDir . '/' . basename($file));
+    if ($syncPlaceholder) {
+        copy($webpPath, $placeholderDir . '/' . basename($webpPath));
+        copy($file, $placeholderDir . '/' . basename($file));
+    }
     echo "Generated {$webpPath}\n";
 }
 
