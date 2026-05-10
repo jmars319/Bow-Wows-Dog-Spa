@@ -52,6 +52,7 @@ $config = [
         'lifetime' => (int) (getenv('SESSION_LIFETIME') ?: 60 * 60 * 4),
         'secure' => filter_var(getenv('SESSION_SECURE'), FILTER_VALIDATE_BOOLEAN),
         'same_site' => getenv('SESSION_SAMESITE') ?: 'Lax',
+        'path' => getenv('SESSION_PATH') ?: '/api/admin',
     ],
     'sendgrid' => [
         'enabled' => filter_var(getenv('SENDGRID_ENABLED'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true,
@@ -98,7 +99,7 @@ $lifetime = (int) ($sessionConfig['lifetime'] ?? 14400);
 
 session_set_cookie_params([
     'lifetime' => $lifetime,
-    'path' => '/',
+    'path' => $sessionConfig['path'] ?? '/api/admin',
     'domain' => '',
     'secure' => (bool) ($sessionConfig['secure'] ?? false),
     'httponly' => true,
@@ -107,7 +108,7 @@ session_set_cookie_params([
 
 session_name($sessionConfig['name'] ?? 'bowwow_admin');
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
+if (isAdminSessionRequest() && session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
@@ -123,4 +124,19 @@ function resolvePath(string $path): string
     }
 
     return BOWWOW_PROJECT_PATH . '/' . ltrim($trimmed, '/');
+}
+
+function isAdminSessionRequest(): bool
+{
+    if (PHP_SAPI === 'cli') {
+        return true;
+    }
+
+    $uri = $_SERVER['REQUEST_URI'] ?? '';
+    $path = parse_url($uri, PHP_URL_PATH);
+    if (!is_string($path) || $path === '') {
+        return false;
+    }
+
+    return str_starts_with(rtrim($path, '/') . '/', '/api/admin/');
 }

@@ -9,6 +9,7 @@ header('X-Frame-Options: SAMEORIGIN', true);
 header('Referrer-Policy: strict-origin-when-cross-origin', true);
 header('Permissions-Policy: geolocation=(), microphone=(), camera=()', true);
 header('Strict-Transport-Security: max-age=31536000; includeSubDomains', true);
+header('Set-Cookie: bowwow_admin=; Max-Age=0; Path=/; Secure; HttpOnly; SameSite=Lax', false);
 
 $business = "Bow Wow's Dog Spa";
 $phone = '(336) 842-3723';
@@ -264,7 +265,7 @@ $structuredData = [
           </ul>
           <div class="contact">
             <p><strong>Call:</strong> <a href="<?php echo htmlspecialchars($phoneHref, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($phone, ENT_QUOTES, 'UTF-8'); ?></a></p>
-            <p><strong>Email:</strong> <a href="mailto:<?php echo htmlspecialchars($email, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($email, ENT_QUOTES, 'UTF-8'); ?></a></p>
+            <p><strong>Message:</strong> Use the contact form when the approved public site is live.</p>
             <p><strong>Visit:</strong> <?php echo htmlspecialchars($address, ENT_QUOTES, 'UTF-8'); ?></p>
           </div>
           <footer>

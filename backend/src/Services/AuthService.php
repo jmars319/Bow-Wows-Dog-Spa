@@ -85,11 +85,14 @@ final class AuthService
             setcookie(
                 session_name(),
                 '',
-                time() - 42000,
-                $params['path'] ?? '/',
-                $params['domain'] ?? '',
-                (bool) ($params['secure'] ?? false),
-                (bool) ($params['httponly'] ?? true)
+                [
+                    'expires' => time() - 42000,
+                    'path' => $params['path'] ?? '/api/admin',
+                    'domain' => $params['domain'] ?? '',
+                    'secure' => (bool) ($params['secure'] ?? false),
+                    'httponly' => (bool) ($params['httponly'] ?? true),
+                    'samesite' => $params['samesite'] ?? 'Lax',
+                ]
             );
         }
     }

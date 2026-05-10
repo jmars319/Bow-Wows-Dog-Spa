@@ -46,7 +46,7 @@ final class ContentAndCatalogTest extends TestCase
         $content = new SiteContentService();
         $content->saveBlocks([
             'hero' => [
-                'subheading' => '<p>Calm grooming</p><script>alert(1)</script><a href="javascript:alert(1)">Unsafe</a><a href="https://example.com" target="_blank">Safe</a>',
+                'subheading' => '<p class="ql-align-center" onclick="alert(1)">Calm grooming</p><script>alert(1)</script><img src=x onerror=alert(1)><a href="javascript:alert(1)">Unsafe</a><a href="https://example.com" target="_blank">Safe</a>',
             ],
             'retail' => [
                 'enabled' => false,
@@ -66,8 +66,13 @@ final class ContentAndCatalogTest extends TestCase
         $this->assertFalse((bool) $snapshot['sections']['retail']['enabled']);
         $this->assertFalse((bool) $snapshot['sections']['footer']['enabled']);
         $this->assertStringNotContainsString('<script', $heroHtml);
+        $this->assertStringNotContainsString('<img', $heroHtml);
+        $this->assertStringNotContainsString('onclick', $heroHtml);
+        $this->assertStringNotContainsString('ql-align-center', $heroHtml);
         $this->assertStringNotContainsString('javascript:', $heroHtml);
+        $this->assertStringContainsString('<p>Calm grooming</p>', $heroHtml);
         $this->assertStringContainsString('https://example.com', $heroHtml);
+        $this->assertStringContainsString('rel="noopener noreferrer"', $heroHtml);
         $this->assertStringNotContainsString('<iframe', $retailHtml);
     }
 }

@@ -20,6 +20,7 @@ return [
         'lifetime' => 60 * 60 * 4,
         'secure' => false,
         'same_site' => 'Lax',
+        'path' => '/api/admin',
     ],
     'sendgrid' => [
         'api_key' => 'SENDGRID_API_KEY',

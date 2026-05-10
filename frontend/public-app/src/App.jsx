@@ -1573,7 +1573,6 @@ function GallerySection({ content, items }) {
 
 function RetailSection({ content, categories, settings }) {
   const phoneHref = settings.phone ? toPhoneHref(settings.phone) : null;
-  const emailHref = settings.email ? `mailto:${settings.email}` : null;
   const showCategoryLinks = categories.length > 1;
 
   return (
@@ -1631,23 +1630,19 @@ function RetailSection({ content, categories, settings }) {
           ))}
         </div>
 
-        {(phoneHref || emailHref) && (
+        {phoneHref && (
           <div className="section-cta section-cta--soft">
             <div>
               <strong>Need help choosing the right product?</strong>
               <p>Ask the team about availability, coat type recommendations, or what to pick up during your next visit.</p>
             </div>
             <div className="section-cta__actions">
-              {phoneHref && (
-                <a className="btn btn-outline" href={phoneHref}>
-                  Call {settings.phone}
-                </a>
-              )}
-              {emailHref && (
-                <a className="btn btn-primary" href={emailHref}>
-                  Email the spa
-                </a>
-              )}
+              <a className="btn btn-outline" href={phoneHref}>
+                Call {settings.phone}
+              </a>
+              <a className="btn btn-primary" href="#contact">
+                Use the contact form
+              </a>
             </div>
           </div>
         )}
@@ -1780,6 +1775,11 @@ function ContactSection({ content, location, settings }) {
   const [submitting, setSubmitting] = useState(false);
   const phoneHref = settings.phone ? toPhoneHref(settings.phone) : null;
 
+  const focusContactForm = () => {
+    const input = document.getElementById('contact-name');
+    input?.focus();
+  };
+
   const submitContact = async (event) => {
     event.preventDefault();
     setSubmitting(true);
@@ -1814,10 +1814,10 @@ function ContactSection({ content, location, settings }) {
               </a>
             )}
             {settings.email && (
-              <a className="contact-card" href={`mailto:${settings.email}`}>
-                <span>Email</span>
-                <strong>{settings.email}</strong>
-              </a>
+              <button className="contact-card" type="button" onClick={focusContactForm}>
+                <span>Message</span>
+                <strong>Use the contact form</strong>
+              </button>
             )}
             {settings.address && (
               <a

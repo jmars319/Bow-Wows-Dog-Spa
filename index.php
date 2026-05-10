@@ -41,6 +41,7 @@ function bowwowSendHtmlFile(string $file, int $status, array $headers = []): nev
     header('Content-Type: text/html; charset=utf-8');
     header('Cache-Control: no-store, no-cache, must-revalidate');
     header('X-Content-Type-Options: nosniff');
+    header('Set-Cookie: bowwow_admin=; Max-Age=0; Path=/; Secure; HttpOnly; SameSite=Lax', false);
 
     if ($status >= 400) {
         header('X-Robots-Tag: noindex, nofollow');
