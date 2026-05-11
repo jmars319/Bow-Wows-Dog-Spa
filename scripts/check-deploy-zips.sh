@@ -100,6 +100,11 @@ if echo "$FRONTEND_FILES" | grep -Eiq '(^|/)gate\.php$'; then
   fail "frontend zip should not include gate.php"
 fi
 
+FRONTEND_CONTENT="$(unzip -p "$FRONTEND_ZIP" 2>/dev/null || true)"
+if grep -E -q 'https?://(localhost|127\.0\.0\.1):[0-9]+' <<< "$FRONTEND_CONTENT"; then
+  fail "frontend zip contains a localhost URL with a port"
+fi
+
 for required_frontend_file in \
   ".htaccess" \
   "index.php" \

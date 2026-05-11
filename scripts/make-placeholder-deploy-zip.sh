@@ -9,10 +9,12 @@ COLOR_RESET="\033[0m"
 COLOR_BLUE="\033[0;34m"
 COLOR_GREEN="\033[0;32m"
 COLOR_YELLOW="\033[0;33m"
+COLOR_RED="\033[0;31m"
 
 log_info() { printf "%b[INFO]%b %s\n" "$COLOR_BLUE" "$COLOR_RESET" "$*"; }
 log_success() { printf "%b[OK]%b %s\n" "$COLOR_GREEN" "$COLOR_RESET" "$*"; }
 log_warn() { printf "%b[WARN]%b %s\n" "$COLOR_YELLOW" "$COLOR_RESET" "$*" >&2; }
+log_error() { printf "%b[ERROR]%b %s\n" "$COLOR_RED" "$COLOR_RESET" "$*" >&2; }
 log() { log_info "$*"; }
 
 log "Cleaning previous placeholder deploy artifact"
@@ -39,5 +41,10 @@ log "Creating deploy-placeholder.zip"
 pushd "$STAGING" >/dev/null
 zip -rq "$ROOT_DIR/deploy-placeholder.zip" .
 popd >/dev/null
+
+if grep -E -q 'https?://(localhost|127\.0\.0\.1):[0-9]+' < <(unzip -p "$ROOT_DIR/deploy-placeholder.zip" 2>/dev/null || true); then
+  log_error "deploy-placeholder.zip contains a localhost URL with a port. Fix the artifact before deploying."
+  exit 1
+fi
 
 log_success "Created deploy-placeholder.zip"
