@@ -109,28 +109,50 @@ $structuredData = [
       .wrap {
         display: grid;
         min-height: 100vh;
-        place-items: center;
-        padding: 1rem;
+        padding: clamp(1rem, 3vw, 2rem);
+        place-items: start center;
       }
 
       main {
         background: #ffffff;
         border: 1px solid rgba(47, 58, 58, 0.12);
-        border-radius: 18px;
-        box-shadow: 0 24px 70px rgba(47, 58, 58, 0.14);
-        max-width: 920px;
+        border-radius: 16px;
+        box-shadow: 0 18px 50px rgba(47, 58, 58, 0.12);
+        max-width: 1080px;
         overflow: hidden;
         width: 100%;
       }
 
       .hero {
         display: grid;
-        gap: 2rem;
-        padding: clamp(1.5rem, 5vw, 3rem);
+        gap: clamp(1.25rem, 3vw, 2.25rem);
+        padding: clamp(1.5rem, 4vw, 3rem);
+      }
+
+      .logo-panel {
+        align-items: center;
+        background: linear-gradient(145deg, #f7f8f3, #edf3f1);
+        border: 1px solid rgba(47, 58, 58, 0.08);
+        border-radius: 14px;
+        display: flex;
+        justify-content: center;
+        min-height: clamp(220px, 30vw, 320px);
+        padding: clamp(1rem, 3vw, 1.75rem);
+      }
+
+      .logo-panel picture {
+        display: block;
+        width: 100%;
       }
 
       .logo {
-        max-width: min(320px, 82vw);
+        display: block;
+        height: auto;
+        margin: 0 auto;
+        max-height: 280px;
+        max-width: min(460px, 100%);
+        object-fit: contain;
+        width: 100%;
       }
 
       .eyebrow {
@@ -144,17 +166,46 @@ $structuredData = [
 
       h1 {
         color: #2f3a3a;
-        font-size: clamp(2.25rem, 11vw, 4.5rem);
-        line-height: 0.98;
+        font-size: clamp(2.5rem, 7vw, 4.5rem);
+        line-height: 0.95;
         margin: 0;
+        max-width: 10ch;
       }
 
       .intro {
         color: #5f6f6f;
-        font-size: clamp(1rem, 3vw, 1.25rem);
-        line-height: 1.65;
+        font-size: clamp(1rem, 2.4vw, 1.2rem);
+        line-height: 1.55;
         margin: 1rem 0 0;
         max-width: 58ch;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+      }
+
+      .button {
+        align-items: center;
+        border: 1px solid #4f7772;
+        border-radius: 999px;
+        display: inline-flex;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0.75rem 1rem;
+        text-decoration: none;
+      }
+
+      .button--primary {
+        background: #4f7772;
+        color: #ffffff;
+      }
+
+      .button--secondary {
+        background: #ffffff;
+        color: #4f7772;
       }
 
       .details {
@@ -228,7 +279,7 @@ $structuredData = [
 
       @media (min-width: 760px) {
         .hero {
-          grid-template-columns: 0.8fr 1.2fr;
+          grid-template-columns: minmax(280px, 0.95fr) minmax(0, 1.05fr);
           align-items: center;
         }
 
@@ -240,21 +291,38 @@ $structuredData = [
           grid-column: 1 / -1;
         }
       }
+
+      @media (max-width: 759px) {
+        .logo-panel {
+          min-height: 190px;
+        }
+
+        .logo {
+          max-height: 210px;
+          max-width: 340px;
+        }
+      }
     </style>
   </head>
   <body>
     <div class="wrap">
       <main>
         <section class="hero" aria-labelledby="page-title">
-          <picture>
-            <source srcset="<?php echo htmlspecialchars($assetBase, ENT_QUOTES, 'UTF-8'); ?>/logo-primary.webp" type="image/webp">
-            <img class="logo" src="<?php echo htmlspecialchars($assetBase, ENT_QUOTES, 'UTF-8'); ?>/logo-primary.png" alt="<?php echo htmlspecialchars($business, ENT_QUOTES, 'UTF-8'); ?>" width="1536" height="1024">
-          </picture>
+          <div class="logo-panel">
+            <picture>
+              <source srcset="<?php echo htmlspecialchars($assetBase, ENT_QUOTES, 'UTF-8'); ?>/logo-primary.webp" type="image/webp">
+              <img class="logo" src="<?php echo htmlspecialchars($assetBase, ENT_QUOTES, 'UTF-8'); ?>/logo-primary.png" alt="<?php echo htmlspecialchars($business, ENT_QUOTES, 'UTF-8'); ?>" width="1536" height="1024">
+            </picture>
+          </div>
           <div>
             <p class="eyebrow"><?php echo htmlspecialchars($servingArea, ENT_QUOTES, 'UTF-8'); ?></p>
             <h1 id="page-title">Website coming soon</h1>
             <p class="intro"><?php echo htmlspecialchars($tagline, ENT_QUOTES, 'UTF-8'); ?> from <?php echo htmlspecialchars($business, ENT_QUOTES, 'UTF-8'); ?>.</p>
             <p class="intro"><?php echo htmlspecialchars($intro, ENT_QUOTES, 'UTF-8'); ?></p>
+            <div class="actions" aria-label="Contact options">
+              <a class="button button--primary" href="<?php echo htmlspecialchars($phoneHref, ENT_QUOTES, 'UTF-8'); ?>">Call <?php echo htmlspecialchars($phone, ENT_QUOTES, 'UTF-8'); ?></a>
+              <a class="button button--secondary" href="mailto:<?php echo htmlspecialchars($email, ENT_QUOTES, 'UTF-8'); ?>">Email Bow Wow's</a>
+            </div>
           </div>
         </section>
         <section class="details" aria-label="Business details">
