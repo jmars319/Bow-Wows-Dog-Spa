@@ -501,6 +501,15 @@ select:focus-visible {
   font-weight: 700;
 }
 
+.form-spam-trap {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
 .hero-visual {
   display: grid;
   align-items: end;

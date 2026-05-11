@@ -610,6 +610,7 @@ function BookingSection({ settings, content, services }) {
     notes: '',
     paperwork_notes: '',
     paperwork_upload: null,
+    bowwow_hp: '',
     dogs: [createDog()],
   });
 
@@ -967,6 +968,7 @@ function BookingSection({ settings, content, services }) {
       payload.append('pet_count', String(dogCount));
       payload.append('selected_services', JSON.stringify(selectedServiceIds));
       payload.append('dogs', JSON.stringify(form.dogs));
+      payload.append('bowwow_hp', form.bowwow_hp);
       if (form.paperwork_upload) {
         payload.append('paperwork_upload', form.paperwork_upload);
       }
@@ -997,6 +999,7 @@ function BookingSection({ settings, content, services }) {
         notes: '',
         paperwork_notes: '',
         paperwork_upload: null,
+        bowwow_hp: '',
         dogs: [createDog()],
       });
     } catch (error) {
@@ -1425,6 +1428,17 @@ function BookingSection({ settings, content, services }) {
 
               {step === 4 && (
                 <form onSubmit={submitBooking}>
+                  <div className="form-spam-trap" aria-hidden="true">
+                    <label htmlFor="booking-check">Leave this field blank</label>
+                    <input
+                      id="booking-check"
+                      name="bowwow_hp"
+                      tabIndex={-1}
+                      autoComplete="new-password"
+                      value={form.bowwow_hp}
+                      onChange={(event) => setForm((current) => ({ ...current, bowwow_hp: event.target.value }))}
+                    />
+                  </div>
                   <div ref={activeStepHeaderRef} className="booking-stage__header">
                     <h3>Step 4: Review & submit</h3>
                     <p>This is a request. {appointmentNotice}</p>
@@ -1770,7 +1784,7 @@ function AboutSection({ content, settings }) {
 }
 
 function ContactSection({ content, location, settings }) {
-  const [form, setForm] = useState({ name: '', email: '', phone: '', message: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', message: '', bowwow_hp: '' });
   const [status, setStatus] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const phoneHref = settings.phone ? toPhoneHref(settings.phone) : null;
@@ -1788,7 +1802,7 @@ function ContactSection({ content, location, settings }) {
     try {
       await axios.post('/api/public/contact', form);
       setStatus({ tone: 'success', message: 'Message received. We’ll reply soon.' });
-      setForm({ name: '', email: '', phone: '', message: '' });
+      setForm({ name: '', email: '', phone: '', message: '', bowwow_hp: '' });
     } catch (error) {
       setStatus({ tone: 'error', message: error.response?.data?.error?.message || 'Unable to send your message right now.' });
     } finally {
@@ -1845,6 +1859,17 @@ function ContactSection({ content, location, settings }) {
           </div>
 
           <form className="contact-form-card" onSubmit={submitContact}>
+            <div className="form-spam-trap" aria-hidden="true">
+              <label htmlFor="contact-check">Leave this field blank</label>
+              <input
+                id="contact-check"
+                name="bowwow_hp"
+                tabIndex={-1}
+                autoComplete="new-password"
+                value={form.bowwow_hp}
+                onChange={(event) => setForm((current) => ({ ...current, bowwow_hp: event.target.value }))}
+              />
+            </div>
             <div className="field-group">
               <label htmlFor="contact-name">Name</label>
               <input

@@ -119,6 +119,11 @@ final class PublicController
     public function bookingRequest(Request $request): void
     {
         $payload = $request->body;
+        if ($this->honeypotTripped($payload)) {
+            error_log('[BowWow][booking_honeypot_tripped]');
+            Response::success(['received' => true], 202);
+        }
+
         $payload['selected_services'] = $this->decodeArrayField($payload['selected_services'] ?? $payload['service_ids'] ?? []);
         $payload['dogs'] = $this->decodeArrayField($payload['dogs'] ?? $payload['pets'] ?? []);
 
@@ -230,6 +235,11 @@ final class PublicController
 
     public function contact(Request $request): void
     {
+        if ($this->honeypotTripped($request->body)) {
+            error_log('[BowWow][contact_honeypot_tripped]');
+            Response::success(['received' => true], 202);
+        }
+
         $required = ['name', 'email', 'message'];
         foreach ($required as $field) {
             if (empty($request->body[$field])) {
@@ -243,6 +253,17 @@ final class PublicController
             Response::error('validation_error', $e->getMessage(), 422);
         }
         Response::success(['received' => true]);
+    }
+
+    private function honeypotTripped(array $payload): bool
+    {
+        foreach (['bowwow_hp', 'website', 'companyWebsite', 'company_website'] as $field) {
+            if (trim((string) ($payload[$field] ?? '')) !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function decodeArrayField(mixed $value): array
