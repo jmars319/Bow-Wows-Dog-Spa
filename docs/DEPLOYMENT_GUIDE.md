@@ -28,9 +28,9 @@ bash scripts/make-placeholder-deploy-zip.sh   # outputs deploy-placeholder.zip
 
 Default release posture:
 
-- `backend-deploy.zip` excludes `backend/.env`, `backend/.env.production`, runtime uploads/media, and CLI-only backend tools.
+- `backend-deploy.zip` excludes all `.env*` files, `config/config.php`, runtime uploads/media, logs/cache/tmp, tests, source maps, git files, and CLI/schema tools by default.
 - `frontend-deploy.zip` contains the live public site at `/`, the admin SPA at `/admin`, and shared root assets. It does not contain the placeholder.
-- `deploy-placeholder.zip` is a separate root-only mini site with its own `index.php`, `.htaccess`, `robots.txt`, legal pages, error documents, and `/assets` logos.
+- `deploy-placeholder.zip` is a separate root-only mini site with its own `index.php`, `.htaccess`, `robots.txt`, legal pages, error documents, and `/assets` logos. It must not contain backend, source, upload, log, cache, `.env`, git, or source-map files.
 
 If you intentionally want the CLI migration/admin tools in the backend bundle, opt in explicitly:
 
@@ -43,7 +43,7 @@ INCLUDE_CLI_TOOLS_IN_DEPLOY=true bash scripts/check-deploy-zips.sh
 
 1. Upload `backend-deploy.zip` to your hosting account (e.g., `/home/{user}/bowwow-backend` or a subfolder under `public_html/api`).
 2. Extract the ZIP; the contents include `backend/public`, `src`, `config`, `db`, and `migrations`. CLI scripts are excluded unless you built with `INCLUDE_CLI_TOOLS_IN_DEPLOY=true`.
-3. Copy `backend/.env.example` to `backend/.env`, then update the values (each block is labeled in the file):
+3. Create `backend/.env` on the server from the local `backend/.env.example`, then update the values (each block is labeled in the file). The deploy zip does not include `.env.example`, so use the repo copy as the template:
    - `APP_URL` (usually `https://bowwowsdogspa.com`)
    - Database: `DB_HOST` (GoDaddy uses `localhost`), `DB_NAME`, `DB_USER`, `DB_PASS`
    - SendGrid: `SENDGRID_ENABLED`, `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`, `SENDGRID_FROM_NAME`, `SENDGRID_STAFF_NOTIFICATIONS`, plus booleans for customer emails (`SENDGRID_SEND_CUSTOMER_RECEIPTS` / `SENDGRID_SEND_CUSTOMER_CONFIRMATIONS`)
@@ -58,7 +58,7 @@ INCLUDE_CLI_TOOLS_IN_DEPLOY=true bash scripts/check-deploy-zips.sh
 5. Point an Apache virtual directory or subdomain (`/public_html/api`) to `backend/public`.
    - The included `.htaccess` routes all requests to `index.php`.
 
-> Missing `.env` stops the backend immediately with a clear message, so keep `backend/.env` in place on the host. Never commit it, and never include it or `.env.production` in deploy ZIPs.
+> Missing `.env` stops the backend immediately with a clear message, so keep `backend/.env` in place on the host. Never commit it, and never include any `.env*` file in deploy ZIPs.
 
 ## 4. Database provisioning (No SSH)
 
@@ -77,7 +77,7 @@ cd /path/to/backend
 php scripts/run_migrations.php
 ```
 
-The CLI runner executes each file under `backend/migrations/` sequentially. If you use the default deploy bundle, the CLI scripts are absent by design; use `master_schema.sql` via phpMyAdmin or rebuild with `INCLUDE_CLI_TOOLS_IN_DEPLOY=true`.
+The CLI runner executes each file under `backend/migrations/` sequentially. If you use the default deploy bundle, the CLI scripts and schema files are absent by design; use the repo copy of `backend/db/master_schema.sql` via phpMyAdmin or rebuild with `INCLUDE_CLI_TOOLS_IN_DEPLOY=true`.
 
 ### Seed the initial super admin
 

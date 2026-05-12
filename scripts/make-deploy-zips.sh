@@ -54,24 +54,32 @@ cp "$ROOT_DIR/.htaccess" "$FRONT_STAGING/.htaccess"
 if [ -d "$ROOT_DIR/public-root" ]; then
   rsync -a --exclude '.gitignore' --exclude '.DS_Store' "$ROOT_DIR/public-root/" "$FRONT_STAGING/"
 fi
+find "$FRONT_STAGING" -type f -name '*.map' -delete
 
 log "Preparing backend bundle"
 BACKEND_EXCLUDES=(
   --exclude 'config/config.php'
-  --exclude '.env'
-  --exclude '.env.production'
+  --exclude '.env*'
   --exclude 'uploads/'
   --exclude 'storage/media/'
   --exclude 'public/seed_admin.php'
+  --exclude 'tests/'
+  --exclude 'logs/'
+  --exclude 'cache/'
+  --exclude 'tmp/'
+  --exclude '.git/'
   --exclude '.DS_Store'
   --exclude '.gitignore'
+  --exclude '*.map'
 )
 
 if is_true "$INCLUDE_CLI_TOOLS_IN_DEPLOY"; then
   log_warn "Including backend CLI tools in backend-deploy.zip by explicit request"
 else
-  log "Excluding backend CLI tools from backend-deploy.zip (default)"
+  log "Excluding backend CLI/schema tools from backend-deploy.zip (default)"
   BACKEND_EXCLUDES+=(--exclude 'scripts/')
+  BACKEND_EXCLUDES+=(--exclude 'migrations/')
+  BACKEND_EXCLUDES+=(--exclude 'db/*.sql')
 fi
 
 rsync -a \

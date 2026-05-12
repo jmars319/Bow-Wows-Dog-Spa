@@ -50,16 +50,24 @@ if echo "$BACKEND_FILES" | grep -Fx 'backend/config/config.php'; then
   fail "backend zip should not include config/config.php"
 fi
 
-if echo "$BACKEND_FILES" | grep -Fx 'backend/.env'; then
-  fail "backend zip should not include backend/.env"
-fi
-
-if echo "$BACKEND_FILES" | grep -Fx 'backend/.env.production'; then
-  fail "backend zip should not include backend/.env.production"
+if echo "$BACKEND_FILES" | grep -Eq '(^|/)\\.env($|[./])'; then
+  fail "backend zip should not include .env files or examples"
 fi
 
 if echo "$BACKEND_FILES" | grep -Fx 'backend/public/seed_admin.php'; then
   fail "backend zip must not include backend/public/seed_admin.php"
+fi
+
+if echo "$BACKEND_FILES" | grep -Eq '(^|/)[.]gitignore$|(^|/)[.]git/|(^|/)[.]DS_Store$|[.]map$'; then
+  fail "backend zip contains git metadata, macOS metadata, or source maps"
+fi
+
+if echo "$BACKEND_FILES" | grep -Eq 'backend/(logs|cache|tmp)(/|$)'; then
+  fail "backend zip should not include logs/cache/tmp runtime directories"
+fi
+
+if echo "$BACKEND_FILES" | grep -Eq 'backend/(tests)(/|$)'; then
+  fail "backend zip should not include tests"
 fi
 
 if is_true "$INCLUDE_CLI_TOOLS_IN_DEPLOY"; then
@@ -71,17 +79,13 @@ if is_true "$INCLUDE_CLI_TOOLS_IN_DEPLOY"; then
     fail "backend zip should include backend/scripts/run_migrations.php when INCLUDE_CLI_TOOLS_IN_DEPLOY=true"
   fi
 else
-  if echo "$BACKEND_FILES" | grep -Fx 'backend/scripts/seed_admin.php'; then
-    fail "backend zip should not include backend/scripts/seed_admin.php by default"
+  if echo "$BACKEND_FILES" | grep -Eq '^backend/scripts/'; then
+    fail "backend zip should not include backend/scripts/ by default"
   fi
 
-  if echo "$BACKEND_FILES" | grep -Fx 'backend/scripts/run_migrations.php'; then
-    fail "backend zip should not include backend/scripts/run_migrations.php by default"
+  if echo "$BACKEND_FILES" | grep -Eq '^backend/migrations/|^backend/db/.*\\.sql$'; then
+    fail "backend zip should not include migrations or schema SQL by default"
   fi
-fi
-
-if ! echo "$BACKEND_FILES" | grep -Fx 'backend/.env.example'; then
-  fail "backend zip must include backend/.env.example"
 fi
 
 if echo "$BACKEND_FILES" | grep -Fq 'backend/uploads/'; then
@@ -98,6 +102,10 @@ fi
 
 if echo "$FRONTEND_FILES" | grep -Eiq '(^|/)gate\.php$'; then
   fail "frontend zip should not include gate.php"
+fi
+
+if echo "$FRONTEND_FILES" | grep -Eq '(^|/)[.]env($|[./])|(^|/)[.]gitignore$|(^|/)[.]git/|(^|/)[.]DS_Store$|[.]map$'; then
+  fail "frontend zip contains secrets, git metadata, macOS metadata, or source maps"
 fi
 
 FRONTEND_CONTENT="$(unzip -p "$FRONTEND_ZIP" 2>/dev/null || true)"

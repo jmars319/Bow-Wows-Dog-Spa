@@ -47,4 +47,15 @@ if grep -E -q 'https?://(localhost|127\.0\.0\.1):[0-9]+' < <(unzip -p "$ROOT_DIR
   exit 1
 fi
 
+PLACEHOLDER_FILES="$(unzip -Z1 "$ROOT_DIR/deploy-placeholder.zip")"
+if grep -E -q '(^|/)\.env($|[./])|(^|/)\.gitignore$|(^|/)\.git/|(^|/)\.DS_Store$|\.map$' <<< "$PLACEHOLDER_FILES"; then
+  log_error "deploy-placeholder.zip contains secrets, git metadata, macOS metadata, or source maps."
+  exit 1
+fi
+
+if grep -E -q '(^|/)(backend|src|node_modules|uploads|logs|cache|tmp)(/|$)' <<< "$PLACEHOLDER_FILES"; then
+  log_error "deploy-placeholder.zip contains non-placeholder runtime/source directories."
+  exit 1
+fi
+
 log_success "Created deploy-placeholder.zip"
