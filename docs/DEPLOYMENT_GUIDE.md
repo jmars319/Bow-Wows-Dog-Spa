@@ -2,6 +2,8 @@
 
 This project is optimized for GoDaddy shared hosting with manual ZIP uploads. Follow the steps below for a clean deployment.
 
+For the short standard policy shared by the cPanel sites, see `docs/CPANEL_DEPLOYMENT_STANDARD.md`.
+
 ## 1. Prerequisites
 
 - Node 18+

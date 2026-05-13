@@ -26,6 +26,7 @@
     "be:restart": "bash ./scripts/dev-backend-restart.sh",
     "deploy:make": "bash ./scripts/make-deploy-zips.sh",
     "deploy:check": "bash ./scripts/check-deploy-zips.sh",
+    "deploy:config": "bash ./scripts/make-server-config-zip.sh",
     "deploy:placeholder": "bash ./scripts/make-placeholder-deploy-zip.sh",
     "test:public": "npm --prefix frontend/public-app run test",
     "test:admin": "npm --prefix frontend/admin-app run test",
