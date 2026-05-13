@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => {
     base: '/',
     build: {
       outDir: 'dist',
-      sourcemap: true,
+      sourcemap: false,
     },
     test: {
       environment: 'jsdom',
