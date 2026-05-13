@@ -1,5 +1,12 @@
+Options -Indexes
 RewriteEngine On
-RewriteRule ^seed_admin\.php$ - [R=404,L]
+
+RewriteRule ^seed_admin\.php$ - [F,L]
+RewriteRule (^|/)\.env($|\.) - [F,L]
+RewriteRule ^(?:bootstrap|config|db|migrations|scripts|src|tests|storage|logs|cache)(?:/|$) - [F,L]
+RewriteRule ^uploads/ - [L]
+RewriteRule ^(?!index\.php$).*\.php$ - [F,L]
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.php [QSA,L]

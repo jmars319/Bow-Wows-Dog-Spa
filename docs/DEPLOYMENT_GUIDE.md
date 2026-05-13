@@ -16,11 +16,11 @@ For the short standard policy shared by the cPanel sites, see `docs/CPANEL_DEPLO
 From the repo root:
 
 ```bash
-bash scripts/make-deploy-zips.sh   # builds both SPAs, outputs frontend-deploy.zip and backend-deploy.zip
+bash scripts/make-deploy-zips.sh   # builds both SPAs, outputs site-deploy.zip
 bash scripts/check-deploy-zips.sh  # optional sanity check
 ```
 
-The build script compiles the React SPAs, refreshes public logo assets, and writes fresh `frontend-deploy.zip` and `backend-deploy.zip` to the repo root.
+The build script compiles the React SPAs, refreshes public logo assets, and writes fresh `site-deploy.zip` to the repo root.
 
 For a temporary placeholder-only deployment, build the standalone mini site instead:
 
@@ -30,8 +30,8 @@ bash scripts/make-placeholder-deploy-zip.sh   # outputs deploy-placeholder.zip
 
 Default release posture:
 
-- `backend-deploy.zip` excludes all `.env*` files, legacy config PHP files, runtime uploads/media, logs/cache/tmp, tests, source maps, git files, and CLI/schema tools by default. It may include `backend/uploads/.htaccess` as the upload-directory guard, but no uploaded media.
-- `frontend-deploy.zip` contains the live public site at `/`, the admin SPA at `/admin`, and shared root assets. It does not contain the placeholder.
+- `site-deploy.zip` excludes all `.env*` files, legacy config PHP files, runtime uploads/media, logs/cache/tmp, tests, source maps, git files, and CLI/schema tools by default. It contains the live public site at `/`, the admin SPA at `/admin`, and the PHP backend at `/api`.
+- `site-deploy.zip` may include `api/uploads/.htaccess` as the upload-directory guard, but no uploaded media.
 - `deploy-placeholder.zip` is a separate root-only mini site with its own `index.php`, `.htaccess`, `robots.txt`, legal pages, error documents, and `/assets` logos. It must not contain backend, source, upload, log, cache, `.env`, git, or source-map files.
 
 If you intentionally want the CLI migration/admin tools in the backend bundle, opt in explicitly:
@@ -43,24 +43,23 @@ INCLUDE_CLI_TOOLS_IN_DEPLOY=true bash scripts/check-deploy-zips.sh
 
 ## 3. Configure the backend
 
-1. Upload `backend-deploy.zip` to your hosting account (e.g., `/home/{user}/bowwow-backend` or a subfolder under `public_html/api`).
-2. Extract the ZIP; the contents include `backend/public`, `src`, `config`, `db`, and `migrations`. CLI scripts are excluded unless you built with `INCLUDE_CLI_TOOLS_IN_DEPLOY=true`.
-3. Create `backend/.env` on the server from the local `backend/.env.example`, then update the values (each block is labeled in the file). The deploy zip does not include `.env.example`, so use the repo copy as the template:
+1. Upload `site-deploy.zip` to the public web root and extract-overwrite.
+2. Confirm the extracted backend entrypoint is `api/index.php`. CLI scripts are excluded unless you built with `INCLUDE_CLI_TOOLS_IN_DEPLOY=true`.
+3. Create `api/.env` on the server from the local `backend/.env.example`, then update the values (each block is labeled in the file). The deploy zip does not include `.env.example`, so use the repo copy as the template:
    - `APP_URL` (usually `https://bowwowsdogspa.com`)
    - Database: `DB_HOST` (GoDaddy uses `localhost`), `DB_NAME`, `DB_USER`, `DB_PASS`
    - SendGrid: `SENDGRID_ENABLED`, `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`, `SENDGRID_FROM_NAME`, `SENDGRID_STAFF_NOTIFICATIONS`, plus booleans for customer emails (`SENDGRID_SEND_CUSTOMER_RECEIPTS` / `SENDGRID_SEND_CUSTOMER_CONFIRMATIONS`)
    - Sessions: `SESSION_*` flags (`SESSION_SECURE=true` when HTTPS is forced)
    - Media pipeline settings (leave defaults unless storage differs)
-4. Ensure the uploads tree defined by `UPLOAD_DIR` is writable by PHP. The default is `backend/uploads/` which must contain writable subdirectories:
+4. Ensure the uploads tree defined by `UPLOAD_DIR` is writable by PHP. The default in the deployed layout is `api/uploads/` which must contain writable subdirectories:
    - `originals/`
    - `variants/optimized/`
    - `variants/webp/`
    - `manifests/`
    A `775` permission mask usually works on GoDaddy shared hosting.
-5. Point an Apache virtual directory or subdomain (`/public_html/api`) to `backend/public`.
-   - The included `.htaccess` routes all requests to `index.php`.
+5. Keep `api/.htaccess` in place. It routes API requests to `api/index.php` and blocks direct access to internals such as `src/`, `bootstrap/`, `migrations/`, and scripts.
 
-> Missing `.env` stops the backend immediately with a clear message, so keep `backend/.env` in place on the host. Never commit it, and never include any `.env*` file in deploy ZIPs.
+> Missing `.env` stops the backend immediately with a clear message, so keep `api/.env` in place on the host. Never commit it, and never include any `.env*` file in deploy ZIPs.
 
 ## 4. Database provisioning (No SSH)
 
@@ -94,13 +93,13 @@ The CLI script prompts for email/password (or reads `ADMIN_EMAIL` / `ADMIN_PASSW
 
 ## 5. Deploy the front-end
 
-1. Upload `frontend-deploy.zip` into your `public_html` (or subdomain) directory.
-2. Extract; the archive already contains the correct structure:
+1. Upload `site-deploy.zip` into your `public_html` (or subdomain) directory.
+2. Extract-overwrite; the archive already contains the correct structure:
    - `/index.html` + `/index.php` + `/.htaccess` → public SPA mounted at the site root
    - `/error-documents/` → branded static Apache fallback pages for `403`, `404`, `500`, and `503`
    - `/admin/` → admin SPA build
-3. Keep `backend` as a sibling directory of the deployed front-end so `/api` can be routed into `backend/public`.
-4. Both SPAs expect the PHP API to be reachable at `/api`, so keep the backend’s `/public` folder mounted at `/api`.
+   - `/api/` → PHP backend runtime
+3. Both SPAs expect the PHP API to be reachable at `/api`, so preserve the `api/` folder, `api/.env`, and server-owned uploads/storage between releases.
 
 Routing expectations on the live host:
 

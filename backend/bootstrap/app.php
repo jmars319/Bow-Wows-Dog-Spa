@@ -64,7 +64,7 @@ $config = [
         'send_customer_confirmations' => filter_var(getenv('SENDGRID_SEND_CUSTOMER_CONFIRMATIONS'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true,
     ],
     'media' => [
-        'upload_dir' => resolvePath((string) (getenv('UPLOAD_DIR') ?: 'backend/uploads')),
+        'upload_dir' => resolvePath((string) (getenv('UPLOAD_DIR') ?: (BOWWOW_APP_PATH . '/uploads'))),
         'public_url_prefix' => '/uploads',
         'max_bytes' => (int) (getenv('IMAGE_UPLOAD_MAX_BYTES') ?: (8 * 1024 * 1024)),
         'jpeg_quality' => (int) (getenv('IMAGE_JPEG_QUALITY') ?: 88),

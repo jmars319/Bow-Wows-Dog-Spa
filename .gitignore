@@ -12,6 +12,7 @@ references/
 deploy-*.zip
 frontend-deploy*.zip
 backend-deploy*.zip
+site-deploy*.zip
 server-config*.zip
 *.DS_Store
 .build/

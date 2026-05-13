@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_SOURCE="$ROOT_DIR/backend/.env"
 ZIP_PATH="$ROOT_DIR/server-config-deploy.zip"
-ARCHIVE_ENV_PATH="backend/.env"
+ARCHIVE_ENV_PATH="api/.env"
 
 if [[ "${ALLOW_SECRET_CONFIG_ZIP:-}" != "true" && "${1:-}" != "--i-understand-this-contains-secrets" ]]; then
   printf 'ERROR: server-config-deploy.zip contains production secrets.\n' >&2

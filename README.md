@@ -70,15 +70,16 @@ Generic helper scripts live under `scripts/` (see `Generic-Scripts-Reference.md`
 | `bash scripts/dev-verify.sh` | Full smoke test: stop → start → check (backend/public/admin) → restart → re-check. |
 | `bash scripts/verify-public-error-pages.sh` | Verify public status-route codes, static error documents, and maintenance behavior against a staged frontend bundle. |
 | `bash scripts/make-placeholder-deploy-zip.sh` | Build `deploy-placeholder.zip` as a standalone root placeholder mini site. |
-| `bash scripts/make-deploy-zips.sh` | Builds React apps, refreshes public logo assets, and produces `frontend-deploy.zip` + `backend-deploy.zip`. |
+| `bash scripts/make-deploy-zips.sh` | Builds React apps, refreshes public logo assets, and produces the normal `site-deploy.zip` artifact. |
 | `bash scripts/check-deploy-zips.sh` | Quick sanity-check of the generated deploy archives. |
 
 - Copy `scripts/dev-config.example.sh` to `.dev/dev-config.sh` to override default ports/paths (backend/public/admin).
 - Logs and pid files live under `.dev/`.
 - In dev, browse everything from `http://127.0.0.1:5173/`: the public SPA lives at `/` and the admin SPA is available at `/admin/login`. The admin Vite server still runs separately on `5174` by default, but only as an internal upstream for the shared `5173` origin (adjust ports via `.dev/dev-config.sh`).
-- Deploy zips exclude secrets and runtime state by default, including `backend/.env`, `backend/.env.production`, `backend/uploads/`, generated media, and CLI-only backend scripts.
+- `site-deploy.zip` extracts into the document root with the public app at `/`, the admin app at `/admin`, and the PHP backend at `/api`.
+- Deploy zips exclude secrets and runtime state by default, including local `backend/.env`, production `api/.env`, uploaded media under `api/uploads/`, generated media, and CLI-only backend scripts.
 - If you intentionally need the backend CLI tools on-host, rebuild with `INCLUDE_CLI_TOOLS_IN_DEPLOY=true bash scripts/make-deploy-zips.sh`.
-- The frontend deploy zip includes the live root SPA, the admin SPA under `/admin`, and shared root assets. It does not include the placeholder.
+- The normal site deploy zip includes the live root SPA, the admin SPA under `/admin`, shared root assets, and the `/api` runtime. It does not include the placeholder.
 - While the full site is waiting on approval, run `bash scripts/make-placeholder-deploy-zip.sh` and deploy `deploy-placeholder.zip` to the domain document root. It ships the branded noindex placeholder, `/assets` logos, favicon/error assets, legal pages, and root Apache rules only.
 
 ## Testing

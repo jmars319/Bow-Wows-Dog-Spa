@@ -3,9 +3,10 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/.build/deploy"
-FRONT_STAGING="$BUILD_DIR/frontend"
-BACKEND_STAGING="$BUILD_DIR/backend"
+SITE_STAGING="$BUILD_DIR/site"
+API_STAGING="$SITE_STAGING/api"
 INCLUDE_CLI_TOOLS_IN_DEPLOY="${INCLUDE_CLI_TOOLS_IN_DEPLOY:-false}"
+SITE_ZIP="$ROOT_DIR/site-deploy.zip"
 
 COLOR_RESET="\033[0m"
 COLOR_BLUE="\033[0;34m"
@@ -28,10 +29,21 @@ is_true() {
   esac
 }
 
+require_cmd() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    log_error "Missing required command: $1"
+    exit 1
+  fi
+}
+
+require_cmd php
+require_cmd rsync
+require_cmd zip
+
 log "Cleaning previous artifacts"
-rm -f "$ROOT_DIR"/frontend-deploy*.zip "$ROOT_DIR"/backend-deploy*.zip
+rm -f "$ROOT_DIR"/frontend-deploy*.zip "$ROOT_DIR"/backend-deploy*.zip "$SITE_ZIP"
 rm -rf "$BUILD_DIR"
-mkdir -p "$FRONT_STAGING" "$BACKEND_STAGING"
+mkdir -p "$API_STAGING"
 
 log "Refreshing brand assets"
 php "$ROOT_DIR/scripts/generate-logo-webp.php" || log_warn "Skipping logo WebP regeneration (GD extension required)"
@@ -46,24 +58,24 @@ pushd "$ROOT_DIR/frontend/admin-app" >/dev/null
 npm run build
 popd >/dev/null
 
-log "Preparing frontend bundle"
-rsync -a "$ROOT_DIR/frontend/public-app/dist/" "$FRONT_STAGING/"
-rsync -a "$ROOT_DIR/frontend/admin-app/dist/" "$FRONT_STAGING/admin/"
-cp "$ROOT_DIR/index.php" "$FRONT_STAGING/index.php"
-cp "$ROOT_DIR/.htaccess" "$FRONT_STAGING/.htaccess"
+log "Preparing web root"
+rsync -a --delete --exclude '.DS_Store' --exclude '*.map' "$ROOT_DIR/frontend/public-app/dist/" "$SITE_STAGING/"
+rsync -a --delete --exclude '.DS_Store' --exclude '*.map' "$ROOT_DIR/frontend/admin-app/dist/" "$SITE_STAGING/admin/"
+cp "$ROOT_DIR/index.php" "$SITE_STAGING/index.php"
+cp "$ROOT_DIR/.htaccess" "$SITE_STAGING/.htaccess"
 if [ -d "$ROOT_DIR/public-root" ]; then
-  rsync -a --exclude '.gitignore' --exclude '.DS_Store' "$ROOT_DIR/public-root/" "$FRONT_STAGING/"
+  rsync -a --exclude '.gitignore' --exclude '.DS_Store' "$ROOT_DIR/public-root/" "$SITE_STAGING/"
 fi
-find "$FRONT_STAGING" -type f -name '*.map' -delete
+find "$SITE_STAGING" -type f -name '*.map' -delete
 
-log "Preparing backend bundle"
+log "Preparing backend under api/"
 BACKEND_EXCLUDES=(
+  --exclude 'public/'
   --exclude 'config/config.php'
   --exclude 'config/config.example.php'
   --exclude '.env*'
   --exclude 'uploads/'
   --exclude 'storage/media/'
-  --exclude 'public/seed_admin.php'
   --exclude 'tests/'
   --exclude 'logs/'
   --exclude 'cache/'
@@ -75,9 +87,9 @@ BACKEND_EXCLUDES=(
 )
 
 if is_true "$INCLUDE_CLI_TOOLS_IN_DEPLOY"; then
-  log_warn "Including backend CLI tools in backend-deploy.zip by explicit request"
+  log_warn "Including backend CLI/schema tools in site-deploy.zip by explicit request"
 else
-  log "Excluding backend CLI/schema tools from backend-deploy.zip (default)"
+  log "Excluding backend CLI/schema tools from site-deploy.zip (default)"
   BACKEND_EXCLUDES+=(--exclude 'scripts/')
   BACKEND_EXCLUDES+=(--exclude 'migrations/')
   BACKEND_EXCLUDES+=(--exclude 'db/*.sql')
@@ -85,21 +97,20 @@ fi
 
 rsync -a \
   "${BACKEND_EXCLUDES[@]}" \
-  "$ROOT_DIR/backend/" "$BACKEND_STAGING/backend/"
+  "$ROOT_DIR/backend/" "$API_STAGING/"
+
+cp "$ROOT_DIR/backend/public/index.php" "$API_STAGING/index.php"
+cp "$ROOT_DIR/backend/public/.htaccess" "$API_STAGING/.htaccess"
+
 if [ -f "$ROOT_DIR/backend/uploads/.htaccess" ]; then
-  mkdir -p "$BACKEND_STAGING/backend/uploads"
-  cp "$ROOT_DIR/backend/uploads/.htaccess" "$BACKEND_STAGING/backend/uploads/.htaccess"
+  mkdir -p "$API_STAGING/uploads"
+  cp "$ROOT_DIR/backend/uploads/.htaccess" "$API_STAGING/uploads/.htaccess"
 fi
 
-log "Creating frontend-deploy.zip"
-pushd "$FRONT_STAGING" >/dev/null
-zip -rq "$ROOT_DIR/frontend-deploy.zip" .
-popd >/dev/null
-
-log "Creating backend-deploy.zip"
-pushd "$BACKEND_STAGING" >/dev/null
-zip -rq "$ROOT_DIR/backend-deploy.zip" backend
+log "Creating site-deploy.zip"
+pushd "$SITE_STAGING" >/dev/null
+zip -rq "$SITE_ZIP" .
 popd >/dev/null
 
 bash "$ROOT_DIR/scripts/check-deploy-zips.sh"
-log_success "Created frontend-deploy.zip and backend-deploy.zip"
+log_success "Created site-deploy.zip"

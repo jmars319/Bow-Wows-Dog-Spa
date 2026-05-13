@@ -34,7 +34,7 @@
 - **Text & Site Info**: update hero copy, about text, policy blocks, serving-area tagline, and default email language.
 - **Gallery**: manage published groomed-pet, facility, retail, and before/after items that appear in the public photo-driven sections.
 - **Retail**: maintain boutique products with optional prices and featured flags. The product form now also has an optional **Future online sales prep** section for SKU, stock status, fulfillment direction, and whether a product should stay catalog-only or eventually be eligible for online checkout.
-- **Media Manager**: upload photos (XHR progress UI) and provide category/alt/title/caption. Originals land in `backend/uploads/originals` and responsive variants + WebP + manifests are generated automatically per the Generic Image Pipeline spec.
+- **Media Manager**: upload photos (XHR progress UI) and provide category/alt/title/caption. Originals land in the configured uploads directory (`backend/uploads/originals` locally, `api/uploads/originals` in the standardized cPanel layout) and responsive variants + WebP + manifests are generated automatically per the Generic Image Pipeline spec.
 
 ## Future online sales groundwork
 - The live public site is still catalog-only. There is no cart, checkout, payment provider, shipping flow, tax handling, or order management yet.
@@ -56,7 +56,7 @@
 - Privacy + Terms content is editable from the Text & Site Info screen and exposed publicly at `/privacy` and `/terms`.
 
 ## Media pipeline & storage
-- The uploads tree (`backend/uploads/`) contains `originals/`, `variants/optimized/`, `variants/webp/`, and `manifests/`. Keep these folders writable (`775` on GoDaddy).
+- The uploads tree (`backend/uploads/` locally, `api/uploads/` on cPanel) contains `originals/`, `variants/optimized/`, `variants/webp/`, and `manifests/`. Keep these folders writable (`775` on GoDaddy).
 - Deleting a media entry removes the original, every derivative, and the manifest atomically.
 - Public/admin image rendering uses `<picture>` with both WebP and raster `srcset` values. Avoid linking directly to `/uploads/*.jpg` except for fallbacks.
 
@@ -93,6 +93,6 @@
 - The Playwright seed step uses `backend/scripts/seed_e2e_fixtures.php` to create/update a deterministic `admin` user (`e2e-admin@bowwow.local`) and seed one future booking date with fixed time buttons.
 
 ## Release packaging
-- `backend/.env` is the local/dev file in this repo unless your host setup deliberately uses that same path.
+- `backend/.env` is the local/dev file in this repo. The standardized cPanel deploy layout uses `api/.env`.
 - `.env.production` is kept out of version control and must never be shipped in deploy archives.
 - Deploy zips exclude secrets, runtime uploads/media, and CLI-only backend tools by default.
