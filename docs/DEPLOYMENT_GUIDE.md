@@ -28,7 +28,7 @@ bash scripts/make-placeholder-deploy-zip.sh   # outputs deploy-placeholder.zip
 
 Default release posture:
 
-- `backend-deploy.zip` excludes all `.env*` files, `config/config.php`, runtime uploads/media, logs/cache/tmp, tests, source maps, git files, and CLI/schema tools by default.
+- `backend-deploy.zip` excludes all `.env*` files, legacy config PHP files, runtime uploads/media, logs/cache/tmp, tests, source maps, git files, and CLI/schema tools by default. It may include `backend/uploads/.htaccess` as the upload-directory guard, but no uploaded media.
 - `frontend-deploy.zip` contains the live public site at `/`, the admin SPA at `/admin`, and shared root assets. It does not contain the placeholder.
 - `deploy-placeholder.zip` is a separate root-only mini site with its own `index.php`, `.htaccess`, `robots.txt`, legal pages, error documents, and `/assets` logos. It must not contain backend, source, upload, log, cache, `.env`, git, or source-map files.
 

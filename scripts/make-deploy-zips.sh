@@ -29,7 +29,7 @@ is_true() {
 }
 
 log "Cleaning previous artifacts"
-rm -f "$ROOT_DIR"/frontend-deploy*.zip "$ROOT_DIR"/backend-deploy*.zip "$ROOT_DIR"/deploy-*.zip
+rm -f "$ROOT_DIR"/frontend-deploy*.zip "$ROOT_DIR"/backend-deploy*.zip
 rm -rf "$BUILD_DIR"
 mkdir -p "$FRONT_STAGING" "$BACKEND_STAGING"
 
@@ -59,6 +59,7 @@ find "$FRONT_STAGING" -type f -name '*.map' -delete
 log "Preparing backend bundle"
 BACKEND_EXCLUDES=(
   --exclude 'config/config.php'
+  --exclude 'config/config.example.php'
   --exclude '.env*'
   --exclude 'uploads/'
   --exclude 'storage/media/'
@@ -85,6 +86,10 @@ fi
 rsync -a \
   "${BACKEND_EXCLUDES[@]}" \
   "$ROOT_DIR/backend/" "$BACKEND_STAGING/backend/"
+if [ -f "$ROOT_DIR/backend/uploads/.htaccess" ]; then
+  mkdir -p "$BACKEND_STAGING/backend/uploads"
+  cp "$ROOT_DIR/backend/uploads/.htaccess" "$BACKEND_STAGING/backend/uploads/.htaccess"
+fi
 
 log "Creating frontend-deploy.zip"
 pushd "$FRONT_STAGING" >/dev/null

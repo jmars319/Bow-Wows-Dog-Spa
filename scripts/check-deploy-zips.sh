@@ -46,8 +46,8 @@ BACKEND_LIST="$(unzip -l "$BACKEND_ZIP")"
 BACKEND_FILES="$(unzip -Z1 "$BACKEND_ZIP")"
 echo "$BACKEND_LIST" | head -n 40
 
-if echo "$BACKEND_FILES" | grep -Fx 'backend/config/config.php'; then
-  fail "backend zip should not include config/config.php"
+if echo "$BACKEND_FILES" | grep -Eq '^backend/config/config(\.example)?\.php$'; then
+  fail "backend zip should not include config/config.php or config/config.example.php"
 fi
 
 if echo "$BACKEND_FILES" | grep -Eq '(^|/)\\.env($|[./])'; then
@@ -88,8 +88,13 @@ else
   fi
 fi
 
-if echo "$BACKEND_FILES" | grep -Fq 'backend/uploads/'; then
-  fail "backend zip should not include uploads/"
+if ! echo "$BACKEND_FILES" | grep -Fx 'backend/uploads/.htaccess'; then
+  fail "backend zip should include backend/uploads/.htaccess guard"
+fi
+
+UPLOAD_ENTRIES="$(echo "$BACKEND_FILES" | grep -E '^backend/uploads/' || true)"
+if echo "$UPLOAD_ENTRIES" | grep -Ev '^backend/uploads/?$|^backend/uploads/[.]htaccess$' >/dev/null; then
+  fail "backend zip should not include uploaded media; only backend/uploads/.htaccess is allowed"
 fi
 
 if echo "$FRONTEND_FILES" | grep -Eq '^placeholder(/|$)'; then
