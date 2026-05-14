@@ -7,6 +7,7 @@ SITE_STAGING="$BUILD_DIR/site"
 API_STAGING="$SITE_STAGING/api"
 INCLUDE_CLI_TOOLS_IN_DEPLOY="${INCLUDE_CLI_TOOLS_IN_DEPLOY:-false}"
 SITE_ZIP="$ROOT_DIR/site-deploy.zip"
+PROD_ENV_FILE="$ROOT_DIR/backend/.env.production"
 
 COLOR_RESET="\033[0m"
 COLOR_BLUE="\033[0;34m"
@@ -39,6 +40,15 @@ require_cmd() {
 require_cmd php
 require_cmd rsync
 require_cmd zip
+
+if [ ! -f "$PROD_ENV_FILE" ]; then
+  log_error "backend/.env.production is required so site-deploy.zip can include api/.env"
+  exit 1
+fi
+if grep -Eiq '^[A-Za-z_][A-Za-z0-9_]*=.*(REPLACE_WITH|CHANGE_ME|<your_|your_|cpanel_|YOUR_|TODO|TBD)' "$PROD_ENV_FILE"; then
+  log_error "backend/.env.production contains placeholder values; update it before building site-deploy.zip"
+  exit 1
+fi
 
 log "Cleaning previous artifacts"
 rm -f "$ROOT_DIR"/frontend-deploy*.zip "$ROOT_DIR"/backend-deploy*.zip "$SITE_ZIP"
@@ -99,6 +109,7 @@ rsync -a \
   "${BACKEND_EXCLUDES[@]}" \
   "$ROOT_DIR/backend/" "$API_STAGING/"
 
+cp "$PROD_ENV_FILE" "$API_STAGING/.env"
 cp "$ROOT_DIR/backend/public/index.php" "$API_STAGING/index.php"
 cp "$ROOT_DIR/backend/public/.htaccess" "$API_STAGING/.htaccess"
 

@@ -30,7 +30,7 @@ bash scripts/make-placeholder-deploy-zip.sh   # outputs deploy-placeholder.zip
 
 Default release posture:
 
-- `site-deploy.zip` excludes all `.env*` files, legacy config PHP files, runtime uploads/media, logs/cache/tmp, tests, source maps, git files, and CLI/schema tools by default. It contains the live public site at `/`, the admin SPA at `/admin`, and the PHP backend at `/api`.
+- `site-deploy.zip` stages the ignored local `backend/.env.production` file as `api/.env`, excludes all other `.env*` files, and excludes legacy config PHP files, runtime uploads/media, logs/cache/tmp, tests, source maps, git files, and CLI/schema tools by default. It contains the live public site at `/`, the admin SPA at `/admin`, and the PHP backend at `/api`.
 - `site-deploy.zip` may include `api/uploads/.htaccess` as the upload-directory guard, but no uploaded media.
 - `deploy-placeholder.zip` is a separate root-only mini site with its own `index.php`, `.htaccess`, `robots.txt`, legal pages, error documents, and `/assets` logos. It must not contain backend, source, upload, log, cache, `.env`, git, or source-map files.
 
@@ -45,7 +45,7 @@ INCLUDE_CLI_TOOLS_IN_DEPLOY=true bash scripts/check-deploy-zips.sh
 
 1. Upload `site-deploy.zip` to the public web root and extract-overwrite.
 2. Confirm the extracted backend entrypoint is `api/index.php`. CLI scripts are excluded unless you built with `INCLUDE_CLI_TOOLS_IN_DEPLOY=true`.
-3. Create `api/.env` on the server from the local `backend/.env.example`, then update the values (each block is labeled in the file). The deploy zip does not include `.env.example`, so use the repo copy as the template:
+3. Confirm local `backend/.env.production` contains the production values before building; the deploy zip packages it as `api/.env`:
    - `APP_URL` (usually `https://bowwowsdogspa.com`)
    - Database: `DB_HOST` (GoDaddy uses `localhost`), `DB_NAME`, `DB_USER`, `DB_PASS`
    - SendGrid: `SENDGRID_ENABLED`, `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`, `SENDGRID_FROM_NAME`, `SENDGRID_STAFF_NOTIFICATIONS`, plus booleans for customer emails (`SENDGRID_SEND_CUSTOMER_RECEIPTS` / `SENDGRID_SEND_CUSTOMER_CONFIRMATIONS`)
@@ -59,7 +59,7 @@ INCLUDE_CLI_TOOLS_IN_DEPLOY=true bash scripts/check-deploy-zips.sh
    A `775` permission mask usually works on GoDaddy shared hosting.
 5. Keep `api/.htaccess` in place. It routes API requests to `api/index.php` and blocks direct access to internals such as `src/`, `bootstrap/`, `migrations/`, and scripts.
 
-> Missing `.env` stops the backend immediately with a clear message, so keep `api/.env` in place on the host. Never commit it, and never include any `.env*` file in deploy ZIPs.
+> Missing `.env` stops the backend immediately with a clear message. Never commit `backend/.env.production`; it is copied into deploy ZIPs only as `api/.env`.
 
 ## 4. Database provisioning (No SSH)
 

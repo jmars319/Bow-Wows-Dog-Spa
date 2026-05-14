@@ -54,6 +54,7 @@ for required_file in \
   "index.html" \
   "admin/index.html" \
   "api/index.php" \
+  "api/.env" \
   "api/.htaccess" \
   "api/bootstrap/app.php" \
   "api/bootstrap/autoload.php" \
@@ -71,8 +72,9 @@ do
   fi
 done
 
-if zip_match '(^|/)[.]env($|[./])'; then
-  fail "site zip should not include .env files or examples"
+ENV_ENTRIES="$(echo "$SITE_FILES" | grep -E '(^|/)[.]env($|[./])' || true)"
+if echo "$ENV_ENTRIES" | grep -Ev '^api/[.]env$' >/dev/null; then
+  fail "site zip should not include unexpected .env files or examples"
 fi
 
 if zip_match '(^|/)[.]gitignore$|(^|/)[.]git/|(^|/)[.]DS_Store$|[.]map$'; then

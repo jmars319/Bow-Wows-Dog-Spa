@@ -11,16 +11,15 @@ Use extract-overwrite deployments. Do not delete the live site root or `api/` fo
 
 Preserve these on the host between deploys:
 
-- `api/.env`
 - `api/uploads/`
 - `api/storage/`
 - runtime logs/cache/media folders created by PHP
 
-Normal deploy zips intentionally exclude secrets, uploaded media, logs/cache/tmp, source maps, git metadata, and dev-only scripts. The normal site archive no longer ships the old `backend/` folder layout; `/api/index.php` is the backend entrypoint.
+Normal deploy zips intentionally package ignored `backend/.env.production` as `api/.env` and exclude local env files, uploaded media, logs/cache/tmp, source maps, git metadata, and dev-only scripts. The normal site archive no longer ships the old `backend/` folder layout; `/api/index.php` is the backend entrypoint.
 
 ## Optional Config Restore
 
-Only for first setup or emergency recovery:
+Only for emergency recovery outside the normal site deploy:
 
 ```bash
 ALLOW_SECRET_CONFIG_ZIP=true npm run deploy:config

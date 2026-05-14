@@ -94,5 +94,5 @@
 
 ## Release packaging
 - `backend/.env` is the local/dev file in this repo. The standardized cPanel deploy layout uses `api/.env`.
-- `.env.production` is kept out of version control and must never be shipped in deploy archives.
-- Deploy zips exclude secrets, runtime uploads/media, and CLI-only backend tools by default.
+- `backend/.env.production` is kept out of version control and is intentionally packaged as `api/.env`.
+- Deploy zips exclude local env files, runtime uploads/media, and CLI-only backend tools by default.
