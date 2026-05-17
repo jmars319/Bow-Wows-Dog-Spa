@@ -1,5 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
+process.env.FORCE_COLOR = '0';
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,

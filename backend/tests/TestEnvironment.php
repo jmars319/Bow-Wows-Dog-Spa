@@ -31,6 +31,9 @@ final class TestEnvironment
             return self::$instance;
         }
 
+        $reuseConfiguredDatabaseOverride = getenv('BOWWOW_TEST_REUSE_CONFIGURED_DB');
+        $testDatabaseNameOverride = getenv('DB_TEST_NAME');
+
         $envPath = BOWWOW_APP_PATH . '/.env';
         Dotenv::load($envPath);
 
@@ -43,8 +46,17 @@ final class TestEnvironment
             throw new RuntimeException('Database environment is not configured for tests.');
         }
 
-        $reuseConfiguredDatabase = filter_var(getenv('BOWWOW_TEST_REUSE_CONFIGURED_DB'), FILTER_VALIDATE_BOOLEAN);
-        $testDbName = trim((string) (getenv('DB_TEST_NAME') ?: ($reuseConfiguredDatabase ? $dbName : ($dbName . '_test'))));
+        $reuseConfiguredDatabase = filter_var(
+            $reuseConfiguredDatabaseOverride !== false
+                ? $reuseConfiguredDatabaseOverride
+                : getenv('BOWWOW_TEST_REUSE_CONFIGURED_DB'),
+            FILTER_VALIDATE_BOOLEAN
+        );
+        $testDbName = trim((string) (
+            $testDatabaseNameOverride !== false && $testDatabaseNameOverride !== ''
+                ? $testDatabaseNameOverride
+                : (getenv('DB_TEST_NAME') ?: ($reuseConfiguredDatabase ? $dbName : ($dbName . '_test')))
+        ));
         if ($testDbName === '') {
             throw new RuntimeException('Set DB_TEST_NAME to a dedicated test database name.');
         }
