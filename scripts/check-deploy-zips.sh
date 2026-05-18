@@ -150,4 +150,6 @@ if ! grep -Eq 'bootstrap|config|db|migrations|scripts|src|tests' <<< "$api_htacc
   fail "api/.htaccess is missing internal path blocking"
 fi
 
+node "$ROOT_DIR/scripts/verify-permanent-assets.mjs" --site-zip "$SITE_ZIP"
+
 log_success "site-deploy.zip looks good."

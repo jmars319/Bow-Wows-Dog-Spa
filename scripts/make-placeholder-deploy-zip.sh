@@ -58,4 +58,6 @@ if grep -E -q '(^|/)(backend|src|node_modules|uploads|logs|cache|tmp)(/|$)' <<< 
   exit 1
 fi
 
+node "$ROOT_DIR/scripts/verify-permanent-assets.mjs" --placeholder-zip "$ROOT_DIR/deploy-placeholder.zip"
+
 log_success "Created deploy-placeholder.zip"

@@ -29,6 +29,7 @@
     "deploy:config": "bash ./scripts/make-server-config-zip.sh",
     "deploy:placeholder": "bash ./scripts/make-placeholder-deploy-zip.sh",
     "check:live-reference": "bash ./scripts/verify-live-reference.sh",
+    "check:permanent-assets": "bash ./scripts/verify-permanent-assets.sh",
     "check:rough-edges": "bash ./scripts/verify-admin-rough-edges.sh",
     "test:static": "bash ./scripts/test-static.sh",
     "test:unit": "bash ./scripts/test-unit.sh",

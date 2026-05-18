@@ -9,12 +9,12 @@ if rg -n "window\\.confirm|window\\.alert|\\balert\\(" frontend/admin-app/src fr
   exit 1
 fi
 
-if rg -n "Calendar Sync" frontend/admin-app/src/App.jsx; then
+if rg -n "Calendar Sync" frontend/admin-app/src --glob '!**/node_modules/**' --glob '!**/dist/**'; then
   echo "[rough-edges][error] Admin should present future calendar work as Calendar Prep." >&2
   exit 1
 fi
 
-rg -q "internal pre-launch notes only" frontend/admin-app/src/App.jsx
-rg -q "Internal pre-launch setup only" frontend/admin-app/src/App.jsx
+rg -q "internal pre-launch notes only" frontend/admin-app/src
+rg -q "Internal pre-launch setup only" frontend/admin-app/src
 
 echo "[rough-edges] Admin rough-edge checks passed"

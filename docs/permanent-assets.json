@@ -1,0 +1,70 @@
+{
+  "site": "bowwowsdogspa.com",
+  "policy": "Bundled brand, favicon, share, status, and placeholder assets are permanent fixtures. Runtime uploads remain admin-managed and must not be committed or packaged, except for protective .htaccess files.",
+  "bundled": [
+    "frontend/public-app/src/assets/logos/logo-primary.png",
+    "frontend/public-app/src/assets/logos/logo-primary.webp",
+    "frontend/public-app/src/assets/logos/logo-alt.png",
+    "frontend/public-app/src/assets/logos/logo-alt.webp",
+    "frontend/public-app/src/assets/logos/logo-text.png",
+    "frontend/public-app/src/assets/logos/logo-text.webp",
+    "frontend/public-app/public/share-logo.png",
+    "frontend/public-app/public/site.webmanifest",
+    "public-root/favicon.ico",
+    "public-root/favicon-16x16.png",
+    "public-root/favicon-32x32.png",
+    "public-root/favicon-48x48.png",
+    "public-root/apple-touch-icon.png",
+    "public-root/android-chrome-192x192.png",
+    "public-root/android-chrome-512x512.png",
+    "public-root/error-documents/403.html",
+    "public-root/error-documents/404.html",
+    "public-root/error-documents/500.html",
+    "public-root/error-documents/503.html",
+    "public-root/error-documents/styles.css",
+    "public-root/error-documents/app.js",
+    "placeholder/assets/logo-primary.png",
+    "placeholder/assets/logo-primary.webp",
+    "placeholder/assets/logo-alt.png",
+    "placeholder/assets/logo-alt.webp",
+    "placeholder/assets/logo-text.png",
+    "placeholder/assets/logo-text.webp"
+  ],
+  "placeholderDeployRequired": [
+    "assets/logo-primary.png",
+    "assets/logo-primary.webp",
+    "assets/logo-alt.png",
+    "assets/logo-alt.webp",
+    "assets/logo-text.png",
+    "assets/logo-text.webp",
+    "favicon.ico",
+    "apple-touch-icon.png",
+    "android-chrome-192x192.png",
+    "android-chrome-512x512.png",
+    "error-documents/404.html",
+    "error-documents/500.html"
+  ],
+  "siteDeployRequired": [
+    "favicon.ico",
+    "apple-touch-icon.png",
+    "android-chrome-192x192.png",
+    "android-chrome-512x512.png",
+    "error-documents/403.html",
+    "error-documents/404.html",
+    "error-documents/500.html",
+    "error-documents/503.html",
+    "error-documents/styles.css",
+    "error-documents/app.js",
+    "api/uploads/.htaccess"
+  ],
+  "runtimeUploadPolicy": {
+    "excludedFromDeploy": [
+      "backend/uploads/**",
+      "backend/storage/media/**",
+      "api/uploads/**"
+    ],
+    "allowedDeployEntries": [
+      "api/uploads/.htaccess"
+    ]
+  }
+}
