@@ -1,6 +1,18 @@
 import { Suspense, createContext, lazy, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { ConfirmProvider, useAdminConfirm } from './admin/ConfirmProvider';
+import { createCalendarIntegrationForm, humanizeCalendarConnectionStatus } from './admin/calendarSyncDefaults';
+import { createRetailCategoryForm, createRetailProductForm } from './admin/retailDefaults';
+import {
+  buildScheduleTimeOptions,
+  formatScheduleTime,
+  minutesToScheduleValue,
+  normalizeAdminTimeInput,
+  sortScheduleTimes,
+  timeValueToMinutes,
+  toggleScheduleTime,
+} from './admin/scheduleTime';
 
 const ADMIN_BASE = '/admin';
 const RichTextEditorImpl = lazy(() => import('./RichTextEditor'));
@@ -65,6 +77,7 @@ function useAuth() {
 }
 
 function DirtyStateProvider({ children }) {
+  const confirm = useAdminConfirm();
   const [state, setState] = useState({
     isDirty: false,
     message: 'You have unsaved changes. Leave without saving?',
@@ -96,18 +109,23 @@ function DirtyStateProvider({ children }) {
     setState((current) => ({ ...current, isDirty: false }));
   }, []);
 
-  const confirmNavigation = useCallback(() => {
+  const confirmNavigation = useCallback(async () => {
     if (!state.isDirty) {
       return true;
     }
 
-    const shouldLeave = window.confirm(state.message || 'You have unsaved changes. Leave without saving?');
+    const shouldLeave = await confirm({
+      title: 'Discard unsaved changes?',
+      message: state.message || 'You have unsaved changes. Leave without saving?',
+      confirmLabel: 'Leave',
+      tone: 'danger',
+    });
     if (shouldLeave) {
       setState((current) => ({ ...current, isDirty: false }));
     }
 
     return shouldLeave;
-  }, [state.isDirty, state.message]);
+  }, [confirm, state.isDirty, state.message]);
 
   return (
     <DirtyStateContext.Provider value={{ ...state, setDirtyState, clearDirty, confirmNavigation }}>
@@ -144,7 +162,7 @@ const NAV_ITEMS = [
   { path: `${ADMIN_BASE}/retail`, label: 'Products', section: 'retail' },
   { path: `${ADMIN_BASE}/audit`, label: 'Audit Log', section: 'audit' },
   { path: `${ADMIN_BASE}/users`, label: 'Admin Users', section: 'users', superOnly: true },
-  { path: `${ADMIN_BASE}/calendar-sync`, label: 'Calendar Sync', section: 'system' },
+  { path: `${ADMIN_BASE}/calendar-sync`, label: 'Calendar Prep', section: 'system' },
   { path: `${ADMIN_BASE}/system`, label: 'System', section: 'system' },
 ];
 
@@ -153,34 +171,36 @@ function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AuthProvider>
-        <DirtyStateProvider>
-          <Routes>
-            <Route path="/" element={<Navigate to={`${ADMIN_BASE}/login`} replace />} />
-            <Route path="/login" element={<Navigate to={`${ADMIN_BASE}/login`} replace />} />
-            <Route element={<RequireAuth />}>
-              <Route element={<AdminLayout />}>
-                <Route path={ADMIN_BASE} element={<Navigate to={`${ADMIN_BASE}/dashboard`} replace />} />
-                <Route path={`${ADMIN_BASE}/dashboard`} element={<DashboardPage />} />
-                <Route path={`${ADMIN_BASE}/booking`} element={<BookingRequestsPage />} />
-                <Route path={`${ADMIN_BASE}/schedule`} element={<SchedulePage />} />
-                <Route path={`${ADMIN_BASE}/services`} element={<ServicesPage />} />
-                <Route path={`${ADMIN_BASE}/reviews`} element={<FeaturedReviewsPage />} />
-                <Route path={`${ADMIN_BASE}/gallery`} element={<GalleryPage />} />
-                <Route path={`${ADMIN_BASE}/happy-clients`} element={<Navigate to={`${ADMIN_BASE}/gallery`} replace />} />
-                <Route path={`${ADMIN_BASE}/retail`} element={<RetailPage />} />
-                <Route path={`${ADMIN_BASE}/content`} element={<ContentPage />} />
-                <Route path={`${ADMIN_BASE}/contacts`} element={<ContactMessagesPage />} />
-                <Route path={`${ADMIN_BASE}/media`} element={<MediaPage />} />
-                <Route path={`${ADMIN_BASE}/audit`} element={<AuditLogPage />} />
-                <Route path={`${ADMIN_BASE}/users`} element={<AdminUsersPage />} />
-                <Route path={`${ADMIN_BASE}/calendar-sync`} element={<CalendarSyncPage />} />
-                <Route path={`${ADMIN_BASE}/system`} element={<SystemPage />} />
+        <ConfirmProvider>
+          <DirtyStateProvider>
+            <Routes>
+              <Route path="/" element={<Navigate to={`${ADMIN_BASE}/login`} replace />} />
+              <Route path="/login" element={<Navigate to={`${ADMIN_BASE}/login`} replace />} />
+              <Route element={<RequireAuth />}>
+                <Route element={<AdminLayout />}>
+                  <Route path={ADMIN_BASE} element={<Navigate to={`${ADMIN_BASE}/dashboard`} replace />} />
+                  <Route path={`${ADMIN_BASE}/dashboard`} element={<DashboardPage />} />
+                  <Route path={`${ADMIN_BASE}/booking`} element={<BookingRequestsPage />} />
+                  <Route path={`${ADMIN_BASE}/schedule`} element={<SchedulePage />} />
+                  <Route path={`${ADMIN_BASE}/services`} element={<ServicesPage />} />
+                  <Route path={`${ADMIN_BASE}/reviews`} element={<FeaturedReviewsPage />} />
+                  <Route path={`${ADMIN_BASE}/gallery`} element={<GalleryPage />} />
+                  <Route path={`${ADMIN_BASE}/happy-clients`} element={<Navigate to={`${ADMIN_BASE}/gallery`} replace />} />
+                  <Route path={`${ADMIN_BASE}/retail`} element={<RetailPage />} />
+                  <Route path={`${ADMIN_BASE}/content`} element={<ContentPage />} />
+                  <Route path={`${ADMIN_BASE}/contacts`} element={<ContactMessagesPage />} />
+                  <Route path={`${ADMIN_BASE}/media`} element={<MediaPage />} />
+                  <Route path={`${ADMIN_BASE}/audit`} element={<AuditLogPage />} />
+                  <Route path={`${ADMIN_BASE}/users`} element={<AdminUsersPage />} />
+                  <Route path={`${ADMIN_BASE}/calendar-sync`} element={<CalendarSyncPage />} />
+                  <Route path={`${ADMIN_BASE}/system`} element={<SystemPage />} />
+                </Route>
               </Route>
-            </Route>
-            <Route path={`${ADMIN_BASE}/login`} element={<LoginPage />} />
-            <Route path="*" element={<Navigate to={`${ADMIN_BASE}/login`} replace />} />
-          </Routes>
-        </DirtyStateProvider>
+              <Route path={`${ADMIN_BASE}/login`} element={<LoginPage />} />
+              <Route path="*" element={<Navigate to={`${ADMIN_BASE}/login`} replace />} />
+            </Routes>
+          </DirtyStateProvider>
+        </ConfirmProvider>
       </AuthProvider>
     </BrowserRouter>
   );
@@ -188,7 +208,7 @@ function App() {
 
 function AdminLayout() {
   const { user, allowedSections, logout } = useAuth();
-  const { confirmNavigation } = useAdminDirtyState();
+  const { confirmNavigation, isDirty } = useAdminDirtyState();
   const navigate = useNavigate();
   const visibleNav = useMemo(
     () =>
@@ -201,7 +221,7 @@ function AdminLayout() {
   );
 
   const handleLogout = async () => {
-    if (!confirmNavigation()) {
+    if (!(await confirmNavigation())) {
       return;
     }
     await logout();
@@ -221,9 +241,13 @@ function AdminLayout() {
               key={item.path}
               to={item.path}
               className="admin-nav__link"
-              onClick={(event) => {
-                if (!confirmNavigation()) {
-                  event.preventDefault();
+              onClick={async (event) => {
+                if (!isDirty) {
+                  return;
+                }
+                event.preventDefault();
+                if (await confirmNavigation()) {
+                  navigate(item.path);
                 }
               }}
             >
@@ -361,6 +385,7 @@ const BOOKING_STAT_LABELS = {
 const BOOKING_STAT_ORDER = ['new_requests', 'pending_confirmation', 'confirmed_today', 'confirmed_week'];
 
 function BookingRequestsPage() {
+  const confirm = useAdminConfirm();
   const [items, setItems] = useState([]);
   const [stats, setStats] = useState({});
   const [statusFilter, setStatusFilter] = useState('');
@@ -452,7 +477,7 @@ function BookingRequestsPage() {
       cancel: 'Cancel this booking?',
       complete: 'Mark this booking as completed?',
     };
-    if (!window.confirm(prompts[action])) {
+    if (!(await confirm({ message: prompts[action], confirmLabel: 'Continue', tone: 'danger' }))) {
       return;
     }
     try {
@@ -492,7 +517,11 @@ function BookingRequestsPage() {
 
   const releaseHold = async () => {
     if (!selected) return;
-    if (!window.confirm('Release this hold and free the slot? This will cancel the pending request.')) {
+    if (!(await confirm({
+      message: 'Release this hold and free the slot? This will cancel the pending request.',
+      confirmLabel: 'Release hold',
+      tone: 'danger',
+    }))) {
       return;
     }
     try {
@@ -763,119 +792,9 @@ function BookingRequestsPage() {
 
 const WEEKDAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-function normalizeAdminTimeInput(value) {
-  const raw = String(value || '').trim().toUpperCase().replace(/\s+/g, '');
-  if (!raw) {
-    return null;
-  }
-
-  let match = raw.match(/^(\d{1,2})(\d{2})$/);
-  if (match) {
-    return normalizeAdminTimeParts(Number(match[1]), Number(match[2]), null);
-  }
-
-  match = raw.match(/^(\d{1,2})(?::?(\d{2}))?(AM|PM)$/);
-  if (match) {
-    return normalizeAdminTimeParts(Number(match[1]), Number(match[2] || 0), match[3]);
-  }
-
-  match = raw.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-  if (match) {
-    return normalizeAdminTimeParts(Number(match[1]), Number(match[2]), null);
-  }
-
-  match = raw.match(/^(\d{1,2})$/);
-  if (match) {
-    return normalizeAdminTimeParts(Number(match[1]), 0, null);
-  }
-
-  return null;
-}
-
-function normalizeAdminTimeParts(hour, minutes, suffix) {
-  if (minutes < 0 || minutes > 59) {
-    return null;
-  }
-
-  let nextHour = hour;
-  if (suffix) {
-    if (hour < 1 || hour > 12) {
-      return null;
-    }
-    if (suffix === 'AM') {
-      nextHour = hour === 12 ? 0 : hour;
-    } else {
-      nextHour = hour === 12 ? 12 : hour + 12;
-    }
-  } else if (hour < 0 || hour > 23) {
-    return null;
-  }
-
-  return `${String(nextHour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
-}
-
-function sortScheduleTimes(times) {
-  return Array.from(new Set((times || []).map((time) => normalizeAdminTimeInput(time)).filter(Boolean))).sort();
-}
-
-function formatScheduleTime(value) {
-  const normalized = normalizeAdminTimeInput(value);
-  if (!normalized) {
-    return value;
-  }
-
-  const [hourRaw, minuteRaw] = normalized.split(':');
-  const hour = Number(hourRaw);
-  const minute = Number(minuteRaw);
-  const meridiem = hour >= 12 ? 'PM' : 'AM';
-  const displayHour = hour % 12 || 12;
-  return `${displayHour}:${String(minute).padStart(2, '0')} ${meridiem}`;
-}
-
-function timeValueToMinutes(value) {
-  const normalized = normalizeAdminTimeInput(value);
-  if (!normalized) {
-    return null;
-  }
-
-  const [hourRaw, minuteRaw] = normalized.split(':');
-  return Number(hourRaw) * 60 + Number(minuteRaw);
-}
-
-function minutesToScheduleValue(totalMinutes) {
-  const hour = Math.floor(totalMinutes / 60);
-  const minute = totalMinutes % 60;
-  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
-}
-
-function buildScheduleTimeOptions(slotMinutes, start = '07:00', end = '20:00') {
-  const startMinutes = timeValueToMinutes(start);
-  const endMinutes = timeValueToMinutes(end);
-  if (startMinutes === null || endMinutes === null || endMinutes < startMinutes) {
-    return [];
-  }
-
-  const options = [];
-  for (let cursor = startMinutes; cursor <= endMinutes; cursor += slotMinutes) {
-    options.push(minutesToScheduleValue(cursor));
-  }
-
-  return options;
-}
-
-function toggleScheduleTime(times, value) {
-  const normalized = normalizeAdminTimeInput(value);
-  if (!normalized) {
-    return sortScheduleTimes(times);
-  }
-
-  return times.includes(normalized)
-    ? times.filter((time) => time !== normalized)
-    : sortScheduleTimes([...(times || []), normalized]);
-}
-
 function SchedulePage() {
   const { user } = useAuth();
+  const confirm = useAdminConfirm();
   const [templates, setTemplates] = useState([]);
   const [overrides, setOverrides] = useState([]);
   const [settings, setSettings] = useState({ booking_hold_minutes: 1440, booking_pending_expire_hours: 24 });
@@ -945,11 +864,11 @@ function SchedulePage() {
   const applyBuilder = () => {
     const generated = buildBlocks();
     if (!generated.length) {
-      alert('Enter a valid start/end time to generate slots.');
+      setFeedback({ tone: 'error', message: 'Enter a valid start/end time to generate slots.' });
       return;
     }
     if (builder.weekdays.length === 0) {
-      alert('Select at least one weekday.');
+      setFeedback({ tone: 'error', message: 'Select at least one weekday.' });
       return;
     }
     setTemplates((prev) =>
@@ -1045,7 +964,7 @@ function SchedulePage() {
   };
 
   const deleteOverride = async (id) => {
-    if (!window.confirm('Delete this override?')) return;
+    if (!(await confirm({ message: 'Delete this override?', confirmLabel: 'Delete', tone: 'danger' }))) return;
     await api.delete(`/schedule/overrides/${id}`);
     load();
   };
@@ -1756,14 +1675,6 @@ function ContactMessagesPage() {
   );
 }
 
-function createRetailCategoryForm() {
-  return {
-    id: null,
-    name: '',
-    is_published: true,
-  };
-}
-
 const DEFAULT_RETAIL_PRODUCT_OPTIONS = {
   online_sale_status: [
     { value: 'catalog_only', label: 'Catalog only for now' },
@@ -1783,23 +1694,8 @@ const DEFAULT_RETAIL_PRODUCT_OPTIONS = {
   ],
 };
 
-function createRetailProductForm(categoryId = '') {
-  return {
-    id: null,
-    category_id: categoryId ? String(categoryId) : '',
-    name: '',
-    sku: '',
-    description: '',
-    price: '',
-    media: null,
-    online_sale_status: 'catalog_only',
-    inventory_status: 'untracked',
-    fulfillment_mode: 'undecided',
-    is_published: true,
-  };
-}
-
 function RetailPage() {
+  const confirm = useAdminConfirm();
   const [categories, setCategories] = useState([]);
   const [commerce, setCommerce] = useState({ mode: 'catalog_only', mode_label: 'Catalog only', checkout_enabled: false });
   const [productOptions, setProductOptions] = useState(DEFAULT_RETAIL_PRODUCT_OPTIONS);
@@ -1955,7 +1851,11 @@ function RetailPage() {
   };
 
   const deleteCategory = async (category) => {
-    if (!window.confirm(`Delete "${category.name}"? Categories can only be deleted when they are empty.`)) {
+    if (!(await confirm({
+      message: `Delete "${category.name}"? Categories can only be deleted when they are empty.`,
+      confirmLabel: 'Delete category',
+      tone: 'danger',
+    }))) {
       return;
     }
 
@@ -1980,7 +1880,7 @@ function RetailPage() {
   };
 
   const deleteProduct = async (item) => {
-    if (!window.confirm(`Delete "${item.name}"?`)) {
+    if (!(await confirm({ message: `Delete "${item.name}"?`, confirmLabel: 'Delete product', tone: 'danger' }))) {
       return;
     }
 
@@ -2014,7 +1914,7 @@ function RetailPage() {
       <div className="card">
         <strong>Online sales are not live yet.</strong>
         <p className="muted small-text" style={{ margin: '0.5rem 0 0' }}>
-          Current shop mode: {commerce.mode_label}. The extra sales-prep fields below are optional groundwork only, so checkout can be added later without reshaping every product.
+          Current shop mode: {commerce.mode_label}. The extra sales-prep fields below are internal pre-launch notes only; there is no live cart, checkout, payment, shipping, or order management on the public site.
         </p>
       </div>
 
@@ -2294,6 +2194,7 @@ function RetailPage() {
 
 function ContentPage() {
   const { setDirtyState, clearDirty } = useAdminDirtyState();
+  const confirm = useAdminConfirm();
   const [settings, setSettings] = useState(null);
   const [sections, setSections] = useState(null);
   const [savedSnapshot, setSavedSnapshot] = useState('');
@@ -2368,12 +2269,16 @@ function ContentPage() {
     updateSection(key, { items });
   };
 
-  const restoreLastSaved = () => {
+  const restoreLastSaved = async () => {
     if (!savedSnapshot) {
       return;
     }
 
-    if (!window.confirm('Discard unsaved changes and restore the last saved version?')) {
+    if (!(await confirm({
+      message: 'Discard unsaved changes and restore the last saved version?',
+      confirmLabel: 'Discard changes',
+      tone: 'danger',
+    }))) {
       return;
     }
 
@@ -2779,6 +2684,7 @@ function ContentPage() {
 }
 
 function MediaPage() {
+  const confirm = useAdminConfirm();
   const [items, setItems] = useState([]);
   const [file, setFile] = useState();
   const [metadata, setMetadata] = useState({ alt_text: '', title: '', caption: '', category: 'default' });
@@ -2845,7 +2751,11 @@ function MediaPage() {
   };
 
   const destroy = async (id) => {
-    if (!window.confirm('Delete this media item? This can remove it from gallery, reviews, or other public sections that reference it.')) {
+    if (!(await confirm({
+      message: 'Delete this media item? This can remove it from gallery, reviews, or other public sections that reference it.',
+      confirmLabel: 'Delete media',
+      tone: 'danger',
+    }))) {
       return;
     }
 
@@ -3164,20 +3074,8 @@ function SystemPage() {
   );
 }
 
-function createCalendarIntegrationForm(provider = 'google') {
-  return {
-    id: null,
-    provider,
-    label: '',
-    target_calendar_name: '',
-    target_calendar_reference: '',
-    notes: '',
-    is_enabled: false,
-    sync_confirmed_bookings: true,
-  };
-}
-
 function CalendarSyncPage() {
+  const confirm = useAdminConfirm();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [status, setStatus] = useState(null);
@@ -3231,7 +3129,11 @@ function CalendarSyncPage() {
   };
 
   const destroy = async (id) => {
-    if (!window.confirm('Delete this calendar integration slot? Existing sync history for that slot will be removed too.')) {
+    if (!(await confirm({
+      message: 'Delete this calendar integration slot? Existing sync history for that slot will be removed too.',
+      confirmLabel: 'Delete slot',
+      tone: 'danger',
+    }))) {
       return;
     }
 
@@ -3255,7 +3157,7 @@ function CalendarSyncPage() {
   }
 
   if (!data) {
-    return <div className="card">Loading calendar sync foundation…</div>;
+    return <div className="card">Loading calendar prep foundation…</div>;
   }
 
   const providerLookup = Object.fromEntries((data.providers ?? []).map((provider) => [provider.key, provider]));
@@ -3264,8 +3166,8 @@ function CalendarSyncPage() {
 
   return (
     <div>
-      <h1>Calendar Sync</h1>
-      <p>Foundation only for now. This stores future Google, Microsoft, or Apple sync targets and reserves the booking lifecycle hooks needed to sync confirmed appointments later.</p>
+      <h1>Calendar Prep</h1>
+      <p>Internal pre-launch setup only. This stores future Google, Microsoft, or Apple sync targets and reserves the booking lifecycle hooks needed to sync confirmed appointments later.</p>
       {error ? <div className="card" style={{ marginBottom: '1rem' }}>{error}</div> : null}
 
       <div className="card">
@@ -3273,7 +3175,7 @@ function CalendarSyncPage() {
         <p>Calendar sync enabled: {data.config?.enabled ? 'Yes' : 'No'}</p>
         <p>Default timezone: {data.config?.default_timezone || 'Not set'}</p>
         <p>Max job attempts: {data.config?.max_job_attempts ?? 0}</p>
-        <p className="muted">No provider-specific OAuth or event-writing code is active yet. Enabling a slot here will not create events until a provider implementation is added and connected.</p>
+        <p className="muted">No provider-specific OAuth or event-writing code is active yet. Enabling a slot here will not create calendar events until a provider implementation is added and connected.</p>
       </div>
 
       <div className="card" style={{ marginTop: '1rem' }}>
@@ -3389,12 +3291,6 @@ function CalendarSyncPage() {
       </div>
     </div>
   );
-}
-
-function humanizeCalendarConnectionStatus(value) {
-  return String(value || '')
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function ManualBookingLauncher({ children, onCreated, scheduleSettings }) {

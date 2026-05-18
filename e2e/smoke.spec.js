@@ -9,6 +9,12 @@ async function acceptDialogs(page) {
   });
 }
 
+async function confirmAdminAction(page, label) {
+  const dialog = page.getByRole('dialog', { name: 'Confirm action' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: label }).click();
+}
+
 async function login(page) {
   await page.goto('/admin/login');
   await page.getByLabel('Email or username').fill(fixtures.admin_email);
@@ -79,8 +85,10 @@ test.describe.serial('stability smoke suite', () => {
     await page.goto('/admin/retail');
     const categoryCardForDelete = page.locator('.retail-category-card').filter({ hasText: categoryNameUpdated }).first();
     await categoryCardForDelete.locator('.retail-product-row').filter({ hasText: productNameUpdated }).getByRole('button', { name: 'Delete' }).click();
+    await confirmAdminAction(page, 'Delete product');
     await expect(page.getByText('Product deleted.')).toBeVisible();
     await categoryCardForDelete.getByRole('button', { name: 'Delete' }).click();
+    await confirmAdminAction(page, 'Delete category');
     await expect(page.getByText('Category deleted.')).toBeVisible();
 
     await page.goto('/');
@@ -112,9 +120,11 @@ test.describe.serial('stability smoke suite', () => {
     await requestCard.click();
     const detailDialog = page.getByRole('dialog', { name: 'Booking Request' });
     await detailDialog.getByRole('button', { name: 'Confirm' }).click();
+    await confirmAdminAction(page, 'Continue');
     await expect(page.getByText('Booking confirmed.')).toBeVisible();
     await expect(detailDialog.locator('.status-badge')).toContainText('Confirmed');
     await detailDialog.getByRole('button', { name: 'Cancel' }).click();
+    await confirmAdminAction(page, 'Continue');
     await expect(page.getByText('Booking cancelled.')).toBeVisible();
     await expect(detailDialog.locator('.status-badge')).toContainText('Cancelled');
   });
@@ -155,6 +165,7 @@ test.describe.serial('stability smoke suite', () => {
     await page.getByRole('button', { name: 'retail' }).click();
     const mediaCard = page.locator('[data-media-id]').filter({ hasText: mediaTitle }).first();
     await mediaCard.getByRole('button', { name: 'Delete' }).click();
+    await confirmAdminAction(page, 'Delete media');
     await expect(page.getByText(/still being used by 1 product/i)).toBeVisible();
   });
 });
