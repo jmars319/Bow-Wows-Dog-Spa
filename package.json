@@ -28,13 +28,14 @@
     "deploy:check": "bash ./scripts/check-deploy-zips.sh",
     "deploy:config": "bash ./scripts/make-server-config-zip.sh",
     "deploy:placeholder": "bash ./scripts/make-placeholder-deploy-zip.sh",
+    "check:live-reference": "bash ./scripts/verify-live-reference.sh",
     "check:rough-edges": "bash ./scripts/verify-admin-rough-edges.sh",
     "test:static": "bash ./scripts/test-static.sh",
     "test:unit": "bash ./scripts/test-unit.sh",
     "test:public": "npm --prefix frontend/public-app run test",
     "test:admin": "npm --prefix frontend/admin-app run test",
     "test:e2e": "env -u NO_COLOR FORCE_COLOR=0 playwright test",
-    "test:deploy": "npm run deploy:placeholder",
+    "test:deploy": "npm run deploy:placeholder && npm run check:live-reference",
     "test:all": "bash ./scripts/test-all.sh"
   },
   "devDependencies": {
