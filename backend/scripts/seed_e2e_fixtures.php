@@ -13,7 +13,7 @@ require __DIR__ . '/../bootstrap/app.php';
 use BowWowSpa\Database\Database;
 
 $email = getenv('E2E_ADMIN_EMAIL') ?: 'e2e-admin@bowwow.local';
-$username = trim((string) (getenv('E2E_ADMIN_USERNAME') ?: 'admin'));
+$username = trim((string) (getenv('E2E_ADMIN_USERNAME') ?: 'e2e-admin'));
 $password = getenv('E2E_ADMIN_PASSWORD') ?: 'BowWow123!';
 $bookingDate = getenv('E2E_BOOKING_DATE') ?: (new DateTimeImmutable('today'))->modify('+14 days')->format('Y-m-d');
 $timeSlots = ['09:00:00', '09:30:00', '10:00:00', '10:30:00', '11:00:00'];

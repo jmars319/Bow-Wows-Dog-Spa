@@ -40,5 +40,6 @@ export default async function globalSetup() {
 
   await waitForUrl(baseUrl);
   await waitForUrl(`${baseUrl}/admin/login`);
+  run('php', ['backend/scripts/cleanup_e2e_fixtures.php']);
   run('php', ['backend/scripts/seed_e2e_fixtures.php']);
 }

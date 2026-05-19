@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="${ROOT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-DEV_DIR="$ROOT_DIR/.dev"
+DEV_DIR="${DEV_DIR:-$ROOT_DIR/.dev}"
 mkdir -p "$DEV_DIR"
 
 for required in curl lsof; do
@@ -17,9 +17,10 @@ DEFAULT_BACKEND_PORT="3316"
 DEFAULT_FRONTEND_PORT="3206"
 DEFAULT_ADMIN_PORT="3406"
 
-if [[ -f "$ROOT_DIR/.dev/dev-config.sh" ]]; then
+DEV_CONFIG_FILE="${DEV_CONFIG_FILE:-$ROOT_DIR/.dev/dev-config.sh}"
+if [[ -f "$DEV_CONFIG_FILE" ]]; then
   # shellcheck disable=SC1090
-  source "$ROOT_DIR/.dev/dev-config.sh"
+  source "$DEV_CONFIG_FILE"
 fi
 
 DEV_HOST="${DEV_HOST:-$DEFAULT_DEV_HOST}"

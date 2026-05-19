@@ -1932,6 +1932,7 @@ function Footer({ sections, legalSections, settings, content, primaryCta }) {
 
         <div>
           <h4>Resources</h4>
+          <a href="/#contact">Contact</a>
           {legalSections?.privacy && <Link to="/privacy">Privacy Policy</Link>}
           {legalSections?.terms && <Link to="/terms">Terms & Conditions</Link>}
           <a href="/admin/login">Admin Login</a>
@@ -2105,6 +2106,7 @@ function StatusFooter() {
         <div>
           <h4>Quick links</h4>
           <Link to="/">Home</Link>
+          <a href="/#contact">Contact</a>
           <Link to="/privacy">Privacy Policy</Link>
           <Link to="/terms">Terms & Conditions</Link>
         </div>

@@ -6,6 +6,8 @@ export ROOT_DIR
 export BOWWOW_SKIP_BROWSER_OPEN=1
 export DEV_BROWSER_OPEN="${DEV_BROWSER_OPEN:-0}"
 # shellcheck disable=SC1091
+source "$ROOT_DIR/scripts/dev-test-ports.sh"
+# shellcheck disable=SC1091
 source "$ROOT_DIR/scripts/dev-common.sh"
 
 function check_backend() {

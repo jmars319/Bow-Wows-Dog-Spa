@@ -159,6 +159,10 @@ export function AdminLayout() {
   const { user, allowedSections, logout } = useAuth();
   const { confirmNavigation, isDirty } = useAdminDirtyState();
   const navigate = useNavigate();
+  const [navCollapsed, setNavCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem('bowwow_admin_nav_collapsed') === '1';
+  });
   const visibleNav = useMemo(
     () =>
       NAV_ITEMS.filter((item) => {
@@ -177,18 +181,33 @@ export function AdminLayout() {
     navigate(`${ADMIN_BASE}/login`);
   };
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('bowwow_admin_nav_collapsed', navCollapsed ? '1' : '0');
+    }
+  }, [navCollapsed]);
+
   return (
-    <div className="admin-shell">
-      <aside className="admin-nav">
+    <div className={`admin-shell ${navCollapsed ? 'admin-shell--collapsed' : ''}`}>
+      <aside className="admin-nav" aria-label="Admin navigation">
         <div className="admin-nav__brand">
-          <h2>Bow Wow Admin</h2>
-          <p className="muted small-text">{user?.email}</p>
+          <h2>{navCollapsed ? 'BW' : 'Bow Wow Admin'}</h2>
+          {!navCollapsed && <p className="muted small-text">{user?.email}</p>}
         </div>
+        <button
+          type="button"
+          className="admin-nav__toggle"
+          onClick={() => setNavCollapsed((value) => !value)}
+          aria-label={navCollapsed ? 'Expand admin sidebar' : 'Collapse admin sidebar'}
+        >
+          {navCollapsed ? '>' : '< Collapse'}
+        </button>
         <nav className="admin-nav__links">
           {visibleNav.map((item) => (
             <Link
               key={item.path}
               to={item.path}
+              title={item.label}
               className="admin-nav__link"
               onClick={async (event) => {
                 if (!isDirty) {
@@ -200,13 +219,15 @@ export function AdminLayout() {
                 }
               }}
             >
-              {item.label}
+              <span className="admin-nav__icon" aria-hidden="true">{item.label.charAt(0)}</span>
+              <span className="admin-nav__label">{item.label}</span>
             </Link>
           ))}
         </nav>
         <div className="admin-nav__footer">
-          <button className="btn btn-warn" onClick={handleLogout}>
-            Logout
+          <button className="btn btn-warn" onClick={handleLogout} title="Logout">
+            <span className="admin-nav__icon" aria-hidden="true">L</span>
+            <span className="admin-nav__label">Logout</span>
           </button>
         </div>
       </aside>
