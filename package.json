@@ -12,6 +12,7 @@
     "dev:stop": "bash ./scripts/dev-stop.sh",
     "dev:restart": "bash ./scripts/dev-restart.sh",
     "dev:status": "bash ./scripts/dev-status.sh",
+    "dev:verify-local": "php ./scripts/dev-verify-local-db-admin.php",
     "fe:start": "bash ./scripts/dev-frontend-start.sh",
     "fe:stop": "bash ./scripts/dev-frontend-stop.sh",
     "fe:restart": "bash ./scripts/dev-frontend-restart.sh",
@@ -35,7 +36,7 @@
     "test:unit": "bash ./scripts/test-unit.sh",
     "test:public": "npm --prefix frontend/public-app run test",
     "test:admin": "npm --prefix frontend/admin-app run test",
-    "test:e2e": "env -u NO_COLOR FORCE_COLOR=0 playwright test",
+    "test:e2e": "env -u NO_COLOR FORCE_COLOR=0 DEV_BROWSER_OPEN=0 playwright test",
     "test:deploy": "npm run deploy:placeholder && npm run check:live-reference",
     "test:all": "bash ./scripts/test-all.sh"
   },

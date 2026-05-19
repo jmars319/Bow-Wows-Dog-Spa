@@ -9,10 +9,23 @@ source "$ROOT_DIR/scripts/dev-common.sh"
 ensure_not_running "admin"
 log_status "admin" "info" "Starting admin SPA on ${DEV_HOST}:${ADMIN_PORT}"
 
-pushd "$FRONTEND_ADMIN_DIR" >/dev/null
-nohup npm run dev -- --host "$DEV_HOST" --port "$ADMIN_PORT" --strictPort > "$(log_file admin)" 2>&1 &
-PID=$!
-popd >/dev/null
+if command -v screen >/dev/null 2>&1; then
+  SESSION_NAME="bowwow-admin-dev"
+  ADMIN_LOG_FILE="$(log_file admin)"
+  export FRONTEND_ADMIN_DIR DEV_HOST ADMIN_PORT ADMIN_LOG_FILE
+  screen -S "$SESSION_NAME" -X quit >/dev/null 2>&1 || true
+  screen -dmS "$SESSION_NAME" bash -lc 'cd "$FRONTEND_ADMIN_DIR" && exec ./node_modules/.bin/vite --host "$DEV_HOST" --port "$ADMIN_PORT" --strictPort > "$ADMIN_LOG_FILE" 2>&1'
+  PID="$(screen -ls | awk -v name=".${SESSION_NAME}" '$1 ~ name { split($1, parts, "."); print parts[1]; exit }' || true)"
+  if [[ -z "$PID" ]]; then
+    PID="$(lsof -tiTCP:"$ADMIN_PORT" -sTCP:LISTEN | head -n 1 || true)"
+  fi
+else
+  pushd "$FRONTEND_ADMIN_DIR" >/dev/null
+  trap '' HUP
+  ./node_modules/.bin/vite --host "$DEV_HOST" --port "$ADMIN_PORT" --strictPort > "$(log_file admin)" 2>&1 &
+  PID=$!
+  popd >/dev/null
+fi
 
 write_pid "admin" "$PID"
 

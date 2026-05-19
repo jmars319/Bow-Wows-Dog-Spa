@@ -16,7 +16,7 @@ final class AdminAuthController
 
     public function login(Request $request): void
     {
-        $identifier = trim((string) ($request->body['identifier'] ?? $request->body['email'] ?? ''));
+        $identifier = trim((string) ($request->body['identifier'] ?? $request->body['email'] ?? $request->body['username'] ?? ''));
         $password = $request->body['password'] ?? null;
         if ($identifier === '' || !$password) {
             Response::error('validation_error', 'Email or username and password required', 422);

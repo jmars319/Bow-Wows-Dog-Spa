@@ -68,6 +68,7 @@ Generic helper scripts live under `scripts/` (see `Generic-Scripts-Reference.md`
 | `bash scripts/dev-stop.sh` | Stop all dev servers (logs/pids in `.dev/`). |
 | `bash scripts/dev-status.sh` | Show PID + port status for backend/public/admin services. |
 | `bash scripts/dev-verify.sh` | Full smoke test: stop → start → check (backend/public/admin) → restart → re-check. |
+| `npm run dev:verify-local` | Verify the ignored `backend/.env` MySQL connection and local `admin` / `admin123` admin row without printing secrets. |
 | `bash scripts/verify-public-error-pages.sh` | Verify public status-route codes, static error documents, and maintenance behavior against a staged frontend bundle. |
 | `bash scripts/make-placeholder-deploy-zip.sh` | Build `deploy-placeholder.zip` as a standalone root placeholder mini site. |
 | `bash scripts/make-deploy-zips.sh` | Builds React apps, refreshes public logo assets, and produces the normal `site-deploy.zip` artifact. |

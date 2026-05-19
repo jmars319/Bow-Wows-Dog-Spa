@@ -1,17 +1,14 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter } from 'react-router-dom';
 import { ConfirmProvider, useAdminConfirm } from './admin/ConfirmProvider';
-import { ADMIN_BASE, AdminLayout, AuthProvider, DirtyStateProvider, RequireAuth, api, useAdminDirtyState, useAuth } from './admin/AdminShell';
+import { AuthProvider, DirtyStateProvider, api, useAdminDirtyState, useAuth } from './admin/AdminShell';
+import { AdminRoutes } from './admin/AdminRoutes';
 import { BOOKING_STAT_LABELS, BOOKING_STAT_ORDER, StatusBadge, getBookingActions, parseServices, summarizePets, summarizeServices } from './admin/bookingDisplay';
 import { EditorSection, ListEditor, RichTextEditor, SectionEnabledToggle } from './admin/ContentEditorControls';
 import { ManualBookingLauncher } from './admin/ManualBooking';
 import { MediaPicker, MediaPicture } from './admin/MediaPicker';
 import { formatDateLabel, formatDateTime, formatMetadata, formatTimeAgo, formatTimeLabel, formatTimeRange, renderHoldExpiry, truncateText, getHoldInfo } from './admin/formatters';
 import { createRetailCategoryForm, createRetailProductForm } from './admin/retailDefaults';
-import { CalendarSyncPage } from './pages/CalendarSyncPage';
-import { DashboardPage } from './pages/DashboardPage';
-import { LoginPage } from './pages/LoginPage';
-import { SystemPage } from './pages/SystemPage';
 import {
   buildScheduleTimeOptions,
   formatScheduleTime,
@@ -28,32 +25,21 @@ function App() {
       <AuthProvider>
         <ConfirmProvider>
           <DirtyStateProvider>
-            <Routes>
-              <Route path="/" element={<Navigate to={`${ADMIN_BASE}/login`} replace />} />
-              <Route path="/login" element={<Navigate to={`${ADMIN_BASE}/login`} replace />} />
-              <Route element={<RequireAuth />}>
-                <Route element={<AdminLayout />}>
-                  <Route path={ADMIN_BASE} element={<Navigate to={`${ADMIN_BASE}/dashboard`} replace />} />
-                  <Route path={`${ADMIN_BASE}/dashboard`} element={<DashboardPage />} />
-                  <Route path={`${ADMIN_BASE}/booking`} element={<BookingRequestsPage />} />
-                  <Route path={`${ADMIN_BASE}/schedule`} element={<SchedulePage />} />
-                  <Route path={`${ADMIN_BASE}/services`} element={<ServicesPage />} />
-                  <Route path={`${ADMIN_BASE}/reviews`} element={<FeaturedReviewsPage />} />
-                  <Route path={`${ADMIN_BASE}/gallery`} element={<GalleryPage />} />
-                  <Route path={`${ADMIN_BASE}/happy-clients`} element={<Navigate to={`${ADMIN_BASE}/gallery`} replace />} />
-                  <Route path={`${ADMIN_BASE}/retail`} element={<RetailPage />} />
-                  <Route path={`${ADMIN_BASE}/content`} element={<ContentPage />} />
-                  <Route path={`${ADMIN_BASE}/contacts`} element={<ContactMessagesPage />} />
-                  <Route path={`${ADMIN_BASE}/media`} element={<MediaPage />} />
-                  <Route path={`${ADMIN_BASE}/audit`} element={<AuditLogPage />} />
-                  <Route path={`${ADMIN_BASE}/users`} element={<AdminUsersPage />} />
-                  <Route path={`${ADMIN_BASE}/calendar-sync`} element={<CalendarSyncPage />} />
-                  <Route path={`${ADMIN_BASE}/system`} element={<SystemPage />} />
-                </Route>
-              </Route>
-              <Route path={`${ADMIN_BASE}/login`} element={<LoginPage />} />
-              <Route path="*" element={<Navigate to={`${ADMIN_BASE}/login`} replace />} />
-            </Routes>
+            <AdminRoutes
+              pages={{
+                BookingRequestsPage,
+                SchedulePage,
+                ServicesPage,
+                FeaturedReviewsPage,
+                GalleryPage,
+                RetailPage,
+                ContentPage,
+                ContactMessagesPage,
+                MediaPage,
+                AuditLogPage,
+                AdminUsersPage,
+              }}
+            />
           </DirtyStateProvider>
         </ConfirmProvider>
       </AuthProvider>

@@ -93,6 +93,14 @@ Database::run(
     ]
 );
 
+Database::run('DELETE FROM booking_holds WHERE date = :date', ['date' => $bookingDate]);
+Database::run(
+    'DELETE FROM booking_requests
+     WHERE date = :date
+       AND (customer_name LIKE "E2E Owner%" OR email LIKE "%@example.com")',
+    ['date' => $bookingDate]
+);
+
 Database::run(
     'INSERT INTO site_settings (`key`, `value`)
      VALUES ("booking_hold_minutes", "30"), ("booking_pending_expire_hours", "24")
