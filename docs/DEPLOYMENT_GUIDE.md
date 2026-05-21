@@ -69,6 +69,66 @@ For a clean install using phpMyAdmin:
 2. In phpMyAdmin, select the database and import/run `backend/db/master_schema.sql`.
 3. Confirm that `schema_migrations` now contains a row such as `master_20250130_01`. Rerunning the file is safe; it only adds missing tables/columns/indexes.
 
+### Required before full-site relaunch: admin usernames
+
+Bow Wow's current live production surface is the placeholder. Before relaunching the full public/admin app, make sure the production DB has the same admin username fields used by the other cPanel sites. Older Bow Wow databases may only have email-based admin users.
+
+The preferred path is to run `backend/db/master_schema.sql` in phpMyAdmin. If you only need the admin username/display-name patch, run:
+
+```sql
+SET @dbName := DATABASE();
+
+SET @exists := (
+  SELECT COUNT(*)
+  FROM information_schema.columns
+  WHERE table_schema = @dbName
+    AND table_name = 'admin_users'
+    AND column_name = 'username'
+);
+SET @ddl := IF(
+  @exists = 0,
+  'ALTER TABLE admin_users ADD COLUMN username VARCHAR(100) NULL AFTER email',
+  'SELECT 1'
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*)
+  FROM information_schema.statistics
+  WHERE table_schema = @dbName
+    AND table_name = 'admin_users'
+    AND index_name = 'uniq_admin_users_username'
+);
+SET @ddl := IF(
+  @exists = 0,
+  'ALTER TABLE admin_users ADD UNIQUE KEY uniq_admin_users_username (username)',
+  'SELECT 1'
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+  SELECT COUNT(*)
+  FROM information_schema.columns
+  WHERE table_schema = @dbName
+    AND table_name = 'admin_users'
+    AND column_name = 'display_name'
+);
+SET @ddl := IF(
+  @exists = 0,
+  'ALTER TABLE admin_users ADD COLUMN display_name VARCHAR(191) NULL AFTER email',
+  'SELECT 1'
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+```
+
+After this schema patch, seed or update admin users so every active admin has both `username` and `email` populated.
+
 ### Optional: CLI migrations
 
 If you have SSH/CLI access and intentionally included the CLI tools in the backend deploy, you can still apply the incremental migrations:

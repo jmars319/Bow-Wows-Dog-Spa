@@ -80,6 +80,7 @@
 - Remove `maintenance.flag` to restore the public site.
 
 ## Admin provisioning
+- Full-site relaunch warning: before moving production off the placeholder, confirm `admin_users.username` and `admin_users.display_name` exist. Older Bow Wow databases may be email-only; run `backend/db/master_schema.sql` or the admin username SQL in `docs/DEPLOYMENT_GUIDE.md` first so Bow Wow matches the shared cPanel admin login pattern.
 - Run `php backend/scripts/seed_admin.php` after migrations to create the initial `super_admin` (named `admin`) in local/CLI workflows or on hosts where you intentionally included the CLI tools. Provide credentials via prompts or `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars.
 - Use `--reset` or `ADMIN_FORCE_RESET=1` to rotate the password for the existing admin user without manual SQL.
 - Default deploy bundles exclude `backend/scripts/` entirely. If you need the CLI tools on a host intentionally, rebuild with `INCLUDE_CLI_TOOLS_IN_DEPLOY=true`.

@@ -12,6 +12,10 @@ Monorepo for the Bow Wow’s Dog Spa build, covering:
 
 This repo contains two separate deployment surfaces: the full public/admin platform and a temporary noindex placeholder mini site. Use `bash scripts/make-deploy-zips.sh` for the full site, or `bash scripts/make-placeholder-deploy-zip.sh` when the domain should show only the standalone placeholder.
 
+## Full-Site Relaunch Notice
+
+Before Bow Wow moves from the placeholder to the full public/admin app, update the production database to the current admin schema. The live DB may still be missing `admin_users.username` and `admin_users.display_name`, which prevents Bow Wow from matching the shared cPanel admin login pattern used by the other sites. Run `backend/db/master_schema.sql` in phpMyAdmin, or at minimum run the admin username/display-name migration SQL from `docs/DEPLOYMENT_GUIDE.md`, before seeding webmaster/admin users or relaunching the full app.
+
 ## Quick start
 
 ```bash
