@@ -26,3 +26,11 @@ ALLOW_SECRET_CONFIG_ZIP=true npm run deploy:config
 ```
 
 This creates ignored `server-config-deploy.zip` containing only `api/.env`. It is secret-bearing. Do not commit, email, or use it as a normal deploy artifact.
+
+## Local Tooling Checks
+
+- Use `shellcheck` and `shfmt` after editing deploy or verification shell scripts.
+- Use `actionlint` after changing GitHub Actions workflows.
+- Use `yq` for YAML inspection or structured edits.
+- Use `osv-scanner` for advisory checks across dependency manifests and lockfiles.
+- Use `pa11y` and Lighthouse for public-page accessibility and performance checks before deployment when page behavior changes.
