@@ -13,6 +13,7 @@
     "dev:restart": "bash ./scripts/dev-restart.sh",
     "dev:status": "bash ./scripts/dev-status.sh",
     "dev:verify-local": "php ./scripts/dev-verify-local-db-admin.php",
+    "admin:seed-webmaster": "php ./scripts/seed-webmaster-admin.php",
     "fe:start": "bash ./scripts/dev-frontend-start.sh",
     "fe:stop": "bash ./scripts/dev-frontend-stop.sh",
     "fe:restart": "bash ./scripts/dev-frontend-restart.sh",

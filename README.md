@@ -78,10 +78,11 @@ Generic helper scripts live under `scripts/` (see `Generic-Scripts-Reference.md`
 - Logs and pid files live under `.dev/`.
 - In dev, browse everything from `http://127.0.0.1:5173/`: the public SPA lives at `/` and the admin SPA is available at `/admin/login`. The admin Vite server still runs separately on `5174` by default, but only as an internal upstream for the shared `5173` origin (adjust ports via `.dev/dev-config.sh`).
 - `site-deploy.zip` extracts into the document root with the public app at `/`, the admin app at `/admin`, and the PHP backend at `/api`.
-- Deploy zips package ignored `backend/.env.production` as `api/.env`, while excluding local `backend/.env`, other `.env*` files, uploaded media under `api/uploads/`, generated media, and CLI-only backend scripts.
+- Deploy zips package ignored `backend/.env.production` as `api/.env`, while excluding local `backend/.env`, other `.env*` files, uploaded media under `api/uploads/`, runtime storage, generated media, and CLI-only backend scripts.
 - If you intentionally need the backend CLI tools on-host, rebuild with `INCLUDE_CLI_TOOLS_IN_DEPLOY=true bash scripts/make-deploy-zips.sh`.
 - The normal site deploy zip includes the live root SPA, the admin SPA under `/admin`, shared root assets, and the `/api` runtime. It does not include the placeholder.
 - While the full site is waiting on approval, run `bash scripts/make-placeholder-deploy-zip.sh` and deploy `deploy-placeholder.zip` to the domain document root. It ships the branded noindex placeholder, `/assets` logos, favicon/error assets, legal pages, and root Apache rules only.
+- Webmaster admin seeding for the full app: `WEBMASTER_ADMIN_EMAIL="you@example.com" WEBMASTER_ADMIN_PASSWORD="long-random-password" php scripts/seed-webmaster-admin.php --env backend/.env` creates or refreshes the dedicated `jason` `super_admin` without changing the client `admin` login. The placeholder deploy does not use this account.
 
 ## Testing
 

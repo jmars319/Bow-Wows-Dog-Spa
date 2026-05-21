@@ -12,10 +12,10 @@ Use extract-overwrite deployments. Do not delete the live site root or `api/` fo
 Preserve these on the host between deploys:
 
 - `api/uploads/`
-- `api/storage/`
-- runtime logs/cache/media folders created by PHP
 
-Normal deploy zips intentionally package ignored `backend/.env.production` as `api/.env` and exclude local env files, uploaded media, logs/cache/tmp, source maps, git metadata, and dev-only scripts. The normal site archive no longer ships the old `backend/` folder layout; `/api/index.php` is the backend entrypoint.
+Storage, logs, cache, temp files, and placeholder/full-app test data are disposable runtime output for now. Bow Wow’s active production deploy remains the placeholder archive.
+
+Normal deploy zips intentionally package ignored `backend/.env.production` as `api/.env` and exclude local env files, uploaded media, storage, logs/cache/tmp, source maps, git metadata, and dev-only scripts. The normal site archive no longer ships the old `backend/` folder layout; `/api/index.php` is the backend entrypoint.
 
 ## Optional Config Restore
 

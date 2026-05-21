@@ -93,8 +93,8 @@ if zip_match '^api/public/'; then
   fail "site zip should not include api/public indirection"
 fi
 
-if zip_match '^api/(logs|cache|tmp)(/|$)'; then
-  fail "site zip should not include logs/cache/tmp runtime directories"
+if zip_match '^api/(logs|cache|tmp|sessions)(/|$)'; then
+  fail "site zip should not include logs/cache/tmp/session runtime directories"
 fi
 
 if zip_match '^api/(tests)(/|$)'; then
@@ -124,8 +124,8 @@ if echo "$UPLOAD_ENTRIES" | grep -Ev '^api/uploads/?$|^api/uploads/[.]htaccess$'
   fail "site zip should not include uploaded media; only api/uploads/.htaccess is allowed"
 fi
 
-if zip_match '^api/storage/media/'; then
-  fail "site zip should not include generated media storage"
+if zip_match '^api/storage/'; then
+  fail "site zip should not include runtime storage directories"
 fi
 
 if zip_match '^placeholder(/|$)|^current(/|$)|(^|/)gate[.]php$'; then

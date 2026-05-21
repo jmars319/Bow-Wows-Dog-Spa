@@ -78,7 +78,7 @@ check_full_deploy() {
   forbid_current "git metadata or macOS metadata" '(^|/)[.]git(/|$)|(^|/)[.]gitignore$|(^|/)[.]DS_Store$'
   forbid_current "repo source folders" '^(backend|frontend|src|node_modules|_live-reference)(/|$)'
   forbid_current "backend tests/scripts" '^api/(tests|scripts)(/|$)'
-  forbid_current "runtime logs/tmp" '^api/(logs|tmp)(/|$)'
+  forbid_current "runtime logs/tmp/storage/sessions" '^api/(logs|tmp|storage|sessions)(/|$)'
 
   upload_entries="$(grep -E '^api/uploads/' "$CURRENT_LIST" || true)"
   if [[ -n "$upload_entries" ]] && printf '%s\n' "$upload_entries" | grep -Ev '^api/uploads/?$|^api/uploads/[.]htaccess$' >/dev/null; then

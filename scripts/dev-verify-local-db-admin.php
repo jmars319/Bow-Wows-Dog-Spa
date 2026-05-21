@@ -38,6 +38,24 @@ function fail_local_check(string $message): void
     exit(1);
 }
 
+function verify_admin_row(PDO $pdo, array $candidate, string $username, string $password, string $label): void
+{
+    $stmt = $pdo->prepare("SELECT * FROM `{$candidate['table']}` WHERE `{$candidate['user']}` = ? LIMIT 1");
+    $stmt->execute([$username]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        fail_local_check("No local {$label} row found in {$candidate['table']}");
+    }
+    foreach ($candidate['active'] as $activeColumn) {
+        if (array_key_exists($activeColumn, $row) && (int) $row[$activeColumn] !== 1) {
+            fail_local_check("Local {$label} is not active for {$activeColumn}");
+        }
+    }
+    if (!password_verify($password, (string) $row[$candidate['password']])) {
+        fail_local_check("Local {$label} password does not match expected value");
+    }
+}
+
 try {
     $env = local_env_file($envPath);
     if (strtolower((string) local_env_value($env, ['APP_ENV'], 'development')) === 'production') {
@@ -79,19 +97,15 @@ try {
             continue;
         }
 
-        $stmt = $pdo->prepare("SELECT * FROM `{$candidate['table']}` WHERE `{$candidate['user']}` = ? LIMIT 1");
-        $stmt->execute(['admin']);
-        $row = $stmt->fetch();
-        if (!$row) {
-            fail_local_check("No local admin row found in {$candidate['table']}");
-        }
-        foreach ($candidate['active'] as $activeColumn) {
-            if (array_key_exists($activeColumn, $row) && (int) $row[$activeColumn] !== 1) {
-                fail_local_check("Local admin is not active for {$activeColumn}");
-            }
-        }
-        if (!password_verify('admin123', (string) $row[$candidate['password']])) {
-            fail_local_check('Local admin password is not admin123');
+        verify_admin_row($pdo, $candidate, 'admin', 'admin123', 'admin');
+
+        $webmasterPassword = getenv('WEBMASTER_ADMIN_PASSWORD') ?: '';
+        $webmasterUsername = getenv('WEBMASTER_ADMIN_USERNAME') ?: 'jason';
+        if ($webmasterPassword !== '') {
+            verify_admin_row($pdo, $candidate, $webmasterUsername, $webmasterPassword, 'webmaster admin');
+            echo "[local-db-admin] webmaster ok: {$candidate['table']}.{$webmasterUsername}\n";
+        } else {
+            echo "[local-db-admin] webmaster check skipped: WEBMASTER_ADMIN_PASSWORD not set\n";
         }
 
         echo "[local-db-admin] database ok: {$name} as {$user}\n";

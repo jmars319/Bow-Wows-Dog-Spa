@@ -99,7 +99,7 @@ The CLI script prompts for email/password (or reads `ADMIN_EMAIL` / `ADMIN_PASSW
    - `/error-documents/` → branded static Apache fallback pages for `403`, `404`, `500`, and `503`
    - `/admin/` → admin SPA build
    - `/api/` → PHP backend runtime
-3. Both SPAs expect the PHP API to be reachable at `/api`, so preserve the `api/` folder, `api/.env`, and server-owned uploads/storage between releases.
+3. Both SPAs expect the PHP API to be reachable at `/api`, so preserve `api/uploads/` between full-site releases. Runtime storage, logs, cache, and temp folders are disposable and should not be treated as business data.
 
 Routing expectations on the live host:
 
