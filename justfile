@@ -17,8 +17,7 @@ security-audit:
 
 security:
     just actions
-    @echo "Dependency audit is available with: just security-audit"
-    @echo "This repo has known unresolved dependency advisories; see the local tooling report before making security a required gate."
+    just security-audit
 
 a11y url:
     pa11y "{{url}}" --standard WCAG2AA --level error

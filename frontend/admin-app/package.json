@@ -16,6 +16,9 @@
     "react-quill-new": "^3.7.0",
     "react-router-dom": "^7.15.0"
   },
+  "overrides": {
+    "quill": "2.0.2"
+  },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
