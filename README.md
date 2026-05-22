@@ -30,7 +30,7 @@ bash scripts/dev-start.sh
 
 > First-time setup: copy `backend/.env.example` to `backend/.env`, fill in local DB + email values, and keep it out of version control. `backend/.env` is the local/dev file in this repo; production secrets should live in the real host environment model and are never bundled into deploy ZIPs.
 
-See `docs/DEPLOYMENT_GUIDE.md` for cPanel deployment steps and `docs/OPERATOR_NOTES.md` for day-to-day workflows.
+See `docs/README.md` for the docs index, `docs/DEPLOYMENT_GUIDE.md` for cPanel deployment steps, and `docs/OPERATOR_NOTES.md` for day-to-day workflows.
 
 ## Configuration overview (`backend/.env`)
 
@@ -86,7 +86,7 @@ Generic helper scripts live under `scripts/` (see `Generic-Scripts-Reference.md`
 - If you intentionally need the backend CLI tools on-host, rebuild with `INCLUDE_CLI_TOOLS_IN_DEPLOY=true bash scripts/make-deploy-zips.sh`.
 - The normal site deploy zip includes the live root SPA, the admin SPA under `/admin`, shared root assets, and the `/api` runtime. It does not include the placeholder.
 - While the full site is waiting on approval, run `bash scripts/make-placeholder-deploy-zip.sh` and deploy `deploy-placeholder.zip` to the domain document root. It ships the branded noindex placeholder, `/assets` logos, favicon/error assets, legal pages, and root Apache rules only.
-- Webmaster admin seeding for the full app: `WEBMASTER_ADMIN_EMAIL="you@example.com" WEBMASTER_ADMIN_PASSWORD="long-random-password" php scripts/seed-webmaster-admin.php --env backend/.env` creates or refreshes the dedicated `jason` `super_admin` without changing the client `admin` login. The placeholder deploy does not use this account.
+- Webmaster admin seeding for the full app: `WEBMASTER_ADMIN_EMAIL="you@example.com" WEBMASTER_ADMIN_PASSWORD="long-random-password" php scripts/seed-webmaster-admin.php --env backend/.env` creates or refreshes the dedicated `jason` `super_admin` without changing the client `admin` login. The placeholder deploy does not use this account. See `docs/MAINTAINER_GUIDE.md` before resuming full-app development.
 
 ## Testing
 
