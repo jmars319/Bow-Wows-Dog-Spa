@@ -32,7 +32,15 @@ test.describe.serial('stability smoke suite', () => {
 
     const heroSection = page.locator('[data-editor-section="hero"]');
     await heroSection.getByLabel('Hero headline').fill(heroHeadline);
-    await page.getByRole('button', { name: 'Save Content' }).click();
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/admin/content/site') &&
+          response.request().method() === 'POST' &&
+          response.ok(),
+      ),
+      page.getByRole('button', { name: 'Save Content' }).click(),
+    ]);
     await expect(page.getByText('Site content saved.')).toBeVisible();
 
     await page.goto('/');
