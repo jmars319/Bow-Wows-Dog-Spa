@@ -6,6 +6,7 @@ ROOT_DIR="${ROOT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 export DEV_DIR="${DEV_TEST_DIR:-$ROOT_DIR/.dev/test}"
 export DEV_CONFIG_FILE="${DEV_CONFIG_FILE:-/dev/null}"
+export DEV_SESSION_PREFIX="${DEV_SESSION_PREFIX:-bowwow-test}"
 export DEV_HOST="${DEV_HOST:-127.0.0.1}"
 export BACKEND_PORT="${BACKEND_PORT:-4316}"
 export FRONTEND_PORT="${FRONTEND_PORT:-4206}"

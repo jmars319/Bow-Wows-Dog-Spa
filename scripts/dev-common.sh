@@ -16,6 +16,7 @@ DEFAULT_DEV_HOST="127.0.0.1"
 DEFAULT_BACKEND_PORT="3316"
 DEFAULT_FRONTEND_PORT="3206"
 DEFAULT_ADMIN_PORT="3406"
+DEV_SESSION_PREFIX="${DEV_SESSION_PREFIX:-bowwow-dev}"
 
 DEV_CONFIG_FILE="${DEV_CONFIG_FILE:-$ROOT_DIR/.dev/dev-config.sh}"
 if [[ -f "$DEV_CONFIG_FILE" ]]; then
@@ -91,6 +92,50 @@ function write_pid() {
   echo "$pid" > "$(pid_file "$name")"
 }
 
+function stop_detached_session() {
+  local name=$1
+  if command -v screen >/dev/null 2>&1; then
+    screen -S "$DEV_SESSION_PREFIX-$name" -X quit >/dev/null 2>&1 || true
+  fi
+}
+
+function start_detached_service() {
+  local name=$1
+  local work_dir=$2
+  shift 2
+
+  stop_detached_session "$name"
+
+  if command -v screen >/dev/null 2>&1; then
+    screen -dmS "$DEV_SESSION_PREFIX-$name" bash -c '
+      name="$1"
+      work_dir="$2"
+      pid_file="$3"
+      log_file="$4"
+      shift 4
+      cd "$work_dir" || exit 1
+      echo $$ > "$pid_file"
+      exec "$@" >> "$log_file" 2>&1
+    ' bash "$name" "$work_dir" "$(pid_file "$name")" "$(log_file "$name")" "$@"
+  else
+    (
+      cd "$work_dir"
+      nohup "$@" > "$(log_file "$name")" 2>&1 < /dev/null &
+      echo $! > "$(pid_file "$name")"
+    )
+  fi
+
+  for _ in {1..50}; do
+    if [[ -s "$(pid_file "$name")" ]]; then
+      return 0
+    fi
+    sleep 0.1
+  done
+
+  error "Started $name but no PID file was written."
+  return 1
+}
+
 function remove_pid() {
   rm -f "$(pid_file "$1")"
 }
@@ -120,6 +165,7 @@ function stop_service() {
     log_status "$name" "error" "Unable to stop (PID $pid)"
   fi
 
+  stop_detached_session "$name"
   remove_pid "$name"
 }
 

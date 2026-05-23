@@ -9,13 +9,10 @@ source "$ROOT_DIR/scripts/dev-common.sh"
 ensure_not_running "frontend"
 log_status "frontend" "info" "Starting public SPA on ${DEV_HOST}:${FRONTEND_PORT}"
 
-pushd "$FRONTEND_PUBLIC_DIR" >/dev/null
-export VITE_ADMIN_PROXY_TARGET="http://${DEV_HOST}:${ADMIN_PORT}"
-nohup npm run dev -- --host "$DEV_HOST" --port "$FRONTEND_PORT" --strictPort > "$(log_file frontend)" 2>&1 &
-PID=$!
-popd >/dev/null
-
-write_pid "frontend" "$PID"
+start_detached_service "frontend" "$FRONTEND_PUBLIC_DIR" \
+  env VITE_ADMIN_PROXY_TARGET="http://${DEV_HOST}:${ADMIN_PORT}" \
+  npm run dev -- --host "$DEV_HOST" --port "$FRONTEND_PORT" --strictPort
+PID="$(read_pid frontend)"
 
 if wait_for_url "http://${DEV_HOST}:${FRONTEND_PORT}" 45; then
   log_status "frontend" "success" "Ready (PID $PID)"
