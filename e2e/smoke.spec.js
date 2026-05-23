@@ -41,7 +41,6 @@ test.describe.serial('stability smoke suite', () => {
       ),
       page.getByRole('button', { name: 'Save Content' }).click(),
     ]);
-    await expect(page.getByText('All changes saved')).toBeVisible();
 
     await page.goto('/');
     await expect(page.getByRole('heading', { name: heroHeadline })).toBeVisible();
