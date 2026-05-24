@@ -13,21 +13,20 @@ final class HtmlSanitizer
 {
     private const ALLOWED_TAGS = [
         'a',
-        'blockquote',
         'br',
+        'div',
         'em',
-        'h2',
         'h3',
-        'h4',
-        'h5',
-        'h6',
         'li',
         'ol',
         'p',
         'strong',
-        'u',
-        's',
         'ul',
+    ];
+
+    private const ALLOWED_DIV_CLASSES = [
+        'rt-cols-2',
+        'rt-cols-3',
     ];
 
     private const DROP_WITH_CONTENT = [
@@ -122,7 +121,11 @@ final class HtmlSanitizer
 
     private static function sanitizeAttributes(DOMElement $element, string $tag): void
     {
-        $allowedAttributes = $tag === 'a' ? ['href', 'rel', 'target', 'title'] : [];
+        $allowedAttributes = match ($tag) {
+            'a' => ['href', 'rel', 'target'],
+            'div' => ['class'],
+            default => [],
+        };
 
         foreach (iterator_to_array($element->attributes ?? []) as $attribute) {
             $name = strtolower($attribute->nodeName);
@@ -131,38 +134,81 @@ final class HtmlSanitizer
             }
         }
 
+        if ($tag === 'div') {
+            $className = trim($element->getAttribute('class'));
+            if (!in_array($className, self::ALLOWED_DIV_CLASSES, true)) {
+                self::unwrapNode($element);
+                return;
+            }
+            $element->setAttribute('class', $className);
+            return;
+        }
+
         if ($tag !== 'a') {
             return;
         }
 
         $href = trim($element->getAttribute('href'));
         if ($href === '' || !self::isAllowedHref($href)) {
-            $element->removeAttribute('href');
-        }
-
-        $target = strtolower(trim($element->getAttribute('target')));
-        if ($target !== '_blank') {
-            $element->removeAttribute('target');
-            $element->removeAttribute('rel');
+            self::unwrapNode($element);
             return;
         }
 
-        $element->setAttribute('target', '_blank');
-        $element->setAttribute('rel', 'noopener noreferrer');
+        $normalizedHref = self::normalizeHref($href);
+        $element->setAttribute('href', $normalizedHref);
+        if (preg_match('/^https?:\/\//i', $normalizedHref) === 1) {
+            $element->setAttribute('target', '_blank');
+            $element->setAttribute('rel', 'noopener noreferrer');
+        }
     }
 
     private static function isAllowedHref(string $href): bool
     {
-        if (str_starts_with($href, '#') || str_starts_with($href, '/')) {
+        $normalized = self::normalizeHref($href);
+        if ($normalized === '') {
+            return false;
+        }
+        if (
+            str_starts_with($normalized, '#') ||
+            str_starts_with($normalized, '/') ||
+            str_starts_with($normalized, './') ||
+            str_starts_with($normalized, '../') ||
+            str_starts_with($normalized, '?')
+        ) {
             return true;
         }
 
-        $scheme = parse_url($href, PHP_URL_SCHEME);
+        $scheme = parse_url($normalized, PHP_URL_SCHEME);
         if (!is_string($scheme) || $scheme === '') {
-            return true;
+            return false;
         }
 
         return in_array(strtolower($scheme), ['http', 'https', 'mailto', 'tel'], true);
+    }
+
+    private static function normalizeHref(string $href): string
+    {
+        $raw = trim($href);
+        if ($raw === '' || preg_match('/[\x00-\x1F\x7F]/', $raw) === 1) {
+            return '';
+        }
+        $lower = strtolower($raw);
+        if (str_starts_with($lower, 'javascript:') || str_starts_with($lower, 'data:') || str_starts_with($lower, 'vbscript:')) {
+            return '';
+        }
+        if (
+            str_starts_with($raw, '#') ||
+            str_starts_with($raw, '/') ||
+            str_starts_with($raw, './') ||
+            str_starts_with($raw, '../') ||
+            str_starts_with($raw, '?')
+        ) {
+            return $raw;
+        }
+        if (preg_match('/^[\w-]+(\.[\w-]+)+([\/:?#].*)?$/i', $raw) === 1) {
+            return 'https://' . $raw;
+        }
+        return $raw;
     }
 
     private static function unwrapNode(DOMElement $element): void
@@ -181,7 +227,7 @@ final class HtmlSanitizer
 
     private static function stripTagsFallback(string $html): ?string
     {
-        $sanitized = strip_tags($html, '<a><blockquote><br><em><h2><h3><h4><h5><h6><li><ol><p><strong><u><s><ul>');
+        $sanitized = strip_tags($html, '<a><br><div><em><h3><li><ol><p><strong><ul>');
         $sanitized = trim($sanitized);
 
         return $sanitized !== '' ? $sanitized : null;
