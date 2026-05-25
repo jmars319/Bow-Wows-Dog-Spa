@@ -1,0 +1,19 @@
+{
+  "name": "jamarq/bowwow-backend",
+  "description": "Bow Wow Dog Spa cPanel backend.",
+  "type": "project",
+  "license": "proprietary",
+  "require": {
+    "php": ">=8.3",
+    "jamarq/cpanel-backend-kit": "^0.1"
+  },
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "https://github.com/jmars319/cpanel-backend-kit"
+    }
+  ],
+  "config": {
+    "sort-packages": true
+  }
+}

@@ -12,6 +12,11 @@ final class Dotenv
             self::failMissing($path);
         }
 
+        if (class_exists(\Jamarq\CpanelBackend\Dotenv::class)) {
+            \Jamarq\CpanelBackend\Dotenv::load($path, true);
+            return;
+        }
+
         $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         if ($lines === false) {
             self::failMissing($path);

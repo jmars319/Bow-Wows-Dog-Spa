@@ -4,6 +4,15 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+if [[ -f "$ROOT_DIR/backend/composer.json" ]]; then
+  if ! command -v composer >/dev/null 2>&1; then
+    >&2 echo "[test:static][error] Command 'composer' is required."
+    exit 1
+  fi
+  composer validate --working-dir="$ROOT_DIR/backend" --strict
+  composer install --working-dir="$ROOT_DIR/backend" --no-dev --prefer-dist --no-interaction
+fi
+
 has_npm_script() {
   node -e "const scripts=require('./package.json').scripts||{}; process.exit(scripts[process.argv[1]] ? 0 : 1)" "$1"
 }

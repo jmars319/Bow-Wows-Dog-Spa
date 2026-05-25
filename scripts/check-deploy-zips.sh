@@ -58,6 +58,7 @@ for required_file in \
   "api/.htaccess" \
   "api/bootstrap/app.php" \
   "api/bootstrap/autoload.php" \
+  "api/vendor/autoload.php" \
   "api/src/Application.php" \
   "api/uploads/.htaccess" \
   "error-documents/403.html" \
@@ -87,6 +88,10 @@ fi
 
 if zip_match '^api/config/config(\.example)?\.php$'; then
   fail "site zip should not include config/config.php or config/config.example.php"
+fi
+
+if zip_match '^api/(composer[.](json|lock)|auth[.]json)$'; then
+  fail "site zip should include api/vendor but not backend Composer config/auth files"
 fi
 
 if zip_match '^api/public/'; then

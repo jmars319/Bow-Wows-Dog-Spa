@@ -11,6 +11,7 @@ cd frontend/public-app && npm install
 cd ../admin-app && npm install
 cd ../..
 npm install
+composer install --working-dir=backend
 ```
 
 Configure local backend values:
@@ -20,6 +21,8 @@ cp backend/.env.example backend/.env
 ```
 
 Fill in local database, SendGrid-safe defaults, session, and media settings. Keep `backend/.env` out of git.
+
+The full PHP backend uses the private Composer package `jamarq/cpanel-backend-kit` for shared cPanel-safe primitives. Private package access should come from local GitHub/Composer credentials; do not commit `backend/auth.json`, tokens, or `backend/vendor/`.
 
 ## Dev Servers
 

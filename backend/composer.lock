@@ -1,0 +1,71 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+        "This file is @generated automatically"
+    ],
+    "content-hash": "2ea23011ed3589c26743d206f9fc5070",
+    "packages": [
+        {
+            "name": "jamarq/cpanel-backend-kit",
+            "version": "v0.1.0",
+            "source": {
+                "type": "git",
+                "url": "git@github.com:jmars319/cpanel-backend-kit.git",
+                "reference": "0252c96cd7d5c58309301e62efe516456c056a1c"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/jmars319/cpanel-backend-kit/zipball/0252c96cd7d5c58309301e62efe516456c056a1c",
+                "reference": "0252c96cd7d5c58309301e62efe516456c056a1c",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.3"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Jamarq\\CpanelBackend\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Jamarq\\CpanelBackend\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "lint": [
+                    "find src tests -name '*.php' -print0 | xargs -0 -n1 php -l"
+                ],
+                "test": [
+                    "php tests/run.php"
+                ],
+                "verify": [
+                    "@lint",
+                    "@test"
+                ]
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Shared PHP backend foundation for JAMARQ cPanel websites.",
+            "support": {
+                "source": "https://github.com/jmars319/cpanel-backend-kit/tree/v0.1.0",
+                "issues": "https://github.com/jmars319/cpanel-backend-kit/issues"
+            },
+            "time": "2026-05-25T16:58:59+00:00"
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "stable",
+    "stability-flags": {},
+    "prefer-stable": false,
+    "prefer-lowest": false,
+    "platform": {
+        "php": ">=8.3"
+    },
+    "platform-dev": {},
+    "plugin-api-version": "2.9.0"
+}

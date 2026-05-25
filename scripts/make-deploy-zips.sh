@@ -38,6 +38,7 @@ require_cmd() {
 }
 
 require_cmd php
+require_cmd composer
 require_cmd rsync
 require_cmd zip
 
@@ -68,6 +69,15 @@ pushd "$ROOT_DIR/frontend/admin-app" >/dev/null
 npm run build
 popd >/dev/null
 
+log "Installing backend Composer dependencies for deploy"
+pushd "$ROOT_DIR/backend" >/dev/null
+composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
+popd >/dev/null
+if [ ! -f "$ROOT_DIR/backend/vendor/autoload.php" ]; then
+  log_error "backend Composer install did not create vendor/autoload.php"
+  exit 1
+fi
+
 log "Preparing web root"
 rsync -a --delete --exclude '.DS_Store' --exclude '*.map' "$ROOT_DIR/frontend/public-app/dist/" "$SITE_STAGING/"
 rsync -a --delete --exclude '.DS_Store' --exclude '*.map' "$ROOT_DIR/frontend/admin-app/dist/" "$SITE_STAGING/admin/"
@@ -84,6 +94,9 @@ BACKEND_EXCLUDES=(
   --exclude 'config/config.php'
   --exclude 'config/config.example.php'
   --exclude '.env*'
+  --exclude 'auth.json'
+  --exclude 'composer.json'
+  --exclude 'composer.lock'
   --exclude 'uploads/'
   --exclude 'storage/'
   --exclude 'tests/'

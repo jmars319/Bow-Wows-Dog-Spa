@@ -10,12 +10,14 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
-for required in npm php; do
+for required in npm php composer; do
   if ! command -v "$required" >/dev/null 2>&1; then
     >&2 echo "[test:unit][error] Command '$required' is required."
     exit 1
   fi
 done
+
+composer install --working-dir="$ROOT_DIR/backend" --no-dev --prefer-dist --no-interaction
 
 set -a
 # shellcheck disable=SC1090

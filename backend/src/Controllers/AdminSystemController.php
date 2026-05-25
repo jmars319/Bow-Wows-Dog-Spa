@@ -8,6 +8,7 @@ use BowWowSpa\Database\Database;
 use BowWowSpa\Http\Response;
 use BowWowSpa\Services\AuthService;
 use BowWowSpa\Support\Config;
+use Jamarq\CpanelBackend\System\SystemCheck;
 
 final class AdminSystemController
 {
@@ -109,7 +110,7 @@ final class AdminSystemController
 
     private function check(string $id, string $label, string $status, string $message, string $action = ''): array
     {
-        return compact('id', 'label', 'status', 'message', 'action');
+        return (new SystemCheck($id, $label, $status, $message, [], $action))->toArray();
     }
 
     private function tableCheck(string $table, string $label): array
