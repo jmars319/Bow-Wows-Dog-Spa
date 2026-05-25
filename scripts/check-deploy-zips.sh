@@ -94,6 +94,10 @@ if zip_match '^api/(composer[.](json|lock)|auth[.]json)$'; then
   fail "site zip should include api/vendor but not backend Composer config/auth files"
 fi
 
+if zip_match '^api/vendor/.*/([.]github|tests)/|^api/vendor/.*/([.]gitignore|README[.]md)$'; then
+  fail "site zip should not include Composer package development files"
+fi
+
 if zip_match '^api/public/'; then
   fail "site zip should not include api/public indirection"
 fi
