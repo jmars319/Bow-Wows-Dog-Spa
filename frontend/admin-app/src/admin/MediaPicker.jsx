@@ -38,7 +38,7 @@ export function MediaPicker({ label, media, onChange, libraryCategory = '', uplo
       const response = await api.get('/media', {
         params: libraryCategory ? { category: libraryCategory } : undefined,
       });
-      setItems(response.data.data.items);
+      setItems((response.data.data.items || []).filter((item) => !item.asset_type || item.asset_type === 'image'));
     } catch (err) {
       setError(err.response?.data?.error?.message ?? 'Unable to load images right now.');
     } finally {

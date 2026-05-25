@@ -33,6 +33,40 @@ final class RetailAndMediaTest extends TestCase
         $this->assertNull($media->find($mediaId));
     }
 
+    public function testDocumentMediaHydratesAsAttachment(): void
+    {
+        $mediaId = $this->env->insertMediaAsset([
+            'original_path' => 'attachments/policy-abc123-original.pdf',
+            'original_url' => '/uploads/attachments/policy-abc123-original.pdf',
+            'mime_type' => 'application/pdf',
+            'category' => 'policies',
+        ]);
+
+        $asset = (new MediaService())->find($mediaId);
+
+        $this->assertSame('document', $asset['asset_type']);
+        $this->assertFalse($asset['is_image']);
+        $this->assertSame('local', $asset['storage_provider']);
+        $this->assertSame('attachments/policy-abc123-original.pdf', $asset['storage_key']);
+        $this->assertSame('/uploads/attachments/policy-abc123-original.pdf', $asset['download_url']);
+    }
+
+    public function testLegacyImageMediaWithoutMimeHydratesAsImage(): void
+    {
+        $mediaId = $this->env->insertMediaAsset([
+            'original_path' => 'originals/legacy-photo.jpg',
+            'original_url' => '/uploads/originals/legacy-photo.jpg',
+            'mime_type' => '',
+            'category' => 'gallery',
+        ]);
+
+        $asset = (new MediaService())->find($mediaId);
+
+        $this->assertSame('image', $asset['asset_type']);
+        $this->assertTrue($asset['is_image']);
+        $this->assertNull($asset['download_url']);
+    }
+
     public function testPublicCatalogGroupsPublishedProductsUnderPublishedCategories(): void
     {
         $mediaId = $this->env->insertMediaAsset();

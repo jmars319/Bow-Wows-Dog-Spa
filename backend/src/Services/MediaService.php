@@ -15,6 +15,36 @@ final class MediaService
         'image/png',
         'image/gif',
         'image/webp',
+        'application/pdf',
+        'text/plain',
+        'text/csv',
+        'application/csv',
+        'application/msword',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/zip',
+    ];
+
+    private const BLOCKED_EXTENSIONS = [
+        'app', 'bat', 'bin', 'cmd', 'com', 'dll', 'dmg', 'exe', 'html', 'htm',
+        'iso', 'jar', 'js', 'mjs', 'php', 'phar', 'phtml', 'sh', 'svg', 'swf',
+        'tar', 'gz', 'tgz', 'rar', '7z', 'zip',
+    ];
+
+    private const EXTENSION_MIME_MAP = [
+        'jpg' => ['image/jpeg'],
+        'jpeg' => ['image/jpeg'],
+        'png' => ['image/png'],
+        'gif' => ['image/gif'],
+        'webp' => ['image/webp'],
+        'pdf' => ['application/pdf'],
+        'txt' => ['text/plain'],
+        'csv' => ['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'],
+        'doc' => ['application/msword'],
+        'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip'],
+        'xls' => ['application/vnd.ms-excel'],
+        'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip'],
     ];
 
     public function list(?string $category = null): array
@@ -42,35 +72,52 @@ final class MediaService
             $title = Input::clean($payload['title'] ?? null, 255);
             $caption = Input::clean($payload['caption'] ?? null, 4000, true);
 
-            $mime = $this->detectMime($file['tmp_name']);
-            $extension = $this->extensionFromMime($mime);
+            $detectedMime = $this->detectMime($file['tmp_name']);
+            $this->validateExtensionAndMime($file['tmp_name'], (string) ($file['name'] ?? ''), $detectedMime);
+            $mime = $this->normalizeDetectedMime($detectedMime, (string) ($file['name'] ?? ''));
+            $extension = $this->extensionFromMime($mime, (string) ($file['name'] ?? ''));
+            $assetType = $this->assetTypeForMime($mime, (string) ($file['name'] ?? ''));
             $hash = hash_file('sha1', $file['tmp_name']);
-            $baseName = $hash;
-            $originalFilename = $baseName . '.' . $extension;
+            $baseName = $this->buildBaseName($category, (string) ($file['name'] ?? 'upload'), $hash);
             $paths = $this->pathConfig();
+            $originalFilename = $this->uniqueFilename(
+                $assetType === 'image' ? $paths['originals_path'] : $paths['attachments_path'],
+                $baseName . '-original.' . $extension
+            );
 
-            $originalPath = $paths['originals_path'] . '/' . $originalFilename;
+            $originalPath = ($assetType === 'image' ? $paths['originals_path'] : $paths['attachments_path']) . '/' . $originalFilename;
             if (!move_uploaded_file($file['tmp_name'], $originalPath)) {
                 throw new \RuntimeException('Failed moving uploaded file.');
             }
 
-            $this->normalizeOrientation($originalPath, $mime);
-            [$width, $height] = getimagesize($originalPath);
-            if (!$width || !$height) {
-                unlink($originalPath);
-                throw new \RuntimeException('Unable to read image dimensions.');
+            $width = null;
+            $height = null;
+            $variants = ['optimized' => [], 'webp' => []];
+            $manifest = [
+                'path' => null,
+                'variants' => $variants,
+                'srcset' => ['optimized' => null, 'webp' => null],
+            ];
+            $originalUrl = ($assetType === 'image' ? $paths['originals_url'] : $paths['attachments_url']) . '/' . $originalFilename;
+            $originalStoredPath = ($assetType === 'image' ? 'originals/' : 'attachments/') . $originalFilename;
+
+            if ($assetType === 'image') {
+                $this->normalizeOrientation($originalPath, $mime);
+                [$width, $height] = getimagesize($originalPath);
+                if (!$width || !$height) {
+                    unlink($originalPath);
+                    throw new \RuntimeException('Unable to read image dimensions.');
+                }
+
+                $variants = $this->generateVariants($originalPath, $mime, $category, $baseName, $width, $height, $config);
+                $manifest = $this->writeManifest($baseName, $category, $mime, $width, $height, $originalFilename, $variants);
             }
-
-            $variants = $this->generateVariants($originalPath, $mime, $category, $baseName, $width, $height, $config);
-            $manifest = $this->writeManifest($baseName, $category, $mime, $width, $height, $originalFilename, $variants);
-
-            $originalUrl = $paths['originals_url'] . '/' . $originalFilename;
 
             $id = Database::insert(
                 'INSERT INTO media_assets (original_path, original_url, variants_json, mime_type, intrinsic_width, intrinsic_height, category, title, caption, alt_text, responsive_variants_json, manifest_path, optimized_srcset, webp_srcset, fallback_url, created_by, created_at) 
                  VALUES (:path, :url, :variants, :mime, :width, :height, :category, :title, :caption, :alt, :responsive, :manifest, :opt_srcset, :webp_srcset, :fallback, :created_by, NOW())',
                 [
-                    'path' => 'originals/' . $originalFilename,
+                    'path' => $originalStoredPath,
                     'url' => $originalUrl,
                     'variants' => json_encode($variants),
                     'mime' => $mime,
@@ -174,6 +221,11 @@ final class MediaService
             'original_url' => $row['original_url'],
             'category' => $row['category'],
             'mime_type' => $row['mime_type'],
+            'asset_type' => $this->assetTypeForMime($row['mime_type'] ?? '', $row['original_path'] ?? ''),
+            'storage_provider' => 'local',
+            'storage_key' => $row['original_path'],
+            'download_url' => $this->assetTypeForMime($row['mime_type'] ?? '', $row['original_path'] ?? '') === 'image' ? null : $row['original_url'],
+            'is_image' => $this->assetTypeForMime($row['mime_type'] ?? '', $row['original_path'] ?? '') === 'image',
             'intrinsic_width' => $row['intrinsic_width'],
             'intrinsic_height' => $row['intrinsic_height'],
             'title' => $row['title'],
@@ -275,14 +327,126 @@ final class MediaService
         return $mime;
     }
 
-    private function extensionFromMime(string $mime): string
+    private function extensionFromMime(string $mime, string $originalName = ''): string
     {
         return match ($mime) {
             'image/png' => 'png',
             'image/gif' => 'gif',
             'image/webp' => 'webp',
+            'application/pdf' => 'pdf',
+            'text/csv', 'application/csv' => 'csv',
+            'text/plain' => strtolower(pathinfo($originalName, PATHINFO_EXTENSION)) === 'csv' ? 'csv' : 'txt',
+            'application/msword' => 'doc',
+            'application/vnd.ms-excel' => strtolower(pathinfo($originalName, PATHINFO_EXTENSION)) === 'csv' ? 'csv' : 'xls',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
             default => 'jpg',
         };
+    }
+
+    private function extensionForOriginalName(string $originalName): string
+    {
+        return strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+    }
+
+    private function validateExtensionAndMime(string $path, string $originalName, string $mime): void
+    {
+        $extension = $this->extensionForOriginalName($originalName);
+        if ($extension === '') {
+            throw new \RuntimeException('Uploaded file needs a valid extension.');
+        }
+        if (in_array($extension, self::BLOCKED_EXTENSIONS, true)) {
+            throw new \RuntimeException('File type not allowed.');
+        }
+        if (!isset(self::EXTENSION_MIME_MAP[$extension])) {
+            throw new \RuntimeException('File type not allowed.');
+        }
+        if (!in_array($mime, self::EXTENSION_MIME_MAP[$extension], true)) {
+            throw new \RuntimeException('File extension does not match the file type.');
+        }
+        if ($mime === 'application/zip' && in_array($extension, ['docx', 'xlsx'], true) && !$this->isOfficeOpenXml($path, $extension)) {
+            throw new \RuntimeException('Office document could not be verified.');
+        }
+    }
+
+    private function isOfficeOpenXml(string $path, string $extension): bool
+    {
+        if (!class_exists(\ZipArchive::class)) {
+            return true;
+        }
+        $zip = new \ZipArchive();
+        if ($zip->open($path) !== true) {
+            return false;
+        }
+        $hasContentTypes = $zip->locateName('[Content_Types].xml') !== false;
+        $hasOfficeRoot = $extension === 'docx'
+            ? $zip->locateName('word/document.xml') !== false
+            : $zip->locateName('xl/workbook.xml') !== false;
+        $zip->close();
+        return $hasContentTypes && $hasOfficeRoot;
+    }
+
+    private function normalizeDetectedMime(string $mime, string $originalName): string
+    {
+        $extension = $this->extensionForOriginalName($originalName);
+        if ($mime === 'application/zip') {
+            if ($extension === 'docx') {
+                return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+            }
+            if ($extension === 'xlsx') {
+                return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+            }
+        }
+        return $mime;
+    }
+
+    private function assetTypeForMime(string $mime, string $name = ''): string
+    {
+        if (str_starts_with($mime, 'image/')) {
+            return 'image';
+        }
+        $extension = $this->extensionForOriginalName($name);
+        if (in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) {
+            return 'image';
+        }
+        if (in_array($extension, ['csv', 'xls', 'xlsx'], true)) {
+            return 'spreadsheet';
+        }
+        if ($extension === 'txt') {
+            return 'text';
+        }
+        return 'document';
+    }
+
+    private function slugify(string $value, string $fallback = 'asset'): string
+    {
+        $slug = strtolower(trim($value));
+        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug) ?: '';
+        $slug = trim($slug, '-');
+        return $slug === '' ? $fallback : substr($slug, 0, 80);
+    }
+
+    private function buildBaseName(string $category, string $originalName, string $hash): string
+    {
+        return sprintf(
+            '%s-%s-%s',
+            $this->slugify($category, 'media'),
+            $this->slugify(pathinfo($originalName, PATHINFO_FILENAME), 'upload'),
+            substr($hash, 0, 10)
+        );
+    }
+
+    private function uniqueFilename(string $directory, string $filename): string
+    {
+        $candidate = $filename;
+        $extension = pathinfo($filename, PATHINFO_EXTENSION);
+        $base = pathinfo($filename, PATHINFO_FILENAME);
+        $i = 2;
+        while (is_file(rtrim($directory, '/') . '/' . $candidate)) {
+            $candidate = $base . '-' . $i . ($extension ? '.' . $extension : '');
+            $i++;
+        }
+        return $candidate;
     }
 
     private function generateVariants(
@@ -510,10 +674,12 @@ final class MediaService
 
         return [
             'base_path' => $basePath,
+            'attachments_path' => $basePath . '/attachments',
             'originals_path' => $basePath . '/originals',
             'optimized_path' => $basePath . '/variants/optimized',
             'webp_path' => $basePath . '/variants/webp',
             'manifests_path' => $basePath . '/manifests',
+            'attachments_url' => $prefix . '/attachments',
             'originals_url' => $prefix . '/originals',
             'optimized_url' => $prefix . '/variants/optimized',
             'webp_url' => $prefix . '/variants/webp',
@@ -523,7 +689,7 @@ final class MediaService
     private function ensureUploadStructure(): void
     {
         $paths = $this->pathConfig();
-        foreach (['base_path', 'originals_path', 'optimized_path', 'webp_path', 'manifests_path'] as $key) {
+        foreach (['base_path', 'attachments_path', 'originals_path', 'optimized_path', 'webp_path', 'manifests_path'] as $key) {
             if (!is_dir($paths[$key]) && !mkdir($paths[$key], 0775, true) && !is_dir($paths[$key])) {
                 throw new \RuntimeException('Unable to prepare media upload directories.');
             }

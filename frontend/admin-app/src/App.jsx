@@ -2355,6 +2355,14 @@ function MediaPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [filter, setFilter] = useState('all');
 
+  const isImageAsset = (item) => !item?.asset_type || item.asset_type === 'image';
+  const mediaKindLabel = (item) => {
+    if (isImageAsset(item)) return 'Uploaded image';
+    if (item.asset_type === 'spreadsheet') return 'Spreadsheet';
+    if (item.asset_type === 'text') return 'Text file';
+    return 'Document';
+  };
+
   const load = useCallback(async () => {
     const response = await api.get('/media');
     setItems(response.data.data.items);
@@ -2384,7 +2392,7 @@ function MediaPage() {
     request.onreadystatechange = () => {
       if (request.readyState === XMLHttpRequest.DONE) {
         if (request.status >= 200 && request.status < 300) {
-          setUploadStatus('Processing variants…');
+      setUploadStatus(file.type.startsWith('image/') ? 'Processing image variants...' : 'Saving file...');
           setUploadProgress(100);
           setFile(null);
           setMetadata({ alt_text: '', title: '', caption: '', category: metadata.category });
@@ -2415,7 +2423,7 @@ function MediaPage() {
 
   const destroy = async (id) => {
     if (!(await confirm({
-      message: 'Delete this media item? This can remove it from gallery, reviews, or other public sections that reference it.',
+      message: 'Delete this media item? This can remove it from gallery, reviews, retail, or other public sections that reference it.',
       confirmLabel: 'Delete media',
       tone: 'danger',
     }))) {
@@ -2446,11 +2454,11 @@ function MediaPage() {
   return (
     <div>
       <h1>Media Library</h1>
-      <p className="muted">Upload source images here once, then reuse them in the hero, gallery, and products. This is the master library, not a second gallery editor.</p>
+      <p className="muted">Upload reusable site images and safe documents here once, then assign them where they belong.</p>
       <form className="card" onSubmit={upload}>
         <label className="field-block">
           <span className="field-label">File</span>
-          <input type="file" onChange={(e) => setFile(e.target.files?.[0])} />
+          <input type="file" accept="image/*,.pdf,.txt,.csv,.doc,.docx,.xls,.xlsx" onChange={(e) => setFile(e.target.files?.[0])} />
         </label>
         <label className="field-block">
           <span className="field-label">Alt text</span>
@@ -2470,6 +2478,7 @@ function MediaPage() {
             <option value="default">Default</option>
             <option value="gallery">Gallery</option>
             <option value="retail">Retail</option>
+            <option value="attachments">Documents</option>
           </select>
         </label>
         <button className="btn">Upload</button>
@@ -2498,7 +2507,14 @@ function MediaPage() {
       <div className="media-gallery">
         {filteredItems.map((item) => (
           <div key={item.id} className="card" data-media-id={item.id}>
-            <MediaPicture media={item} alt={item.alt_text || item.title || `Media ${item.id}`} />
+            {isImageAsset(item) ? (
+              <MediaPicture media={item} alt={item.alt_text || item.title || `Media ${item.id}`} />
+            ) : (
+              <div className="media-document-card">
+                <strong>{mediaKindLabel(item)}</strong>
+                <span>{item.mime_type}</span>
+              </div>
+            )}
             <p>
               <strong>{item.title || item.alt_text || `Media #${item.id}`}</strong>
             </p>
