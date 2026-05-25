@@ -5,6 +5,8 @@ This guide captures the current Bow Wow maintenance decisions without relying on
 ## Current Source Of Truth
 
 - `README.md` and `docs/README.md` are the entry points.
+- `docs/SYSTEM_OVERVIEW.md` describes the placeholder/full-app split and architecture.
+- `docs/DEVELOPER_GUIDE.md` covers local setup, scripts, and verification workflow.
 - `docs/DEPLOYMENT_GUIDE.md` is the deployment and database-migration reference.
 - `docs/OPERATOR_NOTES.md` covers operator workflows for the full app.
 - `docs/MEDIA_POLICY.md` covers permanent assets, uploads, and future R2 direction.
@@ -23,6 +25,8 @@ This guide captures the current Bow Wow maintenance decisions without relying on
 - Keep SendGrid contact/booking mail configurable and safe when unconfigured locally.
 - Keep upload/runtime folders out of deploy zips except protected upload folder scaffolding where the deploy script intentionally includes it.
 - Keep the full app aligned with the shared cPanel admin convention: client `admin` plus dedicated webmaster admin, username support, and normal `/admin` routing.
+- Keep System Checks as the first admin place to review database, upload, SendGrid, media, and deploy-readiness issues.
+- Keep Media Manager and upload labels non-technical for staff; generated variants and storage keys belong in diagnostics only.
 
 ## Relaunch Guardrails
 
@@ -36,6 +40,7 @@ This guide captures the current Bow Wow maintenance decisions without relying on
 - Do not turn catalog-only retail prep into live checkout.
 - Do not turn calendar sync groundwork into a live integration without provider credentials and client approval.
 - Do not preserve `api/storage/` for placeholder deploys; current placeholder runtime data is disposable.
+- Do not add `frontend/shared/src` just to satisfy the folder shape. Extract shared frontend code during the relaunch pass only when it removes real duplication.
 
 ## Verification Baseline
 

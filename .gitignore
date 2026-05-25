@@ -2,7 +2,9 @@ node_modules/
 frontend/**/node_modules/
 frontend/**/dist/
 backend/storage/media/*
-backend/uploads/
+backend/uploads/*
+!backend/uploads/.gitignore
+!backend/uploads/.htaccess
 backend/config/config.php
 backend/.env
 .env

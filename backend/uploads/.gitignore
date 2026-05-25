@@ -1,0 +1,8 @@
+*
+!.gitignore
+!.htaccess
+!originals/
+!variants/
+!variants/optimized/
+!variants/webp/
+!manifests/

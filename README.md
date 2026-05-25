@@ -64,7 +64,7 @@ Missing `.env` results in a clear bootstrap error so the backend never runs with
 
 ## Dev & deploy scripts
 
-Generic helper scripts live under `scripts/` (see `Generic-Scripts-Reference.md` for philosophy). Highlights:
+Generic helper scripts live under `scripts/`. See `docs/DEVELOPER_GUIDE.md` for the current local workflow. Highlights:
 
 | Command | Description |
 | --- | --- |
