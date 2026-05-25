@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "2ea23011ed3589c26743d206f9fc5070",
+    "content-hash": "34fbefd27b78c7a60e4762c952ea8b8f",
     "packages": [
         {
             "name": "jamarq/cpanel-backend-kit",
-            "version": "v0.1.1",
+            "version": "v0.2.0",
             "source": {
                 "type": "git",
                 "url": "git@github.com:jmars319/cpanel-backend-kit.git",
-                "reference": "c1d48b008e1c760d53299b78f68c217e90c07234"
+                "reference": "8cf821384c27cd50d99de037ffc710502e55594c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/jmars319/cpanel-backend-kit/zipball/c1d48b008e1c760d53299b78f68c217e90c07234",
-                "reference": "c1d48b008e1c760d53299b78f68c217e90c07234",
+                "url": "https://api.github.com/repos/jmars319/cpanel-backend-kit/zipball/8cf821384c27cd50d99de037ffc710502e55594c",
+                "reference": "8cf821384c27cd50d99de037ffc710502e55594c",
                 "shasum": ""
             },
             "require": {
@@ -59,10 +59,10 @@
             ],
             "description": "Shared PHP backend foundation for JAMARQ cPanel websites.",
             "support": {
-                "source": "https://github.com/jmars319/cpanel-backend-kit/tree/v0.1.1",
+                "source": "https://github.com/jmars319/cpanel-backend-kit/tree/v0.2.0",
                 "issues": "https://github.com/jmars319/cpanel-backend-kit/issues"
             },
-            "time": "2026-05-25T17:26:24+00:00"
+            "time": "2026-05-25T23:24:06+00:00"
         }
     ],
     "packages-dev": [],

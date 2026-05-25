@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { SystemCheckCard } from '@jamarq/cpanel-admin-kit';
 import { api } from '../admin/AdminShell';
 
 export function SystemPage() {
@@ -21,18 +22,6 @@ export function SystemPage() {
   }
 
   if (Array.isArray(data.checks) && data.checks.length > 0) {
-    const statusLabels = {
-      ok: 'Ready',
-      warning: 'Needs review',
-      error: 'Needs action',
-      info: 'Info',
-    };
-    const statusClasses = {
-      ok: 'system-check system-check--ok',
-      warning: 'system-check system-check--warning',
-      error: 'system-check system-check--error',
-      info: 'system-check system-check--info',
-    };
     const checkMap = new Map(data.checks.map((check) => [check.id, check]));
     const groups = Array.isArray(data.sections) && data.sections.length
       ? data.sections.map((section) => ({
@@ -49,26 +38,9 @@ export function SystemPage() {
           <section className="card" key={section.id}>
             <h2>{section.label}</h2>
             <div className="system-check-grid">
-              {section.checks.map((check) => {
-                const status = check.status || 'info';
-                return (
-                  <div key={check.id} className={statusClasses[status] || statusClasses.info}>
-                    <div className="system-check__header">
-                      <div>
-                        <h3>{check.label}</h3>
-                        <p>{check.message}</p>
-                      </div>
-                      <span>{statusLabels[status] || statusLabels.info}</span>
-                    </div>
-                    {check.action ? (
-                      <details>
-                        <summary>Show details</summary>
-                        <p>{check.action}</p>
-                      </details>
-                    ) : null}
-                  </div>
-                );
-              })}
+              {section.checks.map((check) => (
+                <SystemCheckCard key={check.id} check={{ ...check, status: check.status || 'info' }} />
+              ))}
             </div>
           </section>
         ))}

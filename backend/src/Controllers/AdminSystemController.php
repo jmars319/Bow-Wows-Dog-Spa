@@ -8,6 +8,7 @@ use BowWowSpa\Database\Database;
 use BowWowSpa\Http\Response;
 use BowWowSpa\Services\AuthService;
 use BowWowSpa\Support\Config;
+use Jamarq\CpanelBackend\Storage\StorageConfig;
 use Jamarq\CpanelBackend\System\SystemCheck;
 
 final class AdminSystemController
@@ -34,6 +35,7 @@ final class AdminSystemController
         }
 
         $sendgridConfigured = (bool) (Config::get('sendgrid.api_key') && Config::get('sendgrid.from_email'));
+        $storageConfig = new StorageConfig($_ENV);
         $app = [
             'env' => Config::get('app.env'),
             'url' => Config::get('app.url'),
@@ -51,7 +53,14 @@ final class AdminSystemController
             $this->check('database', 'Database connection', $dbOk ? 'ok' : 'error', $dbOk ? 'The API can reach the Bow Wow database.' : 'The API could not reach the Bow Wow database.', 'Check api/.env database values and the cPanel database user.'),
             $this->check('webp_support', 'Image optimization support', $webpSupport ? 'ok' : 'warning', $webpSupport ? 'WebP image generation is available.' : 'WebP image generation is not available.', 'Enable GD WebP or Imagick in cPanel if the full app needs media uploads.'),
             $this->check('sendgrid_readiness', 'SendGrid readiness', $sendgridConfigured ? 'ok' : 'warning', $sendgridConfigured ? 'Email notification settings are configured.' : 'Email notification settings are incomplete or disabled.', 'Full-app booking/contact emails need SendGrid before launch. Placeholder deploy is unaffected.'),
-            $this->check('storage_provider', 'Storage provider', 'info', 'Bow Wow full app uses local cPanel uploads with R2 planned later. Placeholder deploy remains authoritative for now.', 'Do not preserve test storage for placeholder deployments. Revisit this before full-app relaunch.'),
+            $this->check(
+                'storage_provider',
+                'Storage provider',
+                'info',
+                'Bow Wow full app uses local cPanel uploads. R2 remains a future migration.',
+                'Do not preserve test storage for placeholder deployments. Revisit this before full-app relaunch.',
+                $storageConfig->systemCheckDetails()
+            ),
         ];
 
         foreach ($paths as $key => $ok) {
@@ -108,9 +117,9 @@ final class AdminSystemController
         return $checks;
     }
 
-    private function check(string $id, string $label, string $status, string $message, string $action = ''): array
+    private function check(string $id, string $label, string $status, string $message, string $action = '', array $details = []): array
     {
-        return (new SystemCheck($id, $label, $status, $message, [], $action))->toArray();
+        return (new SystemCheck($id, $label, $status, $message, $details, $action))->toArray();
     }
 
     private function tableCheck(string $table, string $label): array
