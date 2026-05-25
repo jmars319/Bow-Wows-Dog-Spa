@@ -30,7 +30,7 @@ bash scripts/dev-start.sh
 
 > First-time setup: copy `backend/.env.example` to `backend/.env`, fill in local DB + email values, and keep it out of version control. `backend/.env` is the local/dev file in this repo; production secrets should live in the real host environment model and are never bundled into deploy ZIPs.
 
-See `docs/README.md` for the docs index, `docs/DEPLOYMENT_GUIDE.md` for cPanel deployment steps, and `docs/OPERATOR_NOTES.md` for day-to-day workflows.
+See `docs/README.md` for the docs index, `docs/DEPLOYMENT_GUIDE.md` for cPanel deployment steps, `docs/POST_DEPLOY_CHECKLIST.md` for deployment smoke checks, and `docs/OPERATOR_NOTES.md` for day-to-day workflows.
 
 ## Configuration overview (`backend/.env`)
 

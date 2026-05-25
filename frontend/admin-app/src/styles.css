@@ -140,6 +140,90 @@ body {
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.05);
 }
 
+.system-check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.system-check {
+  border: 1px solid #e2ded7;
+  border-left-width: 5px;
+  border-radius: 12px;
+  padding: 1rem;
+  background: #fffdf9;
+}
+
+.system-check__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.system-check__header h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.system-check__header p {
+  margin: 0;
+  color: #57534e;
+}
+
+.system-check__header span {
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.system-check details {
+  margin-top: 0.85rem;
+}
+
+.system-check summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.system-check--ok {
+  border-left-color: #16a34a;
+}
+
+.system-check--ok .system-check__header span {
+  color: #14532d;
+  background: #dcfce7;
+}
+
+.system-check--warning {
+  border-left-color: #f59e0b;
+}
+
+.system-check--warning .system-check__header span {
+  color: #78350f;
+  background: #fef3c7;
+}
+
+.system-check--error {
+  border-left-color: #dc2626;
+}
+
+.system-check--error .system-check__header span {
+  color: #7f1d1d;
+  background: #fee2e2;
+}
+
+.system-check--info {
+  border-left-color: #2563eb;
+}
+
+.system-check--info .system-check__header span {
+  color: #1e3a8a;
+  background: #dbeafe;
+}
+
 .btn {
   border: none;
   border-radius: 8px;

@@ -166,6 +166,7 @@ final class Application
 
         $system = new AdminSystemController();
         $this->router->add('GET', '/api/admin/system', [$system, 'diagnostics']);
+        $this->router->add('GET', '/api/admin/system-checks', [$system, 'diagnostics']);
 
         $calendarIntegrations = new AdminCalendarIntegrationsController();
         $this->router->add('GET', '/api/admin/calendar-integrations', [$calendarIntegrations, 'index']);
