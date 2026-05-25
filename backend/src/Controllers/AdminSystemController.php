@@ -115,7 +115,10 @@ final class AdminSystemController
     private function tableCheck(string $table, string $label): array
     {
         try {
-            $row = Database::fetch('SHOW TABLES LIKE ?', [$table]);
+            $row = Database::fetch(
+                'SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? LIMIT 1',
+                [$table]
+            );
             $exists = (bool) $row;
         } catch (\Throwable $e) {
             $exists = false;
