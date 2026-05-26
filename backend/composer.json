@@ -5,7 +5,7 @@
   "license": "proprietary",
   "require": {
     "php": ">=8.3",
-    "jamarq/cpanel-backend-kit": "^0.2"
+    "jamarq/cpanel-backend-kit": "^0.3"
   },
   "repositories": [
     {

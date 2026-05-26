@@ -50,15 +50,15 @@ describe('RichTextEditor', () => {
     const { container } = render(<RichTextEditor value="<p>Initial</p>" onChange={vi.fn()} />);
     const editor = container.querySelector('[contenteditable="true"]');
 
-    fireEvent.click(screen.getByRole('button', { name: 'B' }));
-    fireEvent.click(screen.getByRole('button', { name: 'I' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Bullet list' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Bold' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Italic' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Bulleted list' }));
     fireEvent.click(screen.getByRole('button', { name: 'Numbered list' }));
 
-    expect(document.execCommand).toHaveBeenCalledWith('bold', false, null);
-    expect(document.execCommand).toHaveBeenCalledWith('italic', false, null);
-    expect(document.execCommand).toHaveBeenCalledWith('insertUnorderedList', false, null);
-    expect(document.execCommand).toHaveBeenCalledWith('insertOrderedList', false, null);
+    expect(document.execCommand).toHaveBeenCalledWith('bold', false, undefined);
+    expect(document.execCommand).toHaveBeenCalledWith('italic', false, undefined);
+    expect(document.execCommand).toHaveBeenCalledWith('insertUnorderedList', false, undefined);
+    expect(document.execCommand).toHaveBeenCalledWith('insertOrderedList', false, undefined);
 
     fireEvent.paste(editor, {
       clipboardData: {
