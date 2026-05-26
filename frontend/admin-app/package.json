@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@jamarq/cpanel-admin-kit": "git+ssh://git@github.com/jmars319/cpanel-admin-kit.git#v0.1.2",
+    "@jamarq/cpanel-admin-kit": "github:jmars319/cpanel-admin-kit#v0.1.3",
     "axios": "^1.16.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
