@@ -36,7 +36,8 @@ fi
 log_info "Site zip summary: $SITE_ZIP"
 ls -lh "$SITE_ZIP"
 SITE_FILES="$(unzip -Z1 "$SITE_ZIP")"
-unzip -l "$SITE_ZIP" | head -n 50
+SITE_LISTING="$(unzip -l "$SITE_ZIP")"
+printf '%s\n' "$SITE_LISTING" | awk 'NR <= 50 { print }'
 
 zip_has() {
   local entry="$1"
@@ -141,8 +142,14 @@ if zip_match '^placeholder(/|$)|^current(/|$)|(^|/)gate[.]php$'; then
   fail "site zip should not include placeholder/current launch artifacts"
 fi
 
-SITE_CONTENT="$(unzip -p "$SITE_ZIP" 2>/dev/null || true)"
-if grep -E -q 'https?://(localhost|127\.0\.0\.1):[0-9]+' <<< "$SITE_CONTENT"; then
+SITE_TEXT_CONTENT="$(mktemp)"
+trap 'rm -f "$SITE_TEXT_CONTENT"' EXIT
+while IFS= read -r entry; do
+  unzip -p "$SITE_ZIP" "$entry" >> "$SITE_TEXT_CONTENT" 2>/dev/null || true
+  printf '\n' >> "$SITE_TEXT_CONTENT"
+done < <(echo "$SITE_FILES" | grep -E '(^|/)([.]env|[.]htaccess|robots[.]txt|sitemap[.]xml|[^/]+[.](html|css|js|json|txt|xml|webmanifest|php))$' || true)
+
+if grep -E -q 'https?://(localhost|127\.0\.0\.1):[0-9]+' "$SITE_TEXT_CONTENT"; then
   fail "site zip contains a localhost URL with a port"
 fi
 
