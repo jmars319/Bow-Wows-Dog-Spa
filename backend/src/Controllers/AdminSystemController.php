@@ -36,6 +36,17 @@ final class AdminSystemController
 
         $sendgridConfigured = (bool) (Config::get('sendgrid.api_key') && Config::get('sendgrid.from_email'));
         $storageConfig = new StorageConfig($_ENV);
+        $storageDetails = $storageConfig->systemCheckDetails();
+        $storageDetails['cdn_base_url'] = 'https://cdn.bowwowsdogspa.com';
+        $storageDetails['r2_env'] = [
+            'R2_ENDPOINT',
+            'R2_ACCESS_KEY_ID',
+            'R2_SECRET_ACCESS_KEY',
+            'R2_PUBLIC_BUCKET',
+            'R2_PRIVATE_BUCKET',
+            'R2_PUBLIC_BASE_URL',
+        ];
+        $storageReady = $storageConfig->provider() === 'r2' && $storageConfig->r2Configured();
         $app = [
             'env' => Config::get('app.env'),
             'url' => Config::get('app.url'),
@@ -56,10 +67,10 @@ final class AdminSystemController
             $this->check(
                 'storage_provider',
                 'Storage provider',
-                'info',
-                'Bow Wow full app uses local cPanel uploads. R2 remains a future migration.',
-                'Do not preserve test storage for placeholder deployments. Revisit this before full-app relaunch.',
-                $storageConfig->systemCheckDetails()
+                $storageReady ? 'ok' : 'info',
+                $storageReady ? 'Full-app uploads are configured for Cloudflare R2 with local fallback retained.' : 'R2 buckets and CDN are prepared. Placeholder production still does not use the full app media backend.',
+                $storageReady ? 'Keep local uploads until manual full-app verification is complete.' : 'Set R2 env values only before the full app relaunch.',
+                $storageDetails
             ),
         ];
 

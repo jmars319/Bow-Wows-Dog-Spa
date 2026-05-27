@@ -8,11 +8,11 @@
     "packages": [
         {
             "name": "jamarq/cpanel-backend-kit",
-            "version": "0.3.0",
+            "version": "0.3.1",
             "dist": {
                 "type": "zip",
-                "url": "../third_party/composer/jamarq-cpanel-backend-kit-0.3.0.zip",
-                "shasum": "11e4a908eb50819bcd556149e31ab5151ad32988"
+                "url": "../third_party/composer/jamarq-cpanel-backend-kit-0.3.1.zip",
+                "shasum": "7c1e92b94ca3b5876ffcb40855a96073e6837697"
             },
             "require": {
                 "php": ">=8.3"

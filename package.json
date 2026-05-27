@@ -30,6 +30,7 @@
     "deploy:make": "bash ./scripts/make-deploy-zips.sh",
     "deploy:check": "bash ./scripts/check-deploy-zips.sh",
     "deploy:config": "bash ./scripts/make-server-config-zip.sh",
+    "cdn:purge": "node ./scripts/purge-cdn-cache.mjs",
     "deploy:placeholder": "bash ./scripts/make-placeholder-deploy-zip.sh",
     "check:live-reference": "bash ./scripts/verify-live-reference.sh",
     "check:permanent-assets": "bash ./scripts/verify-permanent-assets.sh",

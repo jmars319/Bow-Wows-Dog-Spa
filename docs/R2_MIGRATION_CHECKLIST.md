@@ -4,15 +4,19 @@ Bow Wow currently keeps the placeholder deploy authoritative. Use this checklist
 
 ## Bucket Setup
 
-- Create one dedicated R2 bucket for Bow Wow media.
+- Use the standard Bow Wow bucket pair:
+  - `bowwowsdogspa-com-media-public`
+  - `bowwowsdogspa-com-media-private`
+- Serve future public media from `https://cdn.bowwowsdogspa.com`.
 - Use separate prefixes for:
   - `originals/`
   - `variants/optimized/`
   - `variants/webp/`
   - `manifests/`
   - `attachments/`
-- Configure a public-read path or signed-download path that matches the final media policy.
-- Create least-privilege credentials for this site only.
+- Attach `cdn.bowwowsdogspa.com` to the public bucket only; private attachments must stay behind backend download routes.
+- Create least-privilege credentials for this site bucket pair only.
+- Purge exact CDN URLs with `npm run cdn:purge -- https://cdn.bowwowsdogspa.com/path/to/file` only when replacing an existing public object.
 
 ## App Changes
 
