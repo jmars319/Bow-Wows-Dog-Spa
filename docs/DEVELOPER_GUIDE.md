@@ -22,7 +22,7 @@ cp backend/.env.example backend/.env
 
 Fill in local database, SendGrid-safe defaults, session, and media settings. Keep `backend/.env` out of git.
 
-The full PHP backend uses the private Composer package `jamarq/cpanel-backend-kit` for shared cPanel-safe primitives. Private package access should come from local GitHub/Composer credentials; do not commit `backend/auth.json`, tokens, or `backend/vendor/`.
+The full PHP backend uses the shared `jamarq/cpanel-backend-kit` Composer package for cPanel-safe primitives. This repo carries the approved package artifact under `third_party/composer/` so CI and deploy packaging do not require private Git credentials. Do not commit `backend/auth.json`, tokens, or `backend/vendor/`.
 
 ## Dev Servers
 

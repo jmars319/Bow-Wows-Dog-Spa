@@ -56,6 +56,9 @@ jobs:
           npm ci --prefix frontend/public-app
           npm ci --prefix frontend/admin-app
 
+      - name: Install backend Composer dependencies
+        run: composer install --working-dir=backend --no-dev --prefer-dist --no-interaction --optimize-autoloader
+
       - name: Run project doctor
         run: npm run doctor
 

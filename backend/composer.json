@@ -9,6 +9,10 @@
   },
   "repositories": [
     {
+      "type": "artifact",
+      "url": "../third_party/composer"
+    },
+    {
       "type": "vcs",
       "url": "https://github.com/jmars319/cpanel-backend-kit"
     }
