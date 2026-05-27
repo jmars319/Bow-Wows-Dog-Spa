@@ -45,6 +45,11 @@ jobs:
             frontend/public-app/package-lock.json
             frontend/admin-app/package-lock.json
 
+      - name: Use pinned npm
+        run: |
+          npm install --global "$(node -p "require('./package.json').packageManager")"
+          npm --version
+
       - name: Install frontend and e2e dependencies
         run: |
           npm ci
