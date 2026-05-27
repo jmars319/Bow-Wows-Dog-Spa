@@ -4,9 +4,27 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SITE_NAME="${SITE_NAME:-bowwowsdogspa.com}"
 MODE="${LIVE_REFERENCE_MODE:-placeholder}"
-LIVE_REF_ZIP="${LIVE_REF_ZIP:-$ROOT_DIR/../../../../_live-reference/bowwowsdogspa.com/deploy-placeholder.zip}"
 CURRENT_ZIP="${CURRENT_ZIP:-$ROOT_DIR/deploy-placeholder.zip}"
 PROD_ENV_FILE="${PROD_ENV_FILE:-$ROOT_DIR/backend/.env.production}"
+
+find_live_reference_zip() {
+  local dir="$ROOT_DIR"
+  local candidate
+  while [[ "$dir" != "/" && -n "$dir" ]]; do
+    for candidate in \
+      "$dir/_live-reference/$SITE_NAME/deploy-placeholder.zip" \
+      "$dir/Websites/_live-reference/$SITE_NAME/deploy-placeholder.zip"; do
+      if [[ -f "$candidate" ]]; then
+        printf '%s\n' "$candidate"
+        return 0
+      fi
+    done
+    dir="$(dirname "$dir")"
+  done
+  printf '%s\n' "$ROOT_DIR/../../../../_live-reference/$SITE_NAME/deploy-placeholder.zip"
+}
+
+LIVE_REF_ZIP="${LIVE_REF_ZIP:-$(find_live_reference_zip)}"
 
 log() { printf '[live-reference][%s] %s\n' "$SITE_NAME" "$*"; }
 warn() { printf '[live-reference][%s][WARN] %s\n' "$SITE_NAME" "$*" >&2; }
