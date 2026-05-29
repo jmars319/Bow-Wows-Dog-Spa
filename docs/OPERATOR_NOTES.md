@@ -57,7 +57,7 @@
 
 ## Media pipeline & storage
 - The uploads tree (`backend/uploads/` locally, `api/uploads/` on cPanel) contains `originals/`, `variants/optimized/`, `variants/webp/`, and `manifests/`. Keep these folders writable (`775` on GoDaddy).
-- Deleting a media entry removes the original, every derivative, and the manifest atomically.
+- Media deletion is blocked while an upload is assigned to retail items, gallery items, legacy happy-client images, or the hero section. Once an unused media entry is explicitly deleted, the app removes the original, every derivative, and the manifest atomically.
 - Public/admin image rendering uses `<picture>` with both WebP and raster `srcset` values. Avoid linking directly to `/uploads/*.jpg` except for fallbacks.
 
 ## System diagnostics
