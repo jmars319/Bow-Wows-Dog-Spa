@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@jamarq/cpanel-admin-kit": "file:../../third_party/npm/jamarq-cpanel-admin-kit-0.2.0.tgz",
+    "@jamarq/cpanel-admin-kit": "file:../../third_party/npm/jamarq-cpanel-admin-kit-0.2.1.tgz",
     "axios": "^1.16.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
