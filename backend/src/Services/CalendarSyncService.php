@@ -9,8 +9,10 @@ use BowWowSpa\Support\Config;
 
 final class CalendarSyncService
 {
-    public function __construct(private readonly CalendarIntegrationService $integrations = new CalendarIntegrationService())
-    {
+    public function __construct(
+        private readonly CalendarIntegrationService $integrations = new CalendarIntegrationService(),
+        private readonly GoogleCalendarClient $google = new GoogleCalendarClient(),
+    ) {
     }
 
     public function queueBookingSync(array $booking, ?string $previousStatus = null): void
@@ -27,6 +29,180 @@ final class CalendarSyncService
         foreach ($this->integrations->activeDirectWriteTargets() as $integration) {
             $this->queueJob((int) $integration['id'], (int) $booking['id'], $action, $this->payloadForBooking($booking));
         }
+
+        if ((bool) Config::get('calendar_sync.auto_process', true)) {
+            $this->processPendingJobs(5);
+        }
+    }
+
+    /** @return array{processed:int,completed:int,failed:int,skipped:int} */
+    public function processPendingJobs(int $limit = 25): array
+    {
+        $limit = max(1, min(100, $limit));
+        $maxAttempts = (int) Config::get('calendar_sync.max_job_attempts', 5);
+        $rows = Database::fetchAll(
+            'SELECT *
+             FROM calendar_sync_jobs
+             WHERE job_status IN ("pending", "failed")
+               AND attempt_count < ' . max(1, $maxAttempts) . '
+               AND available_at <= NOW()
+             ORDER BY available_at ASC, id ASC
+             LIMIT ' . $limit
+        );
+
+        $result = [
+            'processed' => 0,
+            'completed' => 0,
+            'failed' => 0,
+            'skipped' => 0,
+        ];
+
+        foreach ($rows as $job) {
+            $result['processed']++;
+            try {
+                Database::run(
+                    'UPDATE calendar_sync_jobs
+                     SET job_status = "processing",
+                         attempt_count = attempt_count + 1,
+                         updated_at = NOW()
+                     WHERE id = :id
+                       AND job_status IN ("pending", "failed")',
+                    ['id' => (int) $job['id']]
+                );
+                $outcome = $this->processJob($job);
+                $status = $outcome === 'skipped' ? 'skipped' : 'completed';
+                Database::run(
+                    'UPDATE calendar_sync_jobs
+                     SET job_status = :status,
+                         error_message = NULL,
+                         processed_at = NOW(),
+                         updated_at = NOW()
+                     WHERE id = :id',
+                    ['status' => $status, 'id' => (int) $job['id']]
+                );
+                $result[$status]++;
+            } catch (\Throwable $e) {
+                $result['failed']++;
+                $this->markJobFailed($job, $e->getMessage());
+            }
+        }
+
+        return $result;
+    }
+
+    private function processJob(array $job): string
+    {
+        $integration = Database::fetch(
+            'SELECT *
+             FROM calendar_integrations
+             WHERE id = :id
+               AND connection_status = "connected"
+               AND is_enabled = 1
+             LIMIT 1',
+            ['id' => (int) $job['calendar_integration_id']]
+        );
+        if (!$integration) {
+            return 'skipped';
+        }
+
+        $booking = (new BookingService())->find((int) $job['booking_request_id']);
+        if ($booking === null) {
+            return 'skipped';
+        }
+
+        $link = Database::fetch(
+            'SELECT *
+             FROM calendar_sync_links
+             WHERE calendar_integration_id = :integration_id
+               AND booking_request_id = :booking_id
+             LIMIT 1',
+            [
+                'integration_id' => (int) $integration['id'],
+                'booking_id' => (int) $booking['id'],
+            ]
+        );
+
+        if ((string) $job['action'] === 'delete_booking') {
+            if (!$link) {
+                return 'skipped';
+            }
+
+            $this->google->deleteBookingEvent($integration, (string) $link['external_event_id']);
+            Database::run(
+                'DELETE FROM calendar_sync_links
+                 WHERE calendar_integration_id = :integration_id
+                   AND booking_request_id = :booking_id',
+                [
+                    'integration_id' => (int) $integration['id'],
+                    'booking_id' => (int) $booking['id'],
+                ]
+            );
+            Database::run(
+                'UPDATE calendar_integrations
+                 SET last_synced_at = NOW(),
+                     last_error = NULL,
+                     updated_at = NOW()
+                 WHERE id = :id',
+                ['id' => (int) $integration['id']]
+            );
+            return 'completed';
+        }
+
+        if ((string) $job['action'] !== 'upsert_booking' || (string) $booking['status'] !== 'confirmed') {
+            return 'skipped';
+        }
+
+        $event = $this->google->upsertBookingEvent($integration, $booking, $link);
+        $eventId = (string) ($event['id'] ?? '');
+        if ($eventId === '') {
+            throw new \RuntimeException('Google did not return an event id.');
+        }
+
+        Database::run(
+            'INSERT INTO calendar_sync_links (
+                calendar_integration_id,
+                booking_request_id,
+                external_calendar_id,
+                external_event_id,
+                external_event_version,
+                synced_at,
+                created_at,
+                updated_at
+            ) VALUES (
+                :integration_id,
+                :booking_id,
+                :calendar_id,
+                :event_id,
+                :event_version,
+                NOW(),
+                NOW(),
+                NOW()
+            )
+             ON DUPLICATE KEY UPDATE
+                external_calendar_id = VALUES(external_calendar_id),
+                external_event_id = VALUES(external_event_id),
+                external_event_version = VALUES(external_event_version),
+                synced_at = VALUES(synced_at),
+                updated_at = VALUES(updated_at)',
+            [
+                'integration_id' => (int) $integration['id'],
+                'booking_id' => (int) $booking['id'],
+                'calendar_id' => (string) ($event['organizer']['email'] ?? $integration['target_calendar_reference'] ?? 'primary'),
+                'event_id' => $eventId,
+                'event_version' => (string) ($event['etag'] ?? ''),
+            ]
+        );
+
+        Database::run(
+            'UPDATE calendar_integrations
+             SET last_synced_at = NOW(),
+                 last_error = NULL,
+                 updated_at = NOW()
+             WHERE id = :id',
+            ['id' => (int) $integration['id']]
+        );
+
+        return 'completed';
     }
 
     private function actionForStatusChange(string $status, ?string $previousStatus): ?string
@@ -152,5 +328,39 @@ final class CalendarSyncService
             'admin_notes' => $booking['admin_notes'] ?? null,
             'total_duration_minutes' => (int) ($booking['total_duration_minutes'] ?? 0),
         ];
+    }
+
+    private function markJobFailed(array $job, string $message): void
+    {
+        $maxAttempts = (int) Config::get('calendar_sync.max_job_attempts', 5);
+        $nextDelayMinutes = min(120, max(5, ((int) ($job['attempt_count'] ?? 0) + 1) * 10));
+
+        Database::run(
+            'UPDATE calendar_sync_jobs
+             SET job_status = "failed",
+                 error_message = :message,
+                 available_at = DATE_ADD(NOW(), INTERVAL ' . $nextDelayMinutes . ' MINUTE),
+                 updated_at = NOW()
+             WHERE id = :id',
+            [
+                'message' => substr($message, 0, 2000),
+                'id' => (int) $job['id'],
+            ]
+        );
+
+        Database::run(
+            'UPDATE calendar_integrations
+             SET last_error = :message,
+                 updated_at = NOW()
+             WHERE id = :id',
+            [
+                'message' => substr($message, 0, 2000),
+                'id' => (int) $job['calendar_integration_id'],
+            ]
+        );
+
+        if ((int) ($job['attempt_count'] ?? 0) + 1 >= $maxAttempts) {
+            error_log('[BowWow][calendar_sync_failed_permanently] job=' . (int) $job['id'] . ' error=' . $message);
+        }
     }
 }

@@ -20,6 +20,22 @@ export function CalendarSyncPage() {
     load().catch((err) => setError(err.response?.data?.error?.message ?? err.message));
   }, [load]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const calendarStatus = params.get('calendar');
+    if (!calendarStatus) {
+      return;
+    }
+
+    const messages = {
+      connected: { tone: 'success', message: 'Google Calendar connected.' },
+      'oauth-error': { tone: 'error', message: 'Google Calendar could not be connected. Please try again.' },
+      'connect-error': { tone: 'error', message: 'Google Calendar connection failed. Check the settings and try again.' },
+    };
+    setStatus(messages[calendarStatus] || null);
+    window.history.replaceState({}, '', window.location.pathname);
+  }, []);
+
   const resetForm = () => {
     const defaultProvider = data?.providers?.[0]?.key || 'google';
     setForm(createCalendarIntegrationForm(defaultProvider));
@@ -52,6 +68,8 @@ export function CalendarSyncPage() {
       notes: item.notes || '',
       is_enabled: Boolean(item.is_enabled),
       sync_confirmed_bookings: Boolean(item.sync_confirmed_bookings),
+      is_primary_write_target: Boolean(item.is_primary_write_target),
+      blocks_availability: Boolean(item.blocks_availability),
     });
     setStatus(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -59,7 +77,7 @@ export function CalendarSyncPage() {
 
   const destroy = async (id) => {
     if (!(await confirm({
-      message: 'Delete this calendar integration slot? Existing sync history for that slot will be removed too.',
+      message: 'Delete this calendar integration? Existing sync history for that slot will be removed too.',
       confirmLabel: 'Delete slot',
       tone: 'danger',
     }))) {
@@ -81,12 +99,63 @@ export function CalendarSyncPage() {
     }
   };
 
+  const connectGoogle = async (item) => {
+    try {
+      const response = await api.post(`/calendar-integrations/${item.id}/connect-google`);
+      window.location.href = response.data.data.authorization_url;
+    } catch (err) {
+      setStatus({ tone: 'error', message: err.response?.data?.error?.message ?? err.message });
+    }
+  };
+
+  const disconnectGoogle = async (item) => {
+    if (!(await confirm({
+      message: `Disconnect Google Calendar for ${item.label}? Public booking will stop using it after this is saved.`,
+      confirmLabel: 'Disconnect',
+      tone: 'danger',
+    }))) {
+      return;
+    }
+
+    try {
+      await api.post(`/calendar-integrations/${item.id}/disconnect-google`);
+      setStatus({ tone: 'success', message: 'Google Calendar disconnected.' });
+      await load();
+    } catch (err) {
+      setStatus({ tone: 'error', message: err.response?.data?.error?.message ?? err.message });
+    }
+  };
+
+  const testConnection = async (item) => {
+    try {
+      const response = await api.post(`/calendar-integrations/${item.id}/test`);
+      const count = response.data.data.calendars?.length ?? 0;
+      setStatus({ tone: 'success', message: `Google Calendar responded. ${count} calendar${count === 1 ? '' : 's'} visible.` });
+    } catch (err) {
+      setStatus({ tone: 'error', message: err.response?.data?.error?.message ?? err.message });
+    }
+  };
+
+  const runSync = async () => {
+    try {
+      const response = await api.post('/calendar-sync/run');
+      const result = response.data.data;
+      setStatus({
+        tone: result.failed > 0 ? 'error' : 'success',
+        message: `Sync run finished: ${result.completed} completed, ${result.skipped} skipped, ${result.failed} failed.`,
+      });
+      await load();
+    } catch (err) {
+      setStatus({ tone: 'error', message: err.response?.data?.error?.message ?? err.message });
+    }
+  };
+
   if (error && !data) {
     return <div className="card">{error}</div>;
   }
 
   if (!data) {
-    return <div className="card">Loading calendar prep foundation…</div>;
+    return <div className="card">Loading calendar sync…</div>;
   }
 
   const providerLookup = Object.fromEntries((data.providers ?? []).map((provider) => [provider.key, provider]));
@@ -95,38 +164,29 @@ export function CalendarSyncPage() {
 
   return (
     <div>
-      <h1>Calendar Prep</h1>
-      <p>Internal pre-launch setup only. This stores future Google, Microsoft, or Apple sync targets and reserves the booking lifecycle hooks needed to sync confirmed appointments later.</p>
-      {error ? <div className="card" style={{ marginBottom: '1rem' }}>{error}</div> : null}
-
-      <div className="card">
-        <h3>Current foundation</h3>
-        <p>Calendar sync enabled: {data.config?.enabled ? 'Yes' : 'No'}</p>
-        <p>Default timezone: {data.config?.default_timezone || 'Not set'}</p>
-        <p>Max job attempts: {data.config?.max_job_attempts ?? 0}</p>
-        <p className="muted">No provider-specific OAuth or event-writing code is active yet. Enabling a slot here will not create calendar events until a provider implementation is added and connected.</p>
+      <div className="page-header">
+        <div>
+          <h1>Calendar Sync</h1>
+          <p>Connect Google Calendar to block public booking times and write confirmed appointments to the staff calendar.</p>
+        </div>
+        <button type="button" className="btn btn-tertiary" onClick={runSync}>
+          Run Sync Now
+        </button>
       </div>
 
-      <div className="card" style={{ marginTop: '1rem' }}>
-        <h3>Supported provider slots</h3>
-        <div style={{ display: 'grid', gap: '0.75rem' }}>
-          {(data.providers ?? []).map((provider) => (
-            <div key={provider.key} style={{ border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '0.9rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'baseline' }}>
-                <strong>{provider.label}</strong>
-                <span className="small-text muted">{provider.implementation_status === 'foundation_only' ? 'Foundation only' : provider.implementation_status}</span>
-              </div>
-              <p style={{ margin: '0.5rem 0 0.25rem' }}>{provider.summary}</p>
-              <p className="muted small-text" style={{ margin: 0 }}>Planned auth: {provider.planned_auth_strategy}</p>
-              <p className="muted small-text" style={{ margin: '0.25rem 0 0' }}>{provider.future_notes}</p>
-            </div>
-          ))}
-        </div>
+      {error ? <div className="card" style={{ marginBottom: '1rem' }}>{error}</div> : null}
+      {status && <p role={status.tone === 'error' ? 'alert' : 'status'} className={`save-feedback ${status.tone === 'error' ? 'is-error' : 'is-success'}`}>{status.message}</p>}
+
+      <div className="card">
+        <h3>Current setup</h3>
+        <p>Calendar sync: {data.config?.enabled ? 'Enabled' : 'Disabled'}</p>
+        <p>Default timezone: {data.config?.default_timezone || 'Not set'}</p>
+        <p>Google OAuth: {data.config?.google_oauth_configured ? 'Configured' : 'Needs client id, secret, redirect URI, and token key'}</p>
+        <p className="muted">Bow Wow remains the source of truth. Google Calendar blocks availability and receives confirmed bookings, but Google edits do not change booking records.</p>
       </div>
 
       <form className="card" style={{ marginTop: '1rem' }} onSubmit={save}>
-        <h3>{form.id ? 'Edit integration slot' : 'Add integration slot'}</h3>
-        <p className="muted">You can store multiple targets here now, then connect one or more of them later when we implement the real provider.</p>
+        <h3>{form.id ? 'Edit calendar' : 'Add calendar'}</h3>
         <div className="form-grid">
           <label>
             Provider
@@ -138,29 +198,35 @@ export function CalendarSyncPage() {
           </label>
           <label>
             Label
-            <input value={form.label} onChange={(event) => setForm((current) => ({ ...current, label: event.target.value }))} placeholder="Front desk calendar" />
+            <input value={form.label} onChange={(event) => setForm((current) => ({ ...current, label: event.target.value }))} placeholder="Primary grooming calendar" />
           </label>
           <label>
-            Target calendar name
+            Calendar name
             <input value={form.target_calendar_name} onChange={(event) => setForm((current) => ({ ...current, target_calendar_name: event.target.value }))} placeholder="Grooming confirmations" />
           </label>
           <label>
-            Future target reference
-            <input value={form.target_calendar_reference} onChange={(event) => setForm((current) => ({ ...current, target_calendar_reference: event.target.value }))} placeholder={selectedProvider?.planned_target_label || 'Calendar reference'} />
+            Calendar ID
+            <input value={form.target_calendar_reference} onChange={(event) => setForm((current) => ({ ...current, target_calendar_reference: event.target.value }))} placeholder={selectedProvider?.planned_target_label || 'primary'} />
           </label>
         </div>
 
         <label style={{ display: 'block', marginTop: '0.75rem' }}>
           Notes
-          <textarea value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} rows={4} placeholder="Who owns this calendar, what it should receive, or anything we should remember later." />
+          <textarea value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} rows={4} placeholder="Who owns this calendar, what it should receive, or anything staff should remember." />
         </label>
 
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
+        <div style={{ display: 'grid', gap: '0.55rem', marginTop: '0.75rem' }}>
           <label>
-            <input type="checkbox" checked={form.is_enabled} onChange={(event) => setForm((current) => ({ ...current, is_enabled: event.target.checked }))} /> Enabled when provider is ready
+            <input type="checkbox" checked={form.is_enabled} onChange={(event) => setForm((current) => ({ ...current, is_enabled: event.target.checked }))} /> Enabled
           </label>
           <label>
-            <input type="checkbox" checked={form.sync_confirmed_bookings} onChange={(event) => setForm((current) => ({ ...current, sync_confirmed_bookings: event.target.checked }))} /> Sync confirmed bookings only
+            <input type="checkbox" checked={form.sync_confirmed_bookings} onChange={(event) => setForm((current) => ({ ...current, sync_confirmed_bookings: event.target.checked }))} /> Write confirmed bookings to this calendar
+          </label>
+          <label>
+            <input type="checkbox" checked={form.is_primary_write_target} onChange={(event) => setForm((current) => ({ ...current, is_primary_write_target: event.target.checked }))} /> Primary write calendar
+          </label>
+          <label>
+            <input type="checkbox" checked={form.blocks_availability} onChange={(event) => setForm((current) => ({ ...current, blocks_availability: event.target.checked }))} /> Block public booking slots when this calendar is busy
           </label>
         </div>
 
@@ -169,15 +235,13 @@ export function CalendarSyncPage() {
         </div>
 
         <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <button className="btn">{form.id ? 'Update slot' : 'Save slot'}</button>
+          <button className="btn">{form.id ? 'Update calendar' : 'Save calendar'}</button>
           <button type="button" className="btn btn-link" onClick={resetForm}>Clear</button>
         </div>
-        {status && <p role={status.tone === 'error' ? 'alert' : 'status'} className={status.tone === 'error' ? 'muted danger' : 'muted'} style={{ marginTop: '0.75rem' }}>{status.message}</p>}
       </form>
 
       <div className="card" style={{ marginTop: '1rem' }}>
         <h3>Queued sync work</h3>
-        <p className="muted">These counters are here so future provider implementations can reuse the same queue and tracking model.</p>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <tbody>
             {Object.entries(data.queue?.status_totals ?? {}).map(([key, total]) => (
@@ -192,7 +256,7 @@ export function CalendarSyncPage() {
 
       <div style={{ marginTop: '1rem', display: 'grid', gap: '0.75rem' }}>
         {(data.integrations ?? []).length === 0 ? (
-          <div className="card">No calendar integration slots saved yet.</div>
+          <div className="card">No calendars saved yet.</div>
         ) : (
           (data.integrations ?? []).map((item) => (
             <div key={item.id} className="card">
@@ -202,15 +266,26 @@ export function CalendarSyncPage() {
                   <p className="muted" style={{ margin: '0.35rem 0 0' }}>
                     {item.provider_label} · {humanizeCalendarConnectionStatus(item.connection_status)} · {item.is_enabled ? 'Enabled' : 'Disabled'}
                   </p>
+                  <p className="muted small-text" style={{ margin: '0.25rem 0 0' }}>
+                    {item.is_primary_write_target ? 'Primary write calendar' : 'Blocking/secondary calendar'} · {item.blocks_availability ? 'Blocks booking availability' : 'Does not block public slots'}
+                  </p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  {item.provider === 'google' && item.connection_status === 'connected' ? (
+                    <>
+                      <button type="button" className="btn btn-tertiary" onClick={() => testConnection(item)}>Test</button>
+                      <button type="button" className="btn btn-link danger" onClick={() => disconnectGoogle(item)}>Disconnect</button>
+                    </>
+                  ) : item.provider === 'google' ? (
+                    <button type="button" className="btn" onClick={() => connectGoogle(item)}>Connect Google</button>
+                  ) : null}
                   <button type="button" className="btn btn-tertiary" onClick={() => edit(item)}>Edit</button>
                   <button type="button" className="btn btn-link danger" onClick={() => destroy(item.id)}>Delete</button>
                 </div>
               </div>
               <p style={{ margin: '0.75rem 0 0.25rem' }}>Target calendar: {item.target_calendar_name || 'Not named yet'}</p>
-              <p className="muted small-text" style={{ margin: 0 }}>Future reference: {item.target_calendar_reference || 'Not assigned yet'}</p>
-              <p className="muted small-text" style={{ margin: '0.25rem 0 0' }}>Confirmed-only sync: {item.sync_confirmed_bookings ? 'Yes' : 'No'}</p>
+              <p className="muted small-text" style={{ margin: 0 }}>Calendar ID: {item.target_calendar_reference || 'Not assigned yet'}</p>
+              {item.google_account_email ? <p className="muted small-text" style={{ margin: '0.25rem 0 0' }}>Google account: {item.google_account_email}</p> : null}
               <p className="muted small-text" style={{ margin: '0.25rem 0 0' }}>Pending jobs: {item.stats?.pending_jobs ?? 0} · Failed jobs: {item.stats?.failed_jobs ?? 0} · Linked events: {item.stats?.linked_events ?? 0}</p>
               {item.notes ? <p style={{ margin: '0.75rem 0 0' }}>{item.notes}</p> : null}
               {item.last_error ? <p className="muted danger" style={{ margin: '0.75rem 0 0' }}>Last error: {item.last_error}</p> : null}

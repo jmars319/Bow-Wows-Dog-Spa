@@ -4,7 +4,7 @@ Monorepo for the Bow Wow’s Dog Spa build, covering:
 
 - `frontend/public-app`: Public single-page site with booking + contact forms.
 - `frontend/admin-app`: Admin SPA with RBAC-protected modules for content, bookings, schedule, media, etc.
-- `backend`: PHP API with SendGrid integration, MySQL persistence, media processing, audit logging, a provider-agnostic calendar sync foundation for future Google, Microsoft, or Apple booking sync, and catalog groundwork for future online product sales.
+- `backend`: PHP API with SendGrid integration, MySQL persistence, R2-backed media processing, audit logging, Google Calendar availability/sync for confirmed bookings, and catalog groundwork for future online product sales.
 - `scripts`: Helper build scripts that emit deploy-ready ZIPs for GoDaddy.
 - `docs`: Deployment + operator runbooks.
 
@@ -47,8 +47,8 @@ See `docs/README.md` for the docs index, `docs/DEPLOYMENT_GUIDE.md` for cPanel d
   - `SENDGRID_SEND_CUSTOMER_CONFIRMATIONS`
   - `SENDGRID_API_KEY`, `SENDGRID_FROM_*`
 - **Sessions** – cookie name, lifetime, `SESSION_SECURE` (set `true` when HTTPS enforced).
-- **Media & Upload Processing** – `UPLOAD_DIR`, size/quality knobs, width profiles.
-- **Calendar Sync Foundation** – `CALENDAR_SYNC_ENABLED`, `CALENDAR_SYNC_DEFAULT_TIMEZONE`, `CALENDAR_SYNC_MAX_JOB_ATTEMPTS`.
+- **Media & Upload Processing** – `MEDIA_STORAGE_PROVIDER`, R2 bucket/base URL values, local fallback upload directory, size/quality knobs, width profiles.
+- **Google Calendar Sync** – `CALENDAR_SYNC_ENABLED`, `CALENDAR_SYNC_DEFAULT_TIMEZONE`, `CALENDAR_SYNC_MAX_JOB_ATTEMPTS`, `GOOGLE_CALENDAR_*`.
 - **Admin seeding (optional)** – use the CLI script `php backend/scripts/seed_admin.php` after configuring `backend/.env` in local/CLI workflows or in a deploy built with `INCLUDE_CLI_TOOLS_IN_DEPLOY=true`.
 
 Missing `.env` results in a clear bootstrap error so the backend never runs with partial config.

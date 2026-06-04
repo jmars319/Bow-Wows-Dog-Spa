@@ -24,11 +24,12 @@
   - An admin confirmed booking already uses the time.
   - A manual hold exists (via public selection) and has not expired.
 
-## Calendar sync groundwork
-- The **Calendar Sync** admin screen stores future calendar targets for Google, Microsoft, and Apple without connecting any provider yet.
-- Multiple targets can be saved at once so the business can decide later which calendars should receive confirmed bookings.
-- Saving a slot here does **not** create calendar events on its own. Actual provider auth and event-writing work still has to be implemented later.
-- The backend now records future sync jobs and event links in dedicated tables so confirmed-booking sync can be added without reshaping the booking lifecycle again.
+## Google Calendar sync
+- The **Calendar Sync** admin screen connects Bow Wow's Google account using the admin OAuth flow.
+- Bow Wow remains the source of truth. Public booking uses Google free/busy data to block unavailable times, and confirmed bookings are written to the selected Google calendar.
+- Admin edits to a confirmed appointment queue a Google event update. Cancelling a synced appointment queues removal/cancellation in Google.
+- Google Calendar edits do not mutate Bow Wow booking records. Staff should make booking changes inside Bow Wow admin.
+- If Google availability cannot be checked, public booking uses the contact fallback instead of showing times that may be unavailable.
 
 ## Content management
 - **Text & Site Info**: update hero copy, about text, policy blocks, serving-area tagline, and default email language.
@@ -56,7 +57,8 @@
 - Privacy + Terms content is editable from the Text & Site Info screen and exposed publicly at `/privacy` and `/terms`.
 
 ## Media pipeline & storage
-- The uploads tree (`backend/uploads/` locally, `api/uploads/` on cPanel) contains `originals/`, `variants/optimized/`, `variants/webp/`, and `manifests/`. Keep these folders writable (`775` on GoDaddy).
+- Full-app media is R2-backed from launch. Public images are served from `https://cdn.bowwowsdogspa.com`; private booking attachments stay behind authenticated backend download routes.
+- The uploads tree (`backend/uploads/` locally, `api/uploads/` on cPanel) remains a writable local fallback and legacy compatibility layer with `originals/`, `variants/optimized/`, `variants/webp/`, and `manifests/`.
 - Media deletion is blocked while an upload is assigned to retail items, gallery items, legacy happy-client images, or the hero section. Once an unused media entry is explicitly deleted, the app removes the original, every derivative, and the manifest atomically.
 - Public/admin image rendering uses `<picture>` with both WebP and raster `srcset` values. Avoid linking directly to `/uploads/*.jpg` except for fallbacks.
 

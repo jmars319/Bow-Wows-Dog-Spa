@@ -7,13 +7,16 @@ namespace BowWowSpa\Controllers;
 use BowWowSpa\Database\Database;
 use BowWowSpa\Http\Response;
 use BowWowSpa\Services\AuthService;
+use BowWowSpa\Services\StorageService;
 use BowWowSpa\Support\Config;
-use Jamarq\CpanelBackend\Storage\StorageConfig;
 use Jamarq\CpanelBackend\System\SystemCheck;
 
 final class AdminSystemController
 {
-    public function __construct(private readonly AuthService $auth = new AuthService())
+    public function __construct(
+        private readonly AuthService $auth = new AuthService(),
+        private readonly StorageService $storage = new StorageService(),
+    )
     {
     }
 
@@ -35,9 +38,7 @@ final class AdminSystemController
         }
 
         $sendgridConfigured = (bool) (Config::get('sendgrid.api_key') && Config::get('sendgrid.from_email'));
-        $storageConfig = new StorageConfig($_ENV);
-        $storageDetails = $storageConfig->systemCheckDetails();
-        $storageDetails['cdn_base_url'] = 'https://cdn.bowwowsdogspa.com';
+        $storageDetails = $this->storage->systemStatus();
         $storageDetails['r2_env'] = [
             'R2_ENDPOINT',
             'R2_ACCESS_KEY_ID',
@@ -46,7 +47,11 @@ final class AdminSystemController
             'R2_PRIVATE_BUCKET',
             'R2_PUBLIC_BASE_URL',
         ];
-        $storageReady = $storageConfig->provider() === 'r2' && $storageConfig->r2Configured();
+        $storageReady = $this->storage->provider() === 'r2' && $this->storage->r2Configured();
+        $googleReady = trim((string) Config::get('calendar_sync.google_client_id', '')) !== ''
+            && trim((string) Config::get('calendar_sync.google_client_secret', '')) !== ''
+            && trim((string) Config::get('calendar_sync.google_redirect_uri', '')) !== ''
+            && trim((string) Config::get('calendar_sync.google_token_key', '')) !== '';
         $app = [
             'env' => Config::get('app.env'),
             'url' => Config::get('app.url'),
@@ -64,6 +69,21 @@ final class AdminSystemController
             $this->check('database', 'Database connection', $dbOk ? 'ok' : 'error', $dbOk ? 'The API can reach the Bow Wow database.' : 'The API could not reach the Bow Wow database.', 'Check api/.env database values and the cPanel database user.'),
             $this->check('webp_support', 'Image optimization support', $webpSupport ? 'ok' : 'warning', $webpSupport ? 'WebP image generation is available.' : 'WebP image generation is not available.', 'Enable GD WebP or Imagick in cPanel if the full app needs media uploads.'),
             $this->check('sendgrid_readiness', 'SendGrid readiness', $sendgridConfigured ? 'ok' : 'warning', $sendgridConfigured ? 'Email notification settings are configured.' : 'Email notification settings are incomplete or disabled.', 'Full-app booking/contact emails need SendGrid before launch. Placeholder deploy is unaffected.'),
+            $this->check(
+                'google_calendar_readiness',
+                'Google Calendar readiness',
+                $googleReady ? 'ok' : 'warning',
+                $googleReady ? 'Google Calendar OAuth settings are configured.' : 'Google Calendar OAuth settings are incomplete.',
+                $googleReady ? 'Connect the primary calendar from Calendar Sync before launch.' : 'Set the Google client id, client secret, redirect URI, and token encryption key before launch.',
+                [
+                    'required_env' => [
+                        'GOOGLE_CALENDAR_CLIENT_ID',
+                        'GOOGLE_CALENDAR_CLIENT_SECRET',
+                        'GOOGLE_CALENDAR_REDIRECT_URI',
+                        'GOOGLE_CALENDAR_TOKEN_KEY',
+                    ],
+                ]
+            ),
             $this->check(
                 'storage_provider',
                 'Storage provider',
@@ -102,6 +122,7 @@ final class AdminSystemController
                 ['id' => 'core', 'label' => 'Core Site', 'checks' => ['api_health', 'admin_auth', 'database', 'production_env']],
                 ['id' => 'full_app', 'label' => 'Full App Storage', 'checks' => ['admin_users', 'booking_requests', 'contact_messages', 'services', 'retail_items']],
                 ['id' => 'media', 'label' => 'Media Storage', 'checks' => ['media_assets', 'webp_support', 'upload_dir_writable', 'originals_writable', 'variants_optimized_writable', 'variants_webp_writable', 'manifests_writable', 'storage_provider']],
+                ['id' => 'calendar', 'label' => 'Calendar Sync', 'checks' => ['google_calendar_readiness']],
                 ['id' => 'email', 'label' => 'Email', 'checks' => ['sendgrid_readiness']],
             ],
             'php_version' => PHP_VERSION,

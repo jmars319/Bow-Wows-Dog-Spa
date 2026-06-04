@@ -23,13 +23,13 @@ The full app follows the cPanel spine used by the other sites: public at `/`, ad
 
 ## Public Surface
 
-The full public app includes booking, contact, services, gallery, retail/catalog groundwork, legal/status pages, branded error pages, and future calendar-sync support.
+The full public app includes booking, contact, services, gallery, retail/catalog groundwork, legal/status pages, branded error pages, and Google Calendar-backed availability for booking slots.
 
 The placeholder site includes only coming-soon status, legal pages, brand assets, noindex behavior, and static Apache routing.
 
 ## Admin Surface
 
-The full admin app includes dashboard, bookings, schedule, services, site content, gallery/media, retail/catalog groundwork, users, audit log, calendar-sync groundwork, and System Checks.
+The full admin app includes dashboard, bookings, schedule, services, site content, gallery/media, retail/catalog groundwork, users, audit log, Google Calendar sync, and System Checks.
 
 Before full-app relaunch, confirm:
 
@@ -45,11 +45,11 @@ Default full-site deploys intentionally exclude CLI tools, migrations, schema SQ
 
 ## Runtime Storage
 
-Full-app uploads use local cPanel storage for now. `api/uploads/` is the only server-owned folder that may need preservation before the future R2 migration. Placeholder deploys do not preserve or rely on runtime upload data.
+Full-app uploads use R2 from launch, with `api/uploads/` retained only as a local fallback and legacy compatibility layer. Placeholder deploys do not preserve or rely on runtime upload data.
 
 ## Future Work
 
 - Relaunch decision and production database schema confirmation.
 - Optional extraction of duplicated frontend code into `frontend/shared/src`.
-- R2 migration after buckets/tokens and the storage adapter switch are approved.
+- Production R2 smoke and legacy upload fallback cleanup after the full app is approved for launch.
 - Retail checkout only after catalog-only behavior is explicitly changed.

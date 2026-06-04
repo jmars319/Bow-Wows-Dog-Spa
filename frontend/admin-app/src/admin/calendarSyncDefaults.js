@@ -8,6 +8,8 @@ export function createCalendarIntegrationForm(provider = 'google') {
     notes: '',
     is_enabled: false,
     sync_confirmed_bookings: true,
+    is_primary_write_target: false,
+    blocks_availability: true,
   };
 }
 

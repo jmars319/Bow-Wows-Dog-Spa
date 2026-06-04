@@ -94,4 +94,68 @@ final class CalendarIntegrationTest extends TestCase
         $this->assertSame(1, $integration['stats']['completed_jobs']);
         $this->assertSame(1, $integration['stats']['linked_events']);
     }
+
+    public function testGoogleAuthorizationUrlIncludesIntegrationStateAndScopes(): void
+    {
+        $service = new CalendarIntegrationService();
+        $saved = $service->save([
+            'provider' => 'google',
+            'label' => 'Primary Google Calendar',
+            'target_calendar_reference' => 'primary',
+        ]);
+
+        $url = $service->googleAuthorizationUrl((int) $saved['id'], 'state-token');
+
+        $this->assertStringContainsString('accounts.google.com/o/oauth2/v2/auth', $url);
+        $this->assertStringContainsString('state=state-token%3A' . $saved['id'], $url);
+        $this->assertStringContainsString(rawurlencode('https://www.googleapis.com/auth/calendar.events'), $url);
+        $this->assertStringContainsString('access_type=offline', $url);
+    }
+
+    public function testCalendarSyncRunRecordsTokenlessGoogleFailure(): void
+    {
+        $integrationId = $this->env->insertCalendarIntegration([
+            'is_primary_write_target' => 1,
+        ]);
+        $bookingId = Database::insert(
+            'INSERT INTO booking_requests (
+                date,
+                time,
+                end_time,
+                customer_name,
+                phone,
+                email,
+                dog_name,
+                total_duration_minutes,
+                status,
+                created_at,
+                updated_at
+             ) VALUES (
+                CURDATE(),
+                "09:00:00",
+                "09:30:00",
+                "Calendar Test Client",
+                "3365550188",
+                "calendar@example.com",
+                "Milo",
+                30,
+                "confirmed",
+                NOW(),
+                NOW()
+             )'
+        );
+        Database::insert(
+            'INSERT INTO calendar_sync_jobs (calendar_integration_id, booking_request_id, action, job_status, payload_json, attempt_count, available_at, created_at, updated_at)
+             VALUES (:integration_id, :booking_id, "upsert_booking", "pending", "{}", 0, NOW(), NOW(), NOW())',
+            ['integration_id' => $integrationId, 'booking_id' => $bookingId]
+        );
+
+        $result = (new \BowWowSpa\Services\CalendarSyncService())->processPendingJobs();
+        $job = Database::fetch('SELECT * FROM calendar_sync_jobs WHERE booking_request_id = :id LIMIT 1', ['id' => $bookingId]);
+        $integration = Database::fetch('SELECT last_error FROM calendar_integrations WHERE id = :id LIMIT 1', ['id' => $integrationId]);
+
+        $this->assertSame(1, $result['failed']);
+        $this->assertSame('failed', $job['job_status'] ?? null);
+        $this->assertStringContainsString('not connected', strtolower((string) ($integration['last_error'] ?? '')));
+    }
 }

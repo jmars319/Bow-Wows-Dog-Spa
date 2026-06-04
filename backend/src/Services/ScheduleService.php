@@ -17,8 +17,10 @@ final class ScheduleService
     private ?array $settingsCache = null;
     private int $slotMinutes = 30;
 
-    public function __construct(private readonly ServiceCatalogService $services = new ServiceCatalogService())
-    {
+    public function __construct(
+        private readonly ServiceCatalogService $services = new ServiceCatalogService(),
+        private readonly CalendarAvailabilityService $externalAvailability = new CalendarAvailabilityService(),
+    ) {
     }
 
     public function getTemplates(): array
@@ -92,7 +94,18 @@ final class ScheduleService
         );
         $durationBlocks = max(1, (int) ceil($duration['total_duration_minutes'] / $this->slotMinutes));
         $publishedLookup = array_fill_keys($times, true);
-        $blockedLookup = $this->blockedLookupForDate($date, $options['exclude_hold_token'] ?? null);
+        $blockedLookup = $this->blockedLookupForDate(
+            $date,
+            $options['exclude_hold_token'] ?? null,
+            isset($options['exclude_booking_id']) ? (int) $options['exclude_booking_id'] : null
+        );
+        if (empty($options['skip_external_calendar'])) {
+            foreach ($this->externalAvailability->busyLookupForDate($date, $times) as $slot => $busy) {
+                if ($busy) {
+                    $blockedLookup[$slot] = true;
+                }
+            }
+        }
 
         $available = [];
         foreach ($times as $time) {
@@ -263,15 +276,21 @@ final class ScheduleService
         return $this->normalizeTime($time);
     }
 
-    private function blockedLookupForDate(string $date, ?string $excludeHoldToken = null): array
+    private function blockedLookupForDate(string $date, ?string $excludeHoldToken = null, ?int $excludeBookingId = null): array
     {
         $blockedLookup = [];
 
         $pendingHours = $this->pendingExpireHours();
         $pendingThreshold = $pendingHours > 0 ? strtotime(sprintf('-%d hours', $pendingHours)) : null;
+        $params = ['date' => $date];
+        $bookingSql = 'SELECT id, time, end_time, status, created_at FROM booking_requests WHERE date = :date AND status IN ("pending_confirmation", "confirmed")';
+        if ($excludeBookingId !== null && $excludeBookingId > 0) {
+            $bookingSql .= ' AND id != :exclude_booking_id';
+            $params['exclude_booking_id'] = $excludeBookingId;
+        }
         $bookings = Database::fetchAll(
-            'SELECT id, time, end_time, status, created_at FROM booking_requests WHERE date = :date AND status IN ("pending_confirmation", "confirmed")',
-            ['date' => $date]
+            $bookingSql,
+            $params
         );
 
         foreach ($bookings as $booking) {

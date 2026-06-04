@@ -114,6 +114,7 @@ final class Application
         $this->router->add('GET', '/api/admin/booking-requests', [$booking, 'index']);
         $this->router->add('POST', '/api/admin/booking-requests', [$booking, 'create']);
         $this->router->add('POST', '/api/admin/booking-requests/action', [$booking, 'transition']);
+        $this->router->add('POST', '/api/admin/booking-requests/update', [$booking, 'updateDetails']);
         $this->router->add('POST', '/api/admin/booking-requests/notes', [$booking, 'updateNotes']);
         $this->router->add('POST', '/api/admin/booking-requests/extend', [$booking, 'extendHold']);
         $this->router->add('POST', '/api/admin/booking-requests/release', [$booking, 'releaseHold']);
@@ -171,6 +172,11 @@ final class Application
         $calendarIntegrations = new AdminCalendarIntegrationsController();
         $this->router->add('GET', '/api/admin/calendar-integrations', [$calendarIntegrations, 'index']);
         $this->router->add('POST', '/api/admin/calendar-integrations', [$calendarIntegrations, 'save']);
+        $this->router->add('GET', '/api/admin/calendar-integrations/google/callback', [$calendarIntegrations, 'googleCallback']);
+        $this->router->add('POST', '/api/admin/calendar-integrations/{id}/connect-google', [$calendarIntegrations, 'connectGoogle']);
+        $this->router->add('POST', '/api/admin/calendar-integrations/{id}/disconnect-google', [$calendarIntegrations, 'disconnectGoogle']);
+        $this->router->add('POST', '/api/admin/calendar-integrations/{id}/test', [$calendarIntegrations, 'test']);
+        $this->router->add('POST', '/api/admin/calendar-sync/run', [$calendarIntegrations, 'runSync']);
         $this->router->add('DELETE', '/api/admin/calendar-integrations/{id}', [$calendarIntegrations, 'delete']);
     }
 }

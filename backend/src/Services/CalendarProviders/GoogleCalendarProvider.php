@@ -18,12 +18,12 @@ final class GoogleCalendarProvider implements CalendarProviderInterface
         return [
             'key' => $this->key(),
             'label' => 'Google Calendar',
-            'implementation_status' => 'foundation_only',
+            'implementation_status' => 'active',
             'planned_auth_strategy' => 'OAuth 2.0 calendar write access',
             'planned_target_label' => 'Google calendar ID',
             'supports_multiple_integrations' => true,
-            'summary' => 'Future direct event write integration for confirmed bookings.',
-            'future_notes' => 'A later implementation can connect one or more Google calendars and sync confirmed appointments automatically.',
+            'summary' => 'Direct event writing for confirmed bookings and free/busy blocking for public appointment slots.',
+            'future_notes' => 'Use one primary write calendar at launch. Additional Google calendars can block availability when extra staff calendars are needed.',
         ];
     }
 

@@ -65,7 +65,7 @@ If a check is skipped because local database or email config is unavailable, doc
 - Keep public form records SQL-backed before email notification.
 - Keep admin System Checks as the first place to inspect DB, uploads, SendGrid, media, and deploy readiness.
 - Keep normal admin media labels non-technical; generated variant names and storage keys belong only in diagnostics.
-- Do not activate calendar sync, retail checkout, R2, or full-app production launch without a separate approved pass.
+- Google Calendar sync and R2 are part of the full-app launch foundation. Keep retail checkout and full-app production launch behind separate approval.
 
 ## Deploy Shape
 

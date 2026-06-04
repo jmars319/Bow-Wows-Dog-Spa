@@ -109,9 +109,14 @@ CREATE TABLE IF NOT EXISTS media_assets (
     optimized_srcset TEXT NULL,
     webp_srcset TEXT NULL,
     fallback_url VARCHAR(255) NULL,
+    storage_provider VARCHAR(32) NOT NULL DEFAULT 'local',
+    storage_bucket VARCHAR(191) NULL,
+    storage_key VARCHAR(255) NULL,
+    checksum_sha256 CHAR(64) NULL,
     created_by INT UNSIGNED NULL,
     created_at DATETIME NOT NULL,
     INDEX idx_media_creator (created_by),
+    INDEX idx_media_assets_storage_provider (storage_provider, category, created_at),
     CONSTRAINT fk_media_admin FOREIGN KEY (created_by) REFERENCES admin_users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -200,6 +205,10 @@ CREATE TABLE IF NOT EXISTS booking_request_attachments (
     file_path VARCHAR(255) NOT NULL,
     mime_type VARCHAR(100) NOT NULL,
     file_size_bytes INT UNSIGNED NOT NULL DEFAULT 0,
+    storage_provider VARCHAR(32) NOT NULL DEFAULT 'local',
+    storage_bucket VARCHAR(191) NULL,
+    storage_key VARCHAR(255) NULL,
+    checksum_sha256 CHAR(64) NULL,
     created_at DATETIME NOT NULL,
     INDEX idx_booking_attachment_booking (booking_request_id),
     CONSTRAINT fk_booking_attachment_booking FOREIGN KEY (booking_request_id) REFERENCES booking_requests(id) ON DELETE CASCADE
@@ -254,12 +263,20 @@ CREATE TABLE IF NOT EXISTS calendar_integrations (
     label VARCHAR(191) NOT NULL,
     target_calendar_name VARCHAR(191) NULL,
     target_calendar_reference VARCHAR(191) NULL,
+    google_account_email VARCHAR(191) NULL,
     connection_status ENUM('not_connected', 'connected', 'error') NOT NULL DEFAULT 'not_connected',
     sync_confirmed_bookings TINYINT(1) NOT NULL DEFAULT 1,
     is_enabled TINYINT(1) NOT NULL DEFAULT 0,
     settings_json JSON NULL,
     notes TEXT NULL,
+    access_token_encrypted TEXT NULL,
+    refresh_token_encrypted TEXT NULL,
+    token_expires_at DATETIME NULL,
+    scopes_json JSON NULL,
+    is_primary_write_target TINYINT(1) NOT NULL DEFAULT 0,
+    blocks_availability TINYINT(1) NOT NULL DEFAULT 1,
     last_synced_at DATETIME NULL,
+    last_availability_checked_at DATETIME NULL,
     last_error TEXT NULL,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
@@ -448,6 +465,51 @@ DEALLOCATE PREPARE stmt;
 
 SET @exists := (
     SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'media_assets' AND column_name = 'storage_provider'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE media_assets ADD COLUMN storage_provider VARCHAR(32) NOT NULL DEFAULT ''local'' AFTER fallback_url', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'media_assets' AND column_name = 'storage_bucket'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE media_assets ADD COLUMN storage_bucket VARCHAR(191) NULL AFTER storage_provider', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'media_assets' AND column_name = 'storage_key'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE media_assets ADD COLUMN storage_key VARCHAR(255) NULL AFTER storage_bucket', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'media_assets' AND column_name = 'checksum_sha256'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE media_assets ADD COLUMN checksum_sha256 CHAR(64) NULL AFTER storage_key', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.statistics
+    WHERE table_schema = @dbName AND table_name = 'media_assets' AND index_name = 'idx_media_assets_storage_provider'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE media_assets ADD INDEX idx_media_assets_storage_provider (storage_provider, category, created_at)', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
     WHERE table_schema = @dbName AND table_name = 'booking_holds' AND column_name = 'end_time'
 );
 SET @ddl := IF(@exists = 0, 'ALTER TABLE booking_holds ADD COLUMN end_time TIME NULL AFTER time', 'SELECT 1');
@@ -505,6 +567,42 @@ SET @exists := (
     WHERE table_schema = @dbName AND table_name = 'booking_requests' AND column_name = 'paperwork_notes'
 );
 SET @ddl := IF(@exists = 0, 'ALTER TABLE booking_requests ADD COLUMN paperwork_notes TEXT NULL AFTER request_notes', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'booking_request_attachments' AND column_name = 'storage_provider'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE booking_request_attachments ADD COLUMN storage_provider VARCHAR(32) NOT NULL DEFAULT ''local'' AFTER file_size_bytes', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'booking_request_attachments' AND column_name = 'storage_bucket'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE booking_request_attachments ADD COLUMN storage_bucket VARCHAR(191) NULL AFTER storage_provider', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'booking_request_attachments' AND column_name = 'storage_key'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE booking_request_attachments ADD COLUMN storage_key VARCHAR(255) NULL AFTER storage_bucket', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'booking_request_attachments' AND column_name = 'checksum_sha256'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE booking_request_attachments ADD COLUMN checksum_sha256 CHAR(64) NULL AFTER storage_key', 'SELECT 1');
 PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
@@ -659,6 +757,88 @@ SET @ddl := IF(@needs_services_active_sort_index = 0, 'ALTER TABLE services ADD 
 PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'calendar_integrations' AND column_name = 'google_account_email'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE calendar_integrations ADD COLUMN google_account_email VARCHAR(191) NULL AFTER target_calendar_reference', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'calendar_integrations' AND column_name = 'access_token_encrypted'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE calendar_integrations ADD COLUMN access_token_encrypted TEXT NULL AFTER notes', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'calendar_integrations' AND column_name = 'refresh_token_encrypted'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE calendar_integrations ADD COLUMN refresh_token_encrypted TEXT NULL AFTER access_token_encrypted', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'calendar_integrations' AND column_name = 'token_expires_at'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE calendar_integrations ADD COLUMN token_expires_at DATETIME NULL AFTER refresh_token_encrypted', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'calendar_integrations' AND column_name = 'scopes_json'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE calendar_integrations ADD COLUMN scopes_json JSON NULL AFTER token_expires_at', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'calendar_integrations' AND column_name = 'is_primary_write_target'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE calendar_integrations ADD COLUMN is_primary_write_target TINYINT(1) NOT NULL DEFAULT 0 AFTER scopes_json', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'calendar_integrations' AND column_name = 'blocks_availability'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE calendar_integrations ADD COLUMN blocks_availability TINYINT(1) NOT NULL DEFAULT 1 AFTER is_primary_write_target', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'calendar_integrations' AND column_name = 'last_availability_checked_at'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE calendar_integrations ADD COLUMN last_availability_checked_at DATETIME NULL AFTER last_synced_at', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+UPDATE media_assets
+SET storage_key = original_path
+WHERE storage_key IS NULL
+  AND original_path IS NOT NULL;
+
+UPDATE booking_request_attachments
+SET storage_key = CONCAT('booking-paperwork/', file_path)
+WHERE storage_key IS NULL
+  AND file_path IS NOT NULL;
 
 -- default site settings for public contact/location plus booking windows
 INSERT INTO site_settings (`key`, `value`)

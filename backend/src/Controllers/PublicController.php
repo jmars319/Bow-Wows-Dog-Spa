@@ -60,6 +60,17 @@ final class PublicController
                 ])
                 : null;
         } catch (\RuntimeException $e) {
+            if (str_contains(strtolower($e->getMessage()), 'calendar')) {
+                Response::success([
+                    'date' => $date,
+                    'duration_minutes' => $duration['total_duration_minutes'] ?? null,
+                    'duration_blocks' => $duration['duration_blocks'] ?? null,
+                    'availability' => [],
+                    'next_available' => null,
+                    'availability_status' => 'contact_required',
+                    'message' => 'Online availability is temporarily limited. Please call or send a message so we can confirm a safe appointment time.',
+                ]);
+            }
             Response::error('validation_error', $e->getMessage(), 422);
         }
 

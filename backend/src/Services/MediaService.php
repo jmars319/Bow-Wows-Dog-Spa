@@ -47,6 +47,10 @@ final class MediaService
         'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip'],
     ];
 
+    public function __construct(private readonly StorageService $storage = new StorageService())
+    {
+    }
+
     public function list(?string $category = null): array
     {
         $sql = 'SELECT * FROM media_assets';
@@ -100,6 +104,10 @@ final class MediaService
             ];
             $originalUrl = ($assetType === 'image' ? $paths['originals_url'] : $paths['attachments_url']) . '/' . $originalFilename;
             $originalStoredPath = ($assetType === 'image' ? 'originals/' : 'attachments/') . $originalFilename;
+            $storageProvider = 'local';
+            $storageBucket = null;
+            $storageKey = $originalStoredPath;
+            $checksum = hash_file('sha256', $originalPath) ?: null;
 
             if ($assetType === 'image') {
                 $this->normalizeOrientation($originalPath, $mime);
@@ -110,12 +118,44 @@ final class MediaService
                 }
 
                 $variants = $this->generateVariants($originalPath, $mime, $category, $baseName, $width, $height, $config);
-                $manifest = $this->writeManifest($baseName, $category, $mime, $width, $height, $originalFilename, $variants);
+            }
+
+            if ($this->storage->provider() === 'r2') {
+                $storedOriginal = $this->storage->putPublic($originalStoredPath, $originalPath, [
+                    'content_type' => $mime,
+                    'cache_control' => 'public, max-age=31536000, immutable',
+                    'meta_category' => $category,
+                ]);
+                $storageProvider = $storedOriginal->provider;
+                $storageBucket = $storedOriginal->metadata['bucket'] ?? $this->storage->publicBucket();
+                $storageKey = $storedOriginal->key;
+                $checksum = $storedOriginal->checksum;
+                $originalUrl = $storedOriginal->url ?? $originalUrl;
+
+                if ($assetType === 'image') {
+                    $variants = $this->uploadVariantsToPublicStorage($variants);
+                }
+            }
+
+            if ($assetType === 'image') {
+                $manifest = $this->writeManifest($baseName, $category, $mime, (int) $width, (int) $height, $originalFilename, $originalUrl, $variants);
+                if ($storageProvider === 'r2' && !empty($manifest['path'])) {
+                    $this->storage->putPublic($manifest['path'], $paths['base_path'] . '/' . $manifest['path'], [
+                        'content_type' => 'application/json',
+                        'cache_control' => 'no-cache',
+                        'meta_category' => $category,
+                    ]);
+                }
             }
 
             $id = Database::insert(
-                'INSERT INTO media_assets (original_path, original_url, variants_json, mime_type, intrinsic_width, intrinsic_height, category, title, caption, alt_text, responsive_variants_json, manifest_path, optimized_srcset, webp_srcset, fallback_url, created_by, created_at) 
-                 VALUES (:path, :url, :variants, :mime, :width, :height, :category, :title, :caption, :alt, :responsive, :manifest, :opt_srcset, :webp_srcset, :fallback, :created_by, NOW())',
+                'INSERT INTO media_assets (original_path, original_url, variants_json, mime_type, intrinsic_width, '
+                    . 'intrinsic_height, category, title, caption, alt_text, responsive_variants_json, manifest_path, '
+                    . 'optimized_srcset, webp_srcset, fallback_url, storage_provider, storage_bucket, storage_key, '
+                    . 'checksum_sha256, created_by, created_at) '
+                    . 'VALUES (:path, :url, :variants, :mime, :width, :height, :category, :title, :caption, :alt, '
+                    . ':responsive, :manifest, :opt_srcset, :webp_srcset, :fallback, :storage_provider, :storage_bucket, '
+                    . ':storage_key, :checksum, :created_by, NOW())',
                 [
                     'path' => $originalStoredPath,
                     'url' => $originalUrl,
@@ -132,6 +172,10 @@ final class MediaService
                     'opt_srcset' => $manifest['srcset']['optimized'] ?? null,
                     'webp_srcset' => $manifest['srcset']['webp'] ?? null,
                     'fallback' => $originalUrl,
+                    'storage_provider' => $storageProvider,
+                    'storage_bucket' => $storageBucket,
+                    'storage_key' => $storageKey,
+                    'checksum' => $checksum,
                     'created_by' => $adminId,
                 ]
             );
@@ -160,6 +204,7 @@ final class MediaService
 
         $paths = $this->pathConfig();
         $toDelete = [];
+        $storageKeys = [];
 
         $variantData = null;
         if (!empty($asset['manifest_path'])) {
@@ -169,6 +214,7 @@ final class MediaService
                 $variantData = $manifest['variants'] ?? null;
             }
             $toDelete[] = $manifestFile;
+            $storageKeys[] = (string) $asset['manifest_path'];
         }
 
         if (!$variantData) {
@@ -178,14 +224,26 @@ final class MediaService
         foreach (['optimized', 'webp'] as $type) {
             foreach ($variantData[$type] ?? [] as $variant) {
                 $toDelete[] = $paths['base_path'] . '/' . ltrim($variant['path'], '/');
+                $storageKeys[] = (string) ($variant['path'] ?? '');
             }
         }
 
         $toDelete[] = $paths['base_path'] . '/' . ltrim($asset['original_path'], '/');
+        $storageKeys[] = (string) ($asset['storage_key'] ?? $asset['original_path']);
 
         foreach ($toDelete as $file) {
             if (is_file($file)) {
                 @unlink($file);
+            }
+        }
+
+        if ((string) ($asset['storage_provider'] ?? 'local') === 'r2') {
+            foreach (array_filter(array_unique($storageKeys)) as $key) {
+                try {
+                    $this->storage->deletePublic($key);
+                } catch (\Throwable $e) {
+                    error_log('[BowWow][media_r2_delete_failed] key=' . $key . ' error=' . $e->getMessage());
+                }
             }
         }
 
@@ -222,8 +280,10 @@ final class MediaService
             'category' => $row['category'],
             'mime_type' => $row['mime_type'],
             'asset_type' => $this->assetTypeForMime($row['mime_type'] ?? '', $row['original_path'] ?? ''),
-            'storage_provider' => 'local',
-            'storage_key' => $row['original_path'],
+            'storage_provider' => $row['storage_provider'] ?? 'local',
+            'storage_bucket' => $row['storage_bucket'] ?? null,
+            'storage_key' => $row['storage_key'] ?? $row['original_path'],
+            'checksum_sha256' => $row['checksum_sha256'] ?? null,
             'download_url' => $this->assetTypeForMime($row['mime_type'] ?? '', $row['original_path'] ?? '') === 'image' ? null : $row['original_url'],
             'is_image' => $this->assetTypeForMime($row['mime_type'] ?? '', $row['original_path'] ?? '') === 'image',
             'intrinsic_width' => $row['intrinsic_width'],
@@ -540,14 +600,14 @@ final class MediaService
         ];
     }
 
-    private function writeManifest(string $baseName, string $category, string $mime, int $width, int $height, string $filename, array $variants): array
+    private function writeManifest(string $baseName, string $category, string $mime, int $width, int $height, string $filename, string $originalUrl, array $variants): array
     {
         $paths = $this->pathConfig();
         $manifest = [
             'category' => $category,
             'original' => [
                 'path' => 'originals/' . $filename,
-                'url' => $paths['originals_url'] . '/' . $filename,
+                'url' => $originalUrl,
                 'width' => $width,
                 'height' => $height,
                 'mime' => $mime,
@@ -584,6 +644,28 @@ final class MediaService
         }
 
         return implode(', ', $parts);
+    }
+
+    private function uploadVariantsToPublicStorage(array $variants): array
+    {
+        $paths = $this->pathConfig();
+        foreach (['optimized', 'webp'] as $type) {
+            foreach ($variants[$type] ?? [] as $index => $variant) {
+                $key = (string) ($variant['path'] ?? '');
+                $localPath = $paths['base_path'] . '/' . ltrim($key, '/');
+                if ($key === '' || !is_file($localPath)) {
+                    continue;
+                }
+
+                $stored = $this->storage->putPublic($key, $localPath, [
+                    'content_type' => $type === 'webp' ? 'image/webp' : null,
+                    'cache_control' => 'public, max-age=31536000, immutable',
+                ]);
+                $variants[$type][$index]['url'] = $stored->url ?? (string) ($variant['url'] ?? '');
+            }
+        }
+
+        return $variants;
     }
 
     private function normalizeOrientation(string $path, string $mime): void

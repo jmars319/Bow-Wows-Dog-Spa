@@ -145,6 +145,68 @@ final class ScheduleAndBookingTest extends TestCase
         $this->assertGreaterThan(0, count((new AuditService())->recent(10)));
     }
 
+    public function testConfirmedBookingCanBeEditedAndQueuesUpdatedCalendarSync(): void
+    {
+        $adminId = $this->env->seedAdminUser();
+        $this->env->insertCalendarIntegration(['is_primary_write_target' => 1]);
+
+        $catalog = new ServiceCatalogService();
+        $service = $catalog->save([
+            'name' => 'Bath Refresh',
+            'duration_minutes' => 30,
+            'is_active' => 1,
+        ]);
+
+        $schedule = new ScheduleService();
+        $date = $this->nextDateForWeekday(4);
+        $schedule->saveTemplate([
+            'weekday' => (int) date('w', strtotime($date)),
+            'times' => ['09:00', '09:30', '10:00', '10:30'],
+            'is_enabled' => 1,
+        ]);
+
+        $bookings = new BookingService();
+        $hold = $bookings->createHold($date, '09:00', ['service_ids' => [$service['id']], 'pet_count' => 1]);
+        $booking = $bookings->createBooking([
+            'hold_token' => $hold['hold_token'],
+            'date' => $date,
+            'time' => '09:00',
+            'owner_name' => 'Taylor Client',
+            'phone' => '(336) 555-0199',
+            'email' => 'taylor@example.com',
+            'selected_services' => [$service['id']],
+            'dogs' => [[
+                'pet_name' => 'Rosie',
+                'approximate_weight' => '18 lbs',
+            ]],
+        ]);
+        $confirmed = $bookings->transition((int) $booking['id'], 'confirm', 'Confirmed', $adminId, new AuditService());
+        $this->assertSame('09:00:00', $confirmed['time']);
+
+        $updated = $bookings->updateBookingDetails((int) $booking['id'], [
+            'date' => $date,
+            'time' => '10:00',
+            'duration_minutes' => 30,
+            'owner_name' => 'Taylor Client',
+            'phone' => '(336) 555-0199',
+            'email' => 'taylor@example.com',
+            'pets' => $confirmed['pets'],
+        ], $adminId, new AuditService());
+
+        $jobs = Database::fetchAll(
+            'SELECT action, job_status, payload_json FROM calendar_sync_jobs WHERE booking_request_id = :booking_id ORDER BY id ASC',
+            ['booking_id' => $booking['id']]
+        );
+        $payload = json_decode((string) ($jobs[0]['payload_json'] ?? '{}'), true);
+
+        $this->assertSame('10:00:00', $updated['time']);
+        $this->assertSame('10:30:00', $updated['end_time']);
+        $this->assertCount(1, $jobs);
+        $this->assertSame('upsert_booking', $jobs[0]['action']);
+        $this->assertSame('pending', $jobs[0]['job_status']);
+        $this->assertSame('10:00:00', $payload['time'] ?? null);
+    }
+
     private function nextDateForWeekday(int $weekday): string
     {
         $today = new DateTimeImmutable('today');

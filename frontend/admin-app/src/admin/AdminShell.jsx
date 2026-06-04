@@ -32,7 +32,7 @@ const NAV_ITEMS = [
   { path: `${ADMIN_BASE}/retail`, label: 'Products', section: 'retail' },
   { path: `${ADMIN_BASE}/audit`, label: 'Audit Log', section: 'audit' },
   { path: `${ADMIN_BASE}/users`, label: 'Admin Users', section: 'users', superOnly: true },
-  { path: `${ADMIN_BASE}/calendar-sync`, label: 'Calendar Prep', section: 'system' },
+  { path: `${ADMIN_BASE}/calendar-sync`, label: 'Calendar Sync', section: 'system' },
   { path: `${ADMIN_BASE}/system`, label: 'System', section: 'system' },
 ];
 

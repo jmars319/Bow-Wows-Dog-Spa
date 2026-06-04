@@ -9,9 +9,9 @@ Start here for Bow Wow placeholder/full-app maintenance guidance.
 - `docs/DEPLOYMENT_GUIDE.md` - cPanel deployment, placeholder deploy, and admin schema migration notes.
 - `docs/OPERATOR_NOTES.md` - day-to-day operational notes for the full app.
 - `docs/MAINTAINER_GUIDE.md` - do-not-break workflows, retired assumptions, and relaunch guardrails.
-- `docs/MEDIA_POLICY.md` - bundled assets, uploads, and future R2 direction.
+- `docs/MEDIA_POLICY.md` - bundled assets, R2-backed uploads, local fallback, and attachment policy.
 - `docs/POST_DEPLOY_CHECKLIST.md` - placeholder and full-app post-deploy smoke checks.
-- `docs/R2_MIGRATION_CHECKLIST.md` - future Cloudflare R2 migration steps for full-app media.
+- `docs/R2_MIGRATION_CHECKLIST.md` - R2 validation and legacy upload migration checks for full-app media.
 - `docs/CONTENT_REFERENCE.md` - archived copy/strategy notes, clearly marked as reference.
 
 ## Current Production State
@@ -23,5 +23,5 @@ The placeholder deploy remains authoritative until the full public/admin app is 
 - Public app: `frontend/public-app` for the future full public site.
 - Admin app: `frontend/admin-app` for the future full `/admin` surface.
 - Backend source: `backend/`, staged as `/api` in full-site deploys.
-- Runtime preservation: `api/uploads/` only for full-app deploys until future R2 migration; placeholder deploys should not preserve test/runtime storage.
+- Runtime preservation: `api/uploads/` only as full-app local fallback/legacy compatibility; placeholder deploys should not preserve test/runtime storage.
 - Admin maintenance: full app uses System Checks for DB, upload, SendGrid, media, and deploy-readiness diagnostics.

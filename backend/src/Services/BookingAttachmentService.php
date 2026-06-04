@@ -16,6 +16,10 @@ final class BookingAttachmentService
         'image/png' => 'png',
     ];
 
+    public function __construct(private readonly StorageService $storage = new StorageService())
+    {
+    }
+
     public function listForBooking(int $bookingId): array
     {
         $rows = Database::fetchAll(
@@ -58,10 +62,26 @@ final class BookingAttachmentService
 
                 $relativePath = ltrim(str_replace($this->baseDirectory(), '', $absolutePath), '/');
                 $originalName = $this->sanitizeOriginalName((string) ($file['name'] ?? ''), $extension);
+                $storageProvider = 'local';
+                $storageBucket = null;
+                $storageKey = 'booking-paperwork/' . $relativePath;
+                $checksum = hash_file('sha256', $absolutePath) ?: null;
+
+                if ($this->storage->provider() === 'r2') {
+                    $storedObject = $this->storage->putPrivate($storageKey, $absolutePath, [
+                        'content_type' => $mime,
+                        'cache_control' => 'private, no-cache',
+                        'meta_booking_id' => (string) $bookingId,
+                    ]);
+                    $storageProvider = $storedObject->provider;
+                    $storageBucket = $storedObject->metadata['bucket'] ?? $this->storage->privateBucket();
+                    $storageKey = $storedObject->key;
+                    $checksum = $storedObject->checksum;
+                }
 
                 $id = Database::insert(
-                    'INSERT INTO booking_request_attachments (booking_request_id, original_name, stored_name, file_path, mime_type, file_size_bytes, created_at)
-                     VALUES (:booking_request_id, :original_name, :stored_name, :file_path, :mime_type, :file_size_bytes, NOW())',
+                    'INSERT INTO booking_request_attachments (booking_request_id, original_name, stored_name, file_path, mime_type, file_size_bytes, storage_provider, storage_bucket, storage_key, checksum_sha256, created_at)
+                     VALUES (:booking_request_id, :original_name, :stored_name, :file_path, :mime_type, :file_size_bytes, :storage_provider, :storage_bucket, :storage_key, :checksum, NOW())',
                     [
                         'booking_request_id' => $bookingId,
                         'original_name' => $originalName,
@@ -69,6 +89,10 @@ final class BookingAttachmentService
                         'file_path' => $relativePath,
                         'mime_type' => $mime,
                         'file_size_bytes' => (int) ($file['size'] ?? 0),
+                        'storage_provider' => $storageProvider,
+                        'storage_bucket' => $storageBucket,
+                        'storage_key' => $storageKey,
+                        'checksum' => $checksum,
                     ]
                 );
 
@@ -107,6 +131,10 @@ final class BookingAttachmentService
             'file_path' => (string) $row['file_path'],
             'mime_type' => (string) $row['mime_type'],
             'file_size_bytes' => (int) $row['file_size_bytes'],
+            'storage_provider' => (string) ($row['storage_provider'] ?? 'local'),
+            'storage_bucket' => $row['storage_bucket'] ?? null,
+            'storage_key' => $row['storage_key'] ?? null,
+            'checksum_sha256' => $row['checksum_sha256'] ?? null,
             'created_at' => $row['created_at'] ?? null,
         ];
     }

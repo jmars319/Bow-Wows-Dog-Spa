@@ -7,7 +7,6 @@ namespace BowWowSpa\Services;
 use BowWowSpa\Database\Connection;
 use BowWowSpa\Database\Database;
 use BowWowSpa\Support\Config;
-use BowWowSpa\Support\EmailContentFormatter;
 use BowWowSpa\Support\Input;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -19,11 +18,11 @@ final class BookingService
 
     public function __construct(
         private readonly ScheduleService $schedule = new ScheduleService(),
-        private readonly EmailService $emails = new EmailService(),
+        private readonly BookingCustomerEmailService $customerEmails = new BookingCustomerEmailService(),
         private readonly BookingAttachmentService $attachments = new BookingAttachmentService(),
         private readonly CalendarSyncService $calendarSync = new CalendarSyncService(),
-    ) {
-    }
+        private readonly CalendarAvailabilityService $externalAvailability = new CalendarAvailabilityService(),
+    ) {}
 
     public function createHold(string $date, string $time, array $payload = []): array
     {
@@ -49,7 +48,7 @@ final class BookingService
             }
 
             $this->assertSlotsPublished($normalizedDate, $slots);
-            $this->assertSlotsAvailableWithinTransaction($pdo, $normalizedDate, $slots, null);
+            $this->assertSlotsAvailableWithinTransaction($pdo, $normalizedDate, $slots, null, null);
 
             $token = bin2hex(random_bytes(16));
             $minutes = max(5, $this->schedule->holdMinutes());
@@ -141,7 +140,7 @@ final class BookingService
             }
 
             $this->assertSlotsPublished($date, $slots);
-            $this->assertSlotsAvailableWithinTransaction($pdo, $date, $slots, $holdToken ?: null);
+            $this->assertSlotsAvailableWithinTransaction($pdo, $date, $slots, $holdToken ?: null, null);
 
             $stmt = $pdo->prepare(
                 'INSERT INTO booking_requests (
@@ -309,22 +308,14 @@ final class BookingService
             throw new \RuntimeException('Unable to load updated booking.');
         }
 
-        if (Config::get('sendgrid.send_customer_confirmations', true)) {
-            if ($newStatus === 'confirmed') {
-                $this->sendConfirmedEmail($updated);
-            }
-            if ($newStatus === 'declined') {
-                $this->sendDeclinedEmail($updated, $notes);
-            }
+        if (Config::get('sendgrid.send_customer_confirmations', true) && $newStatus === 'confirmed') {
+            $this->customerEmails->sendConfirmed($updated);
+        }
+        if (Config::get('sendgrid.send_customer_confirmations', true) && $newStatus === 'declined') {
+            $this->customerEmails->sendDeclined($updated, $notes);
         }
 
-        error_log(sprintf(
-            '[BowWow][booking_status_changed] id=%d from=%s to=%s admin=%d',
-            $id,
-            $currentStatus,
-            $newStatus,
-            $adminId
-        ));
+        error_log(sprintf('[BowWow][booking_status_changed] id=%d from=%s to=%s admin=%d', $id, $currentStatus, $newStatus, $adminId));
 
         $this->queueCalendarSync($updated, $currentStatus);
 
@@ -366,6 +357,148 @@ final class BookingService
         $updated = $this->find($id);
         if ($updated === null) {
             throw new \RuntimeException('Unable to load updated booking.');
+        }
+
+        return $updated;
+    }
+
+    public function updateBookingDetails(int $id, array $payload, int $adminId, AuditService $audit): array
+    {
+        $this->expireStalePending();
+
+        $existing = Database::fetch('SELECT * FROM booking_requests WHERE id = :id LIMIT 1', ['id' => $id]);
+        if (!$existing) {
+            throw new \RuntimeException('Booking not found.');
+        }
+
+        $status = (string) $existing['status'];
+        if (!in_array($status, ['pending_confirmation', 'confirmed'], true)) {
+            throw new \RuntimeException('Only pending or confirmed bookings can be edited.');
+        }
+
+        $ownerName = Input::clean($payload['owner_name'] ?? $payload['customer_name'] ?? $existing['customer_name'] ?? null, 191);
+        $phone = Input::phone($payload['phone'] ?? $existing['phone'] ?? null);
+        $email = Input::email($payload['email'] ?? $existing['email'] ?? null);
+        $date = $this->normalizeDate((string) ($payload['date'] ?? $existing['date'] ?? ''));
+        $time = $this->normalizeTime((string) ($payload['time'] ?? $existing['time'] ?? ''));
+        if ($ownerName === null || $phone === null || $email === null || $date === null || $time === null) {
+            throw new \RuntimeException('Review the booking date, time, and customer contact fields.');
+        }
+
+        $payloadForDuration = $payload;
+        if (!isset($payloadForDuration['dogs']) && !isset($payloadForDuration['pets'])) {
+            $payloadForDuration['pets'] = json_decode((string) ($existing['pets_json'] ?? '[]'), true) ?: [];
+        }
+        if (!isset($payloadForDuration['selected_services']) && !isset($payloadForDuration['service_ids'])) {
+            $existingServices = json_decode((string) ($existing['services_json'] ?? '[]'), true) ?: [];
+            $payloadForDuration['selected_services'] = array_values(array_filter(array_map(
+                static fn (mixed $service): int => is_array($service) ? (int) ($service['id'] ?? 0) : 0,
+                $existingServices
+            )));
+            if ($payloadForDuration['selected_services'] === []) {
+                $payloadForDuration['services'] = $existingServices;
+            }
+        }
+
+        $pets = $this->normalizePets($payloadForDuration);
+        if ($pets === []) {
+            throw new \RuntimeException('Add at least one dog before saving the booking.');
+        }
+        $duration = $this->resolveDuration($payloadForDuration, $pets);
+        if (!empty($payload['duration_minutes'])) {
+            $duration['total_duration_minutes'] = max($this->schedule->slotMinutes(), (int) $payload['duration_minutes']);
+            $duration['duration_blocks'] = max(1, (int) ceil($duration['total_duration_minutes'] / $this->schedule->slotMinutes()));
+        }
+        $endTime = $this->addMinutes($time, $duration['duration_blocks'] * $this->schedule->slotMinutes());
+        $slots = $this->buildSlots($time, $endTime);
+        $servicesJson = json_encode($duration['services']);
+        $petsJson = json_encode($pets);
+        $firstPet = $pets[0] ?? [];
+        $legacyDogNotes = $this->firstPetNotes($firstPet);
+        $vetName = Input::clean($payload['vet_name'] ?? $existing['vet_name'] ?? null, 191);
+        $vetPhone = Input::phone($payload['vet_phone'] ?? $existing['vet_phone'] ?? null);
+        $requestNotes = Input::clean($payload['request_notes'] ?? $payload['notes'] ?? $existing['request_notes'] ?? null, 5000, true);
+        $paperworkNotes = Input::clean($payload['paperwork_notes'] ?? $existing['paperwork_notes'] ?? null, 5000, true);
+        $adminNotes = Input::clean($payload['admin_notes'] ?? $existing['admin_notes'] ?? null, 5000, true);
+
+        Database::transaction(function (PDO $pdo) use (
+            $id,
+            $date,
+            $time,
+            $endTime,
+            $slots,
+            $ownerName,
+            $phone,
+            $email,
+            $payload,
+            $servicesJson,
+            $petsJson,
+            $pets,
+            $duration,
+            $firstPet,
+            $legacyDogNotes,
+            $vetName,
+            $vetPhone,
+            $requestNotes,
+            $paperworkNotes,
+            $adminNotes
+        ): void {
+            $this->assertSlotsPublished($date, $slots);
+            $this->assertSlotsAvailableWithinTransaction($pdo, $date, $slots, null, $id);
+
+            $stmt = $pdo->prepare(
+                'UPDATE booking_requests
+                 SET date = :date,
+                     time = :time,
+                     end_time = :end_time,
+                     customer_name = :customer_name,
+                     phone = :phone,
+                     email = :email,
+                     dog_name = :dog_name,
+                     dog_notes = :dog_notes,
+                     pets_json = :pets_json,
+                     services_json = :services_json,
+                     total_duration_minutes = :total_duration_minutes,
+                     vet_name = :vet_name,
+                     vet_phone = :vet_phone,
+                     request_notes = :request_notes,
+                     paperwork_notes = :paperwork_notes,
+                     admin_notes = :admin_notes,
+                     updated_at = NOW()
+                 WHERE id = :id'
+            );
+            $stmt->execute([
+                'date' => $date,
+                'time' => $time,
+                'end_time' => $endTime,
+                'customer_name' => $ownerName,
+                'phone' => $phone,
+                'email' => $email,
+                'dog_name' => $firstPet['pet_name'] ?? null,
+                'dog_notes' => $legacyDogNotes,
+                'pets_json' => $petsJson,
+                'services_json' => $servicesJson,
+                'total_duration_minutes' => $duration['total_duration_minutes'],
+                'vet_name' => $vetName,
+                'vet_phone' => $vetPhone,
+                'request_notes' => $requestNotes,
+                'paperwork_notes' => $paperworkNotes,
+                'admin_notes' => $adminNotes,
+                'id' => $id,
+            ]);
+        });
+
+        $audit->log($adminId, 'booking_detail_update', 'booking_requests', $id, [
+            'previous_status' => $status,
+        ]);
+
+        $updated = $this->find($id);
+        if ($updated === null) {
+            throw new \RuntimeException('Unable to load updated booking.');
+        }
+
+        if ($updated['status'] === 'confirmed') {
+            $this->queueCalendarSync($updated, 'confirmed');
         }
 
         return $updated;
@@ -649,18 +782,22 @@ final class BookingService
         return $slots;
     }
 
-    private function assertSlotsAvailableWithinTransaction(PDO $pdo, string $date, array $slots, ?string $excludeHoldToken): void
+    private function assertSlotsAvailableWithinTransaction(PDO $pdo, string $date, array $slots, ?string $excludeHoldToken, ?int $excludeBookingId): void
     {
         if ($slots === []) {
             throw new \RuntimeException('No valid time slot selected.');
         }
 
-        $bookingStmt = $pdo->prepare(
-            'SELECT time, end_time FROM booking_requests
-             WHERE date = :date AND status IN ("pending_confirmation", "confirmed")
-             FOR UPDATE'
-        );
-        $bookingStmt->execute(['date' => $date]);
+        $bookingSql = 'SELECT id, time, end_time FROM booking_requests
+             WHERE date = :date AND status IN ("pending_confirmation", "confirmed")';
+        $params = ['date' => $date];
+        if ($excludeBookingId !== null && $excludeBookingId > 0) {
+            $bookingSql .= ' AND id != :exclude_booking_id';
+            $params['exclude_booking_id'] = $excludeBookingId;
+        }
+        $bookingSql .= ' FOR UPDATE';
+        $bookingStmt = $pdo->prepare($bookingSql);
+        $bookingStmt->execute($params);
         $rows = $bookingStmt->fetchAll();
 
         foreach ($rows as $row) {
@@ -686,6 +823,11 @@ final class BookingService
                 throw new \RuntimeException('Selected time is currently being requested by another client.');
             }
         }
+
+        $externalBusy = $this->externalAvailability->busyLookupForDate($date, $slots);
+        if (array_intersect($slots, array_keys($externalBusy)) !== []) {
+            throw new \RuntimeException('Selected time is no longer available.');
+        }
     }
 
     private function expireStalePending(): void
@@ -710,58 +852,6 @@ final class BookingService
         $this->staleChecked = true;
     }
 
-    private function sendConfirmedEmail(array $booking): void
-    {
-        $detailsTable = EmailContentFormatter::detailsTable([
-            'Appointment Date' => $booking['date'],
-            'Appointment Time' => $booking['time'],
-            'Estimated Duration' => $booking['total_duration_minutes'] . ' minutes',
-            'Dogs' => $this->formatPetsForEmail($booking['pets']),
-            'Services' => implode(', ', $booking['service_names']),
-            'Vet' => $booking['vet_name'],
-            'Notes' => $booking['request_notes'],
-        ]);
-
-        $this->emails->send(
-            $booking['email'],
-            $booking['customer_name'],
-            'Appointment request confirmed',
-            '<p>Hi ' . htmlspecialchars((string) $booking['customer_name'], ENT_QUOTES, 'UTF-8') . ',</p>'
-            . '<p>Your appointment request has been confirmed. We look forward to seeing you and your dog.</p>'
-            . $detailsTable
-            . '<p style="margin-top:16px;">Need to make a change? Give us a call and we’ll help.</p>',
-            [
-                'variant' => 'customer',
-                'headline' => 'Your appointment is confirmed',
-            ]
-        );
-    }
-
-    private function sendDeclinedEmail(array $booking, ?string $notes): void
-    {
-        $detailsTable = EmailContentFormatter::detailsTable([
-            'Requested Date' => $booking['date'],
-            'Requested Time' => $booking['time'],
-            'Dogs' => $this->formatPetsForEmail($booking['pets']),
-            'Services' => implode(', ', $booking['service_names']),
-            'Team Notes' => $notes,
-        ]);
-
-        $this->emails->send(
-            $booking['email'],
-            $booking['customer_name'],
-            'Appointment request update',
-            '<p>Hi ' . htmlspecialchars((string) $booking['customer_name'], ENT_QUOTES, 'UTF-8') . ',</p>'
-            . '<p>We could not confirm the requested appointment as submitted.</p>'
-            . $detailsTable
-            . '<p style="margin-top:16px;">Please reply to this email or call us so we can help you choose another option.</p>',
-            [
-                'variant' => 'customer',
-                'headline' => 'Update on your appointment request',
-            ]
-        );
-    }
-
     private function serviceNames(array $services): array
     {
         $names = [];
@@ -780,31 +870,6 @@ final class BookingService
         }
 
         return $names;
-    }
-
-    private function formatPetsForEmail(array $pets): ?string
-    {
-        if ($pets === []) {
-            return null;
-        }
-
-        $labels = [];
-        foreach ($pets as $pet) {
-            if (!is_array($pet)) {
-                continue;
-            }
-
-            $label = trim((string) ($pet['pet_name'] ?? ''));
-            $weight = trim((string) ($pet['approximate_weight'] ?? ''));
-            if ($weight !== '') {
-                $label .= $label !== '' ? ' (' . $weight . ')' : $weight;
-            }
-            if ($label !== '') {
-                $labels[] = $label;
-            }
-        }
-
-        return $labels ? implode('; ', $labels) : null;
     }
 
     private function firstPetNotes(array $pet): ?string

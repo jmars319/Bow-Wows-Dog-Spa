@@ -11,12 +11,15 @@ if (PHP_SAPI !== 'cli') {
 require __DIR__ . '/../bootstrap/app.php';
 
 use BowWowSpa\Database\Database;
+use BowWowSpa\Database\Connection;
 
 $email = getenv('E2E_ADMIN_EMAIL') ?: 'e2e-admin@bowwow.local';
 $username = trim((string) (getenv('E2E_ADMIN_USERNAME') ?: 'e2e-admin'));
 $password = getenv('E2E_ADMIN_PASSWORD') ?: 'BowWow123!';
 $bookingDate = getenv('E2E_BOOKING_DATE') ?: (new DateTimeImmutable('today'))->modify('+14 days')->format('Y-m-d');
 $timeSlots = ['09:00:00', '09:30:00', '10:00:00', '10:30:00', '11:00:00'];
+
+applyLaunchFoundationMigration();
 
 $hasUsername = columnExists('admin_users', 'username');
 $hasDisplayName = columnExists('admin_users', 'display_name');
@@ -141,4 +144,15 @@ function columnExists(string $table, string $column): bool
     );
 
     return ((int) ($row['total'] ?? 0)) > 0;
+}
+
+function applyLaunchFoundationMigration(): void
+{
+    $migrationPath = dirname(__DIR__) . '/migrations/010_google_calendar_and_r2_launch.sql';
+    $sql = file_get_contents($migrationPath);
+    if ($sql === false) {
+        throw new RuntimeException('Unable to read launch foundation migration.');
+    }
+
+    Connection::pdo()->exec($sql);
 }

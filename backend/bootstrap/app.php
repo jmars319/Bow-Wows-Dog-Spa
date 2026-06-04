@@ -66,6 +66,13 @@ $config = [
     'media' => [
         'upload_dir' => resolvePath((string) (getenv('UPLOAD_DIR') ?: (BOWWOW_APP_PATH . '/uploads'))),
         'public_url_prefix' => '/uploads',
+        'storage_provider' => getenv('MEDIA_STORAGE_PROVIDER') ?: 'local',
+        'r2_endpoint' => getenv('R2_ENDPOINT') ?: '',
+        'r2_access_key_id' => getenv('R2_ACCESS_KEY_ID') ?: '',
+        'r2_secret_access_key' => getenv('R2_SECRET_ACCESS_KEY') ?: '',
+        'r2_public_bucket' => getenv('R2_PUBLIC_BUCKET') ?: '',
+        'r2_private_bucket' => getenv('R2_PRIVATE_BUCKET') ?: '',
+        'r2_public_base_url' => getenv('R2_PUBLIC_BASE_URL') ?: '',
         'max_bytes' => (int) (getenv('IMAGE_UPLOAD_MAX_BYTES') ?: (8 * 1024 * 1024)),
         'jpeg_quality' => (int) (getenv('IMAGE_JPEG_QUALITY') ?: 88),
         'webp_quality' => (int) (getenv('IMAGE_WEBP_QUALITY') ?: 90),
@@ -80,6 +87,15 @@ $config = [
         'enabled' => filter_var(getenv('CALENDAR_SYNC_ENABLED'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true,
         'default_timezone' => getenv('CALENDAR_SYNC_DEFAULT_TIMEZONE') ?: 'America/New_York',
         'max_job_attempts' => max(1, (int) (getenv('CALENDAR_SYNC_MAX_JOB_ATTEMPTS') ?: 5)),
+        'auto_process' => filter_var(getenv('CALENDAR_SYNC_AUTO_PROCESS'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true,
+        'google_client_id' => getenv('GOOGLE_CALENDAR_CLIENT_ID') ?: '',
+        'google_client_secret' => getenv('GOOGLE_CALENDAR_CLIENT_SECRET') ?: '',
+        'google_redirect_uri' => getenv('GOOGLE_CALENDAR_REDIRECT_URI') ?: '',
+        'google_token_key' => getenv('GOOGLE_CALENDAR_TOKEN_KEY') ?: '',
+        'google_scopes' => array_values(array_filter(array_map(
+            'trim',
+            preg_split('/[\s,]+/', getenv('GOOGLE_CALENDAR_SCOPES') ?: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.freebusy https://www.googleapis.com/auth/calendar.calendarlist.readonly') ?: []
+        ))),
     ],
 ];
 

@@ -67,6 +67,25 @@ final class AdminBookingController
         Response::success($result);
     }
 
+    public function updateDetails(Request $request): void
+    {
+        $user = $this->auth->requireAuth();
+        $this->auth->ensureSectionAccess('booking');
+        $id = (int) ($request->body['id'] ?? 0);
+
+        if (!$id) {
+            Response::error('validation_error', 'Missing booking id', 422);
+        }
+
+        try {
+            $result = $this->bookings->updateBookingDetails($id, $request->body, $user['id'], $this->audit);
+        } catch (\Throwable $e) {
+            Response::error('booking_error', $e->getMessage(), 422);
+        }
+
+        Response::success($result);
+    }
+
     public function updateNotes(Request $request): void
     {
         $user = $this->auth->requireAuth();

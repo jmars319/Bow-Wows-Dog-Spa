@@ -147,6 +147,9 @@ export function BookingSection({ settings, content, services }) {
             duration_minutes: response.data.data.duration_minutes || durationSummary || 0,
           });
           setNextAvailableSuggestion(response.data.data.next_available || null);
+          if (response.data.data.availability_status === 'contact_required') {
+            setSlotError(response.data.data.message || 'Online availability is temporarily limited. Please contact us so we can confirm a safe appointment time.');
+          }
         }
       } catch (error) {
         if (!ignore) {

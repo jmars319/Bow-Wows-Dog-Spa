@@ -8,11 +8,12 @@
 - Uploaded images receive normalized, hash-suffixed storage keys and optimized variants. Normal admin screens show simple file labels and do not expose generated variant internals.
 - Image pickers stay image-only; documents are kept in the media library as attachments and are not selectable for public image slots.
 
-## Future R2 Pass
+## R2 Storage
 - Keep the existing admin upload UI.
-- Store new full-app uploads in Cloudflare R2 instead of cPanel disk after buckets, custom domains, and scoped tokens are available.
+- Store new full-app uploads in Cloudflare R2 using the Bow Wow public/private bucket pair.
+- Serve public images through `https://cdn.bowwowsdogspa.com`.
 - Keep old cPanel upload references as legacy fallback until intentionally migrated.
-- Use one bucket for the Bow Wow site when the full app becomes deploy-authoritative, with isolated prefixes for originals, variants, manifests, and attachments.
+- Use isolated prefixes for originals, variants, manifests, and attachments.
 
 ## Never Commit
 - Production uploads, downloaded live-reference zips, local snapshots, `.env`, `.env.production`, logs, caches, or temporary deploy staging folders.

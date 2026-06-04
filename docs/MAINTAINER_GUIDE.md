@@ -9,14 +9,14 @@ This guide captures the current Bow Wow maintenance decisions without relying on
 - `docs/DEVELOPER_GUIDE.md` covers local setup, scripts, and verification workflow.
 - `docs/DEPLOYMENT_GUIDE.md` is the deployment and database-migration reference.
 - `docs/OPERATOR_NOTES.md` covers operator workflows for the full app.
-- `docs/MEDIA_POLICY.md` covers permanent assets, uploads, and future R2 direction.
+- `docs/MEDIA_POLICY.md` covers permanent assets, R2-backed uploads, local fallback, and attachment policy.
 - `docs/CONTENT_REFERENCE.md` preserves old content strategy notes without treating them as live truth.
 
 ## Production State
 
 - The placeholder deploy is still the active production target.
 - The full public/admin app should stay buildable and testable, but it is not the live target until explicitly approved.
-- Any full-app development must keep future-only retail/calendar concepts labeled as pre-launch/internal until the client approves launch behavior.
+- Any full-app development must keep catalog-only retail concepts labeled as pre-launch/internal until the client approves checkout behavior.
 
 ## Do-Not-Break Workflows
 
@@ -38,7 +38,6 @@ This guide captures the current Bow Wow maintenance decisions without relying on
 
 - Do not treat old generated phone, address, pricing, social, service, or retail copy as live truth.
 - Do not turn catalog-only retail prep into live checkout.
-- Do not turn calendar sync groundwork into a live integration without provider credentials and client approval.
 - Do not preserve `api/storage/` for placeholder deploys; current placeholder runtime data is disposable.
 - Do not add `frontend/shared/src` just to satisfy the folder shape. Extract shared frontend code during the relaunch pass only when it removes real duplication.
 

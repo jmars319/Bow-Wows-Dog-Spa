@@ -1,13 +1,13 @@
 # R2 Migration Checklist
 
-Bow Wow currently keeps the placeholder deploy authoritative. Use this checklist when the full public/admin app is approved and media uploads need to move from cPanel disk to Cloudflare R2.
+Bow Wow currently keeps the placeholder deploy authoritative. The full public/admin app is R2-ready from launch; use this checklist when validating production R2 before switching the full app live or migrating old cPanel upload references.
 
 ## Bucket Setup
 
 - Use the standard Bow Wow bucket pair:
   - `bowwowsdogspa-com-media-public`
   - `bowwowsdogspa-com-media-private`
-- Serve future public media from `https://cdn.bowwowsdogspa.com`.
+- Serve public media from `https://cdn.bowwowsdogspa.com`.
 - Use separate prefixes for:
   - `originals/`
   - `variants/optimized/`
@@ -21,7 +21,7 @@ Bow Wow currently keeps the placeholder deploy authoritative. Use this checklist
 ## App Changes
 
 - Keep the existing admin upload UI.
-- Switch the storage adapter from local disk to R2.
+- Confirm the storage adapter is configured for R2.
 - Store media records with provider `r2`, object keys, MIME, size, checksum, alt text, caption, dimensions, and usage metadata.
 - Keep old cPanel upload references as legacy fallback until they are intentionally migrated.
 - Keep built-in site images bundled unless staff needs to manage them.

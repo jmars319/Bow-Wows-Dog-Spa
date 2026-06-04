@@ -17,6 +17,8 @@ export function BookingRequestsPage() {
   const [selected, setSelected] = useState(null);
   const [notes, setNotes] = useState('');
   const [notesDirty, setNotesDirty] = useState(false);
+  const [editForm, setEditForm] = useState(null);
+  const [editDirty, setEditDirty] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [scheduleSettings, setScheduleSettings] = useState(null);
   const dialogTitleId = useId();
@@ -58,25 +60,34 @@ export function BookingRequestsPage() {
       if (!notesDirty) {
         setNotes(refreshed.admin_notes || '');
       }
+      if (!editDirty) {
+        setEditForm(createBookingEditForm(refreshed));
+      }
       return;
     }
 
     setSelected(null);
     setNotes('');
     setNotesDirty(false);
-  }, [items, notesDirty, selected]);
+    setEditForm(null);
+    setEditDirty(false);
+  }, [editDirty, items, notesDirty, selected]);
 
   const openDetails = (request) => {
     setFeedback(null);
     setSelected(request);
     setNotes(request.admin_notes || '');
     setNotesDirty(false);
+    setEditForm(createBookingEditForm(request));
+    setEditDirty(false);
   };
 
   const closeDetails = () => {
     setSelected(null);
     setFeedback(null);
     setNotesDirty(false);
+    setEditForm(null);
+    setEditDirty(false);
   };
 
   const saveNotes = async () => {
@@ -88,6 +99,8 @@ export function BookingRequestsPage() {
       setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setNotes(updated.admin_notes || '');
       setNotesDirty(false);
+      setEditForm(createBookingEditForm(updated));
+      setEditDirty(false);
       setFeedback({ tone: 'success', message: 'Internal notes saved.' });
     } catch (err) {
       setFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to save notes.' });
@@ -117,6 +130,8 @@ export function BookingRequestsPage() {
       setSelected(updated);
       setNotes(updated.admin_notes || '');
       setNotesDirty(false);
+      setEditForm(createBookingEditForm(updated));
+      setEditDirty(false);
       setFeedback({ tone: 'success', message: labels[action] || 'Booking updated.' });
       setTimeout(() => setFeedback(null), 2500);
       load();
@@ -133,6 +148,8 @@ export function BookingRequestsPage() {
       setSelected(updated);
       setNotes(updated.admin_notes || '');
       setNotesDirty(false);
+      setEditForm(createBookingEditForm(updated));
+      setEditDirty(false);
       load();
       setFeedback({ tone: 'success', message: 'Hold extended an additional 24 hours.' });
     } catch (err) {
@@ -155,10 +172,39 @@ export function BookingRequestsPage() {
       setSelected(updated);
       setNotes(updated.admin_notes || '');
       setNotesDirty(false);
+      setEditForm(createBookingEditForm(updated));
+      setEditDirty(false);
       load();
       setFeedback({ tone: 'success', message: 'Hold released.' });
     } catch (err) {
       setFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to release hold.' });
+    }
+  };
+
+  const updateEditField = (key, value) => {
+    setEditForm((current) => ({ ...(current || {}), [key]: value }));
+    setEditDirty(true);
+  };
+
+  const saveBookingDetails = async () => {
+    if (!selected || !editForm) return;
+    try {
+      const response = await api.post('/booking-requests/update', {
+        ...editForm,
+        id: selected.id,
+        pets: selected.pets || [],
+      });
+      const updated = response.data.data;
+      setSelected(updated);
+      setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setNotes(updated.admin_notes || '');
+      setNotesDirty(false);
+      setEditForm(createBookingEditForm(updated));
+      setEditDirty(false);
+      setFeedback({ tone: 'success', message: 'Booking details saved.' });
+      load();
+    } catch (err) {
+      setFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to save booking details.' });
     }
   };
 
@@ -292,6 +338,59 @@ export function BookingRequestsPage() {
                       </p>
                     )}
                   </div>
+                  {['pending_confirmation', 'confirmed'].includes(selected.status) && editForm && (
+                    <div className="detail-section">
+                      <h4>Edit Appointment</h4>
+                      <div className="form-grid">
+                        <label>
+                          Date
+                          <input type="date" value={editForm.date} onChange={(event) => updateEditField('date', event.target.value)} />
+                        </label>
+                        <label>
+                          Time
+                          <input type="time" value={editForm.time} onChange={(event) => updateEditField('time', event.target.value)} />
+                        </label>
+                        <label>
+                          Duration minutes
+                          <input type="number" min="15" step="15" value={editForm.duration_minutes} onChange={(event) => updateEditField('duration_minutes', event.target.value)} />
+                        </label>
+                        <label>
+                          Owner name
+                          <input value={editForm.owner_name} onChange={(event) => updateEditField('owner_name', event.target.value)} />
+                        </label>
+                        <label>
+                          Email
+                          <input type="email" value={editForm.email} onChange={(event) => updateEditField('email', event.target.value)} />
+                        </label>
+                        <label>
+                          Phone
+                          <input type="tel" value={editForm.phone} onChange={(event) => updateEditField('phone', event.target.value)} />
+                        </label>
+                        <label>
+                          Vet name
+                          <input value={editForm.vet_name} onChange={(event) => updateEditField('vet_name', event.target.value)} />
+                        </label>
+                        <label>
+                          Vet phone
+                          <input type="tel" value={editForm.vet_phone} onChange={(event) => updateEditField('vet_phone', event.target.value)} />
+                        </label>
+                      </div>
+                      <label style={{ display: 'block', marginTop: '0.75rem' }}>
+                        Customer request notes
+                        <textarea value={editForm.request_notes} onChange={(event) => updateEditField('request_notes', event.target.value)} rows={3} />
+                      </label>
+                      <label style={{ display: 'block', marginTop: '0.75rem' }}>
+                        Paperwork notes
+                        <textarea value={editForm.paperwork_notes} onChange={(event) => updateEditField('paperwork_notes', event.target.value)} rows={3} />
+                      </label>
+                      <div className="detail-actions detail-actions--secondary">
+                        <button className="btn btn-tertiary" type="button" onClick={saveBookingDetails} disabled={!editDirty}>
+                          Save appointment details
+                        </button>
+                        {editDirty && <span className="small-text muted">Unsaved appointment changes</span>}
+                      </div>
+                    </div>
+                  )}
                   <div className="detail-grid">
                     <div>
                       <h4>Contact</h4>
@@ -413,4 +512,20 @@ export function BookingRequestsPage() {
       )}
     </ManualBookingLauncher>
   );
+}
+
+function createBookingEditForm(request) {
+  return {
+    date: request?.date || '',
+    time: String(request?.time || '').slice(0, 5),
+    duration_minutes: request?.total_duration_minutes || 30,
+    owner_name: request?.owner_name || request?.customer_name || '',
+    email: request?.email || '',
+    phone: request?.phone || '',
+    vet_name: request?.vet_name || '',
+    vet_phone: request?.vet_phone || '',
+    request_notes: request?.request_notes || '',
+    paperwork_notes: request?.paperwork_notes || '',
+    admin_notes: request?.admin_notes || '',
+  };
 }
