@@ -10,6 +10,7 @@
   ],
   "excludedSourcePatterns": [
     "backend/vendor/**",
+    "_live-reference/**",
     "frontend/**/node_modules/**",
     "frontend/**/dist/**"
   ],
@@ -26,6 +27,7 @@
     "playwright-report/**",
     "test-results/**",
     "frontend/**/dist/**",
+    "_live-reference/**",
     "frontend-deploy*.zip",
     "backend-deploy*.zip",
     "site-deploy*.zip",
