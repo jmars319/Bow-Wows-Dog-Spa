@@ -1,0 +1,268 @@
+.booking-card {
+  padding: 1.2rem;
+}
+
+.booking-steps {
+  margin-bottom: 1.35rem;
+}
+
+.booking-step {
+  flex: 1 1 7rem;
+  min-width: 0;
+  display: grid;
+  gap: 0.3rem;
+  justify-items: center;
+  padding: 0.9rem 0.8rem;
+  border-radius: 22px;
+  border: 1px solid var(--border-subtle);
+  background: var(--background-primary);
+  color: var(--text-secondary);
+  scroll-margin-top: 7rem;
+}
+
+.booking-step span {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: var(--surface-card);
+  color: var(--text-primary);
+}
+
+.booking-step.is-active {
+  border-color: var(--accent-primary);
+  background: linear-gradient(135deg, rgba(43, 109, 255, 0.12), rgba(135, 77, 255, 0.08));
+  color: var(--text-primary);
+}
+
+.booking-step.is-locked {
+  opacity: 0.76;
+}
+
+.booking-step.is-complete span,
+.booking-step.is-active span {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+.booking-stage {
+  display: grid;
+  gap: 1rem;
+}
+
+.booking-stage__header h3 {
+  margin: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.55rem;
+}
+
+.service-selector-grid,
+.booking-form-grid,
+.review-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.service-chip-card,
+.slot-button,
+.dog-count-controls button,
+.contact-card {
+  transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
+}
+
+.service-chip-card {
+  text-align: left;
+  border: 1px solid var(--border-subtle);
+  border-radius: 24px;
+  padding: 1rem;
+  background: var(--surface-card);
+  display: grid;
+  gap: 0.4rem;
+  scroll-margin-top: 7rem;
+}
+
+.service-chip-card.is-active {
+  border-color: rgba(43, 109, 255, 0.4);
+  background: linear-gradient(135deg, rgba(43, 109, 255, 0.12), rgba(135, 77, 255, 0.06));
+}
+
+.service-chip-card span {
+  font-weight: 700;
+}
+
+.service-chip-card small {
+  color: var(--text-secondary);
+}
+
+.dog-count-card,
+.booking-summary-banner,
+.date-picker-card,
+.upload-card,
+.empty-state,
+.section-cta {
+  padding: 1rem 1.1rem;
+  border-radius: 22px;
+  background: rgba(241, 243, 242, 0.9);
+  border: 1px solid rgba(217, 226, 225, 0.9);
+}
+
+.dog-count-card,
+.date-picker-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.dog-count-card p,
+.booking-summary-banner,
+.empty-state p,
+.date-picker-card label,
+.upload-card small,
+.section-cta p {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.booking-summary-banner--notice {
+  background: linear-gradient(135deg, rgba(43, 109, 255, 0.1), rgba(135, 77, 255, 0.08));
+  border-color: rgba(43, 109, 255, 0.22);
+}
+
+.booking-summary-banner--hold {
+  background: linear-gradient(135deg, rgba(17, 182, 124, 0.12), rgba(43, 109, 255, 0.08));
+  border-color: rgba(17, 182, 124, 0.24);
+}
+
+.next-available-card {
+  margin-top: 0.9rem;
+  padding: 1rem;
+  border-radius: 18px;
+  background: var(--surface-card);
+  border: 1px solid rgba(43, 109, 255, 0.28);
+  display: grid;
+  gap: 0.65rem;
+}
+
+.next-available-card p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.summary-inline-copy {
+  color: var(--text-secondary);
+}
+
+.dog-count-controls {
+  align-items: center;
+}
+
+.dog-count-controls button {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-card);
+}
+
+.slot-grid {
+  gap: 0.75rem;
+}
+
+.slot-button {
+  min-width: 9rem;
+  padding: 0.95rem 1rem;
+  border-radius: 22px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-card);
+  display: grid;
+  gap: 0.2rem;
+  text-align: left;
+  scroll-margin-top: 7rem;
+}
+
+.slot-button small {
+  color: var(--text-secondary);
+}
+
+.slot-button.is-active {
+  border-color: rgba(43, 109, 255, 0.42);
+  background: linear-gradient(135deg, rgba(43, 109, 255, 0.12), rgba(17, 182, 124, 0.08));
+}
+
+.slot-button span {
+  font-weight: 700;
+}
+
+.field-group {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.field-group label {
+  font-weight: 700;
+}
+
+.field-group--wide {
+  grid-column: 1 / -1;
+}
+
+.dog-intake-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.dog-intake-card {
+  padding: 1rem;
+  border-radius: 24px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.add-dog-button {
+  width: 100%;
+}
+
+.file-chip-row,
+.section-cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.file-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.42rem 0.8rem;
+  border-radius: 999px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: 0.92rem;
+}
+
+.review-card {
+  padding: 1.2rem;
+}
+
+.status-text {
+  margin: 0;
+  font-weight: 700;
+}
+
+.status-text--success {
+  color: var(--success);
+}
+
+.status-text--error {
+  color: var(--error);
+}
+
+.sidebar-card--accent,
+.contact-card--note {
+  background:
+    linear-gradient(180deg, rgba(43, 109, 255, 0.12), rgba(135, 77, 255, 0.1), rgba(17, 182, 124, 0.08)),
+    var(--surface-card);
+}

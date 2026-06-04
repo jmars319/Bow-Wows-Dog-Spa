@@ -1,0 +1,80 @@
+{
+  "sourceRoots": [
+    ".github/workflows",
+    "backend",
+    "docs",
+    "frontend",
+    "placeholder",
+    "public-root",
+    "scripts"
+  ],
+  "excludedSourcePatterns": [
+    "backend/vendor/**",
+    "frontend/**/node_modules/**",
+    "frontend/**/dist/**"
+  ],
+  "assetRoots": [
+    "frontend/public-app/public",
+    "frontend/public-app/src/assets",
+    "placeholder/assets",
+    "public-root"
+  ],
+  "generatedArtifactPatterns": [
+    "dist/**",
+    "build/**",
+    "coverage/**",
+    "playwright-report/**",
+    "test-results/**",
+    "frontend/**/dist/**",
+    "frontend-deploy*.zip",
+    "backend-deploy*.zip",
+    "site-deploy*.zip",
+    "deploy-*.zip",
+    "server-config*.zip",
+    "*.tsbuildinfo"
+  ],
+  "staticRoutes": [
+    "/",
+    "/privacy",
+    "/terms",
+    "/status/access-denied",
+    "/status/not-found",
+    "/status/server-error",
+    "/status/maintenance",
+    "/admin",
+    "/admin/login",
+    "/api/public/site"
+  ],
+  "deploySurfaces": [
+    "placeholder:/",
+    "public:/",
+    "admin:/admin",
+    "api:/api"
+  ],
+  "maxImplementationFileLines": 1000,
+  "maxScriptFileLines": 875,
+  "maxStyleFileLines": 400,
+  "maxDocFileLines": 1500,
+  "nearBudgetLineWindow": 25,
+  "maxAssetBytes": 2097152,
+  "nearAssetBytes": 102400,
+  "failOnWarnings": true,
+  "bundleBudget": {
+    "nearBudgetKb": 4,
+    "failOnWarnings": true,
+    "entries": [
+      {
+        "label": "public",
+        "dir": "frontend/public-app/dist/assets",
+        "maxTotalJsKb": 340,
+        "maxLargestJsKb": 340
+      },
+      {
+        "label": "admin",
+        "dir": "frontend/admin-app/dist/assets",
+        "maxTotalJsKb": 406,
+        "maxLargestJsKb": 406
+      }
+    ]
+  }
+}

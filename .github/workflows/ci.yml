@@ -10,6 +10,7 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     services:
       mysql:
@@ -27,7 +28,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -117,6 +118,12 @@ jobs:
           npm run build --prefix frontend/public-app
           npm test --prefix frontend/admin-app
           npm run build --prefix frontend/admin-app
+
+      - name: Run maintainability audit
+        run: npm run audit:maintainability -- --strict
+
+      - name: Run bundle budget
+        run: npm run budget:bundle
 
       - name: Run browser smoke suite
         run: npm run test:e2e

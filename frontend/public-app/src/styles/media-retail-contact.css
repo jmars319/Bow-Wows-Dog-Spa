@@ -1,0 +1,264 @@
+.gallery-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.gallery-card {
+  overflow: hidden;
+}
+
+.gallery-card__body {
+  padding: 1rem 1.1rem 1.2rem;
+}
+
+.responsive-picture img,
+.before-after-grid img {
+  width: 100%;
+  aspect-ratio: 5 / 4;
+  object-fit: cover;
+}
+
+.before-after-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+.before-after-grid figure {
+  margin: 0;
+}
+
+.before-after-grid figcaption {
+  padding: 0.45rem 0.2rem 0 0.2rem;
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+}
+
+.retail-category-groups,
+.retail-product-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.retail-category-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.retail-category-block {
+  display: grid;
+  gap: 1rem;
+}
+
+.retail-category-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.retail-category-heading h3,
+.retail-card__meta h4 {
+  margin: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+}
+
+.retail-category-heading p,
+.retail-card__body p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.retail-product-grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.retail-card {
+  overflow: hidden;
+  border-radius: 26px;
+  background: var(--surface-card);
+  border: 1px solid rgba(217, 226, 225, 0.9);
+  box-shadow: var(--shadow-soft);
+}
+
+.retail-card__media {
+  background:
+    linear-gradient(180deg, rgba(43, 109, 255, 0.12), rgba(135, 77, 255, 0.1), rgba(17, 182, 124, 0.08)),
+    var(--surface-card);
+}
+
+.retail-card__media .responsive-picture img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.retail-card__placeholder {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 3;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.retail-card__body {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem 1.2rem;
+}
+
+.retail-card__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: baseline;
+}
+
+@media (max-width: 640px) {
+  .site-header__inner {
+    gap: 0.75rem;
+    padding-top: 0.7rem;
+    padding-bottom: 0.7rem;
+  }
+
+  .site-header .brand-lockup {
+    gap: 0.65rem;
+  }
+
+  .site-header .brand-lockup strong {
+    font-size: 0.96rem;
+    line-height: 1.08;
+  }
+
+  .site-header .brand-lockup span {
+    display: none;
+  }
+
+  .site-header .brand-logo {
+    width: 56px;
+  }
+
+  .menu-toggle {
+    padding: 0.55rem 0.9rem;
+  }
+
+  .hero-section {
+    padding-top: 2.25rem;
+  }
+
+  .hero-copy h1 {
+    font-size: clamp(2.25rem, 13vw, 4rem);
+    max-width: 11ch;
+  }
+
+  .hero-visual__media,
+  .hero-visual__placeholder {
+    min-height: 320px;
+  }
+
+  .hero-card {
+    width: 100%;
+    margin: 1rem 0 0;
+  }
+
+  .hero-actions .btn {
+    flex: 1 1 100%;
+  }
+
+  .retail-category-heading,
+  .retail-card__meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.reviews-summary {
+  padding: 1.2rem;
+  border-radius: 26px;
+  background: var(--surface-card);
+  border: 1px solid rgba(217, 226, 225, 0.88);
+  box-shadow: var(--shadow-soft);
+}
+
+.stars {
+  color: #c49b3a;
+  letter-spacing: 0.2em;
+  font-size: 1rem;
+}
+
+.review-cards {
+  display: grid;
+  gap: 1rem;
+}
+
+.review-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.contact-card-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.contact-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1.1rem;
+}
+
+button.contact-card {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+.contact-card span {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.contact-card strong {
+  font-size: 1.1rem;
+}
+
+.contact-form-card {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.section-cta {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  background:
+    linear-gradient(135deg, rgba(43, 109, 255, 0.12), rgba(135, 77, 255, 0.1), rgba(17, 182, 124, 0.08)),
+    rgba(243, 244, 248, 0.92);
+}
+
+.section-cta strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.section-cta--soft {
+  margin-top: 1.5rem;
+}
+
+.policy-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.policy-card {
+  padding: 1.2rem;
+}

@@ -7,8 +7,11 @@ cd "$ROOT_DIR"
 npm run test:static
 npm run test:unit
 npm run build
+npm run audit:maintainability -- --strict
+npm run budget:bundle
 npm run test:e2e
 npm run verify
+npm run test:deploy:full-local
 npm run test:deploy
 
 echo "[test:all] All checks passed"

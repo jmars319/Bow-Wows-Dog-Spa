@@ -38,6 +38,9 @@ function check_admin() {
 }
 
 "$ROOT_DIR/scripts/dev-stop.sh" || true
+npm run build
+npm run audit:maintainability -- --strict
+npm run budget:bundle
 "$ROOT_DIR/scripts/dev-start.sh"
 check_backend
 check_frontend

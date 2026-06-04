@@ -1,0 +1,12 @@
+[
+  "/",
+  "/privacy",
+  "/terms",
+  "/status/access-denied",
+  "/status/not-found",
+  "/status/server-error",
+  "/status/maintenance",
+  "/admin",
+  "/admin/login",
+  "/api/public/site"
+]

@@ -1,0 +1,12 @@
+{
+  "name": "bowwow-e2e",
+  "workspaces": [],
+  "scripts": [
+    "audit:maintainability",
+    "budget:bundle",
+    "deploy:check",
+    "deploy:make",
+    "test:deploy",
+    "verify"
+  ]
+}
