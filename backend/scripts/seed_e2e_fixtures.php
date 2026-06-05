@@ -19,7 +19,7 @@ $password = getenv('E2E_ADMIN_PASSWORD') ?: 'BowWow123!';
 $bookingDate = getenv('E2E_BOOKING_DATE') ?: (new DateTimeImmutable('today'))->modify('+14 days')->format('Y-m-d');
 $timeSlots = ['09:00:00', '09:30:00', '10:00:00', '10:30:00', '11:00:00'];
 
-applyLaunchFoundationMigration();
+applyRequiredMigrations();
 
 $hasUsername = columnExists('admin_users', 'username');
 $hasDisplayName = columnExists('admin_users', 'display_name');
@@ -146,13 +146,19 @@ function columnExists(string $table, string $column): bool
     return ((int) ($row['total'] ?? 0)) > 0;
 }
 
-function applyLaunchFoundationMigration(): void
+function applyRequiredMigrations(): void
 {
-    $migrationPath = dirname(__DIR__) . '/migrations/010_google_calendar_and_r2_launch.sql';
-    $sql = file_get_contents($migrationPath);
-    if ($sql === false) {
-        throw new RuntimeException('Unable to read launch foundation migration.');
-    }
+    $migrationDir = dirname(__DIR__) . '/migrations';
+    foreach ([
+        '010_google_calendar_and_r2_launch.sql',
+        '011_media_library_convenience.sql',
+    ] as $migrationFile) {
+        $migrationPath = $migrationDir . '/' . $migrationFile;
+        $sql = file_get_contents($migrationPath);
+        if ($sql === false) {
+            throw new RuntimeException('Unable to read migration: ' . $migrationFile);
+        }
 
-    Connection::pdo()->exec($sql);
+        Connection::pdo()->exec($sql);
+    }
 }

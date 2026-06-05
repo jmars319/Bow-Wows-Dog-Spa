@@ -161,6 +161,42 @@ export function CalendarSyncPage() {
   const providerLookup = Object.fromEntries((data.providers ?? []).map((provider) => [provider.key, provider]));
   const selectedProvider = providerLookup[form.provider] || data.providers?.[0] || null;
   const editingIntegration = form.id ? (data.integrations ?? []).find((item) => item.id === form.id) : null;
+  const connectedCalendars = (data.integrations ?? []).filter((item) => item.connection_status === 'connected' && item.is_enabled);
+  const primaryCalendar = connectedCalendars.find((item) => item.is_primary_write_target);
+  const blockingCalendars = connectedCalendars.filter((item) => item.blocks_availability);
+  const failedJobs = Number(data.queue?.status_totals?.failed || 0);
+  const checklist = [
+    {
+      label: 'Calendar sync enabled',
+      ready: Boolean(data.config?.enabled),
+      detail: data.config?.enabled ? 'Bow Wow will use calendar sync rules.' : 'Calendar sync is disabled in configuration.',
+    },
+    {
+      label: 'Google OAuth configured',
+      ready: Boolean(data.config?.google_oauth_configured),
+      detail: data.config?.google_oauth_configured ? 'Google connect buttons are available.' : 'Add Google client settings before connecting.',
+    },
+    {
+      label: 'Connected calendar',
+      ready: connectedCalendars.length > 0,
+      detail: connectedCalendars.length > 0 ? `${connectedCalendars.length} enabled calendar${connectedCalendars.length === 1 ? '' : 's'} connected.` : 'Connect the primary Google Calendar.',
+    },
+    {
+      label: 'Primary write target',
+      ready: Boolean(primaryCalendar),
+      detail: primaryCalendar ? primaryCalendar.label : 'Choose one calendar to receive confirmed appointments.',
+    },
+    {
+      label: 'Availability blocking',
+      ready: blockingCalendars.length > 0,
+      detail: blockingCalendars.length > 0 ? 'Public booking slots will avoid busy calendar time.' : 'Enable blocking on at least one calendar.',
+    },
+    {
+      label: 'Sync queue',
+      ready: failedJobs === 0,
+      detail: failedJobs === 0 ? 'No failed sync work is waiting.' : `${failedJobs} failed job${failedJobs === 1 ? '' : 's'} need attention.`,
+    },
+  ];
 
   return (
     <div>
@@ -183,6 +219,18 @@ export function CalendarSyncPage() {
         <p>Default timezone: {data.config?.default_timezone || 'Not set'}</p>
         <p>Google OAuth: {data.config?.google_oauth_configured ? 'Configured' : 'Needs client id, secret, redirect URI, and token key'}</p>
         <p className="muted">Bow Wow remains the source of truth. Google Calendar blocks availability and receives confirmed bookings, but Google edits do not change booking records.</p>
+      </div>
+
+      <div className="card" style={{ marginTop: '1rem' }}>
+        <h3>Launch Checklist</h3>
+        <div className="calendar-checklist">
+          {checklist.map((item) => (
+            <div key={item.label} className={`calendar-check ${item.ready ? 'is-ready' : 'is-warning'}`}>
+              <strong>{item.ready ? 'Ready' : 'Needs setup'} · {item.label}</strong>
+              <p className="muted small-text">{item.detail}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <form className="card" style={{ marginTop: '1rem' }} onSubmit={save}>

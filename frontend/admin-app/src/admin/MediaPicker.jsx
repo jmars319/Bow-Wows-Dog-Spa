@@ -7,6 +7,7 @@ export function MediaPicker({ label, media, onChange, libraryCategory = '', uplo
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
   const dialogId = useId();
   const dialogTitleId = useId();
   const fileInputRef = useRef(null);
@@ -33,10 +34,15 @@ export function MediaPicker({ label, media, onChange, libraryCategory = '', uplo
   const loadMedia = async () => {
     setLoading(true);
     setError(null);
+    setNotice(null);
 
     try {
       const response = await api.get('/media', {
-        params: libraryCategory ? { category: libraryCategory } : undefined,
+        params: {
+          ...(libraryCategory ? { category: libraryCategory } : {}),
+          asset_type: 'image',
+          archived: 'active',
+        },
       });
       setItems((response.data.data.items || []).filter((item) => !item.asset_type || item.asset_type === 'image'));
     } catch (err) {
@@ -69,6 +75,7 @@ export function MediaPicker({ label, media, onChange, libraryCategory = '', uplo
       const nextMedia = response.data.data.media;
       setItems((current) => [nextMedia, ...current.filter((item) => item.id !== nextMedia.id)]);
       onChange(nextMedia);
+      setNotice(response.data.data.message || nextMedia.message || 'Image ready to use.');
     } catch (err) {
       setError(err.response?.data?.error?.message ?? 'Unable to upload image.');
     } finally {
@@ -89,10 +96,19 @@ export function MediaPicker({ label, media, onChange, libraryCategory = '', uplo
       <label className="field-label">{label}</label>
       {media ? (
         <div className="media-thumb">
-          <img src={media.fallback_url || media.original_url} alt={media.alt_text || label} />
+          <img
+            src={media.fallback_url || media.original_url}
+            alt={media.alt_text || label}
+            style={media.object_position ? { objectPosition: media.object_position } : undefined}
+          />
         </div>
       ) : (
         <p className="muted small-text">No image selected</p>
+      )}
+      {media && !media.alt_text && (
+        <p className="alt-reminder small-text">
+          Alt text is still needed. Add it in the Media Library when this image is public-facing.
+        </p>
       )}
       <div className="media-picker__actions">
         <button
@@ -116,6 +132,7 @@ export function MediaPicker({ label, media, onChange, libraryCategory = '', uplo
       </div>
       <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={uploadImage} />
       {error && <p role="alert" className="save-feedback is-error">{error}</p>}
+      {notice && <p role="status" className="save-feedback is-success">{notice}</p>}
       {open && (
         <div className="media-modal" role="presentation">
           <div className="media-modal__backdrop" onClick={() => setOpen(false)} />
@@ -149,10 +166,17 @@ export function MediaPicker({ label, media, onChange, libraryCategory = '', uplo
                     className="media-grid__item"
                     onClick={() => {
                       onChange(item);
+                      setNotice('Selected existing image.');
                       setOpen(false);
                     }}
                   >
-                    <img src={item.fallback_url || item.original_url} alt={item.alt_text || `Media ${item.id}`} />
+                    <img
+                      src={item.fallback_url || item.original_url}
+                      alt={item.alt_text || `Media ${item.id}`}
+                      style={item.object_position ? { objectPosition: item.object_position } : undefined}
+                    />
+                    <span className="small-text">{item.title || item.alt_text || `Media #${item.id}`}</span>
+                    {!item.alt_text && <span className="small-text muted">Alt text needed</span>}
                   </button>
                 ))}
               </div>
@@ -165,7 +189,7 @@ export function MediaPicker({ label, media, onChange, libraryCategory = '', uplo
 }
 
 export function MediaPicture({ media, alt }) {
-  if (!media || (!media.optimized_srcset && !media.webp_srcset)) {
+  if (!media || (!media.optimized_srcset && !media.webp_srcset && !media.fallback_url && !media.original_url)) {
     return null;
   }
 
@@ -173,7 +197,16 @@ export function MediaPicture({ media, alt }) {
     <picture style={{ display: 'block', marginBottom: '0.75rem' }}>
       {media.webp_srcset && <source type="image/webp" srcSet={media.webp_srcset} />}
       {media.optimized_srcset && <source srcSet={media.optimized_srcset} />}
-      <img src={media.fallback_url || media.original_url} alt={alt || media.alt_text || ''} style={{ width: '100%', borderRadius: '10px' }} loading="lazy" />
+      <img
+        src={media.fallback_url || media.original_url}
+        alt={alt || media.alt_text || ''}
+        style={{
+          width: '100%',
+          borderRadius: '10px',
+          objectPosition: media.object_position || undefined,
+        }}
+        loading="lazy"
+      />
     </picture>
   );
 }

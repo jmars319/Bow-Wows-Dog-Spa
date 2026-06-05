@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { PublicPreviewLink, PublishState, SortOrderTools, reorderedItems } from '@jamarq/cpanel-admin-kit/convenience';
 import { useAdminConfirm } from '../ConfirmProvider';
 import { api, useAuth } from '../AdminShell';
 import { BOOKING_STAT_LABELS, BOOKING_STAT_ORDER, StatusBadge, getBookingActions, parseServices, summarizePets, summarizeServices } from '../bookingDisplay';
@@ -10,6 +11,7 @@ import { createRetailCategoryForm, createRetailProductForm } from '../retailDefa
 import { buildScheduleTimeOptions, formatScheduleTime, minutesToScheduleValue, normalizeAdminTimeInput, sortScheduleTimes, timeValueToMinutes, toggleScheduleTime } from '../scheduleTime';
 
 export function ServicesPage() {
+  const confirm = useAdminConfirm();
   const defaultForm = {
     id: null,
     name: '',
@@ -25,6 +27,7 @@ export function ServicesPage() {
   const [items, setItems] = useState([]);
   const [form, setForm] = useState(defaultForm);
   const [feedback, setFeedback] = useState(null);
+  const [draggedService, setDraggedService] = useState(null);
 
   const load = useCallback(async () => {
     const response = await api.get('/services');
@@ -67,10 +70,83 @@ export function ServicesPage() {
     });
   };
 
+  const setServiceActive = async (item, nextActive) => {
+    setFeedback(null);
+    try {
+      await api.post(`/services/${item.id}/active`, { is_active: nextActive ? 1 : 0 });
+      setFeedback({ tone: 'success', message: nextActive ? 'Service is visible again.' : 'Service hidden from the public site and booking form.' });
+      load();
+    } catch (err) {
+      setFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to update service visibility.' });
+    }
+  };
+
+  const removeService = async (item) => {
+    if (!(await confirm({
+      title: 'Remove service?',
+      message: `Remove “${item.name}” from the service list? Past booking records keep their saved service names.`,
+      confirmLabel: 'Remove service',
+      tone: 'danger',
+    }))) {
+      return;
+    }
+
+    setFeedback(null);
+    try {
+      await api.delete(`/services/${item.id}`);
+      if (form.id === item.id) {
+        setForm(defaultForm);
+      }
+      setFeedback({ tone: 'success', message: 'Service removed.' });
+      load();
+    } catch (err) {
+      setFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to remove service.' });
+    }
+  };
+
+  const reorderServices = async (nextItems) => {
+    setItems(nextItems);
+    try {
+      await Promise.all(nextItems.map((item) => api.post('/services', {
+        id: item.id,
+        name: item.name,
+        short_summary: item.short_summary || '',
+        description: item.description || '',
+        duration_minutes: Number(item.duration_minutes) || 30,
+        price_label: item.price_label || '',
+        breed_weight_note: item.breed_weight_note || '',
+        sort_order: Number(item.sort_order) || 0,
+        is_active: item.is_active ? 1 : 0,
+      })));
+      setFeedback({ tone: 'success', message: 'Service order saved.' });
+      load();
+    } catch (err) {
+      setFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to save service order.' });
+      load();
+    }
+  };
+
+  const moveService = (item, offset) => {
+    reorderServices(reorderedItems(items, item.id, { offset }));
+  };
+
+  const dropService = (target) => {
+    if (!draggedService || draggedService.id === target.id) {
+      return;
+    }
+    reorderServices(reorderedItems(items, draggedService.id, { targetId: target.id }));
+    setDraggedService(null);
+  };
+
   return (
     <div>
-      <h1>Services</h1>
-      <p className="muted">Manage the live services used on the public site and in booking duration calculations.</p>
+      <div className="page-header">
+        <div>
+          <h1>Services</h1>
+          <p className="muted">Manage the live services used on the public site and in booking duration calculations.</p>
+        </div>
+        <PublicPreviewLink href="/#services" label="View services" />
+      </div>
       <form className="card stack gap-sm" onSubmit={save}>
         <div className="grid two-col gap-sm">
           <label className="field-block">
@@ -145,21 +221,37 @@ export function ServicesPage() {
       </form>
 
       <div className="card-grid">
-        {items.map((item) => (
+        {items.map((item, index) => (
           <div key={item.id} className="card">
             <div className="booking-card__header">
               <strong>{item.name}</strong>
-              <span className={`status-badge ${item.is_active ? 'status-confirmed' : 'status-expired'}`}>{item.is_active ? 'Active' : 'Hidden'}</span>
+              <PublishState isPublished={item.is_active} publishedLabel="Active" hiddenLabel="Hidden" />
             </div>
+            <SortOrderTools
+              item={item}
+              index={index}
+              total={items.length}
+              onMove={moveService}
+              onDragStart={setDraggedService}
+              onDrop={dropService}
+            />
             <p className="muted">{item.short_summary}</p>
             <p className="small-text">
               {item.duration_minutes} min · {item.price_label || 'Pricing note not set'}
             </p>
             <p className="small-text muted">{item.breed_weight_note || 'No breed/weight note'}</p>
             <p className="small-text muted">Display order: {item.sort_order ?? 0}</p>
-            <button type="button" className="btn btn-tertiary" onClick={() => edit(item)}>
-              Edit service
-            </button>
+            <div className="inline-actions">
+              <button type="button" className="btn btn-tertiary" onClick={() => edit(item)}>
+                Edit service
+              </button>
+              <button type="button" className="btn btn-tertiary" onClick={() => setServiceActive(item, !item.is_active)}>
+                {item.is_active ? 'Hide service' : 'Show service'}
+              </button>
+              <button type="button" className="btn btn-warn" onClick={() => removeService(item)}>
+                Remove
+              </button>
+            </div>
           </div>
         ))}
         {items.length === 0 && <div className="card">No services configured yet. Add a service here to make it available on the site and in booking requests.</div>}
@@ -227,8 +319,13 @@ export function FeaturedReviewsPage() {
 
   return (
     <div>
-      <h1>Featured Reviews</h1>
-      <p className="muted">Feature real review excerpts here. This does not create a public review submission form.</p>
+      <div className="page-header">
+        <div>
+          <h1>Featured Reviews</h1>
+          <p className="muted">Feature real review excerpts here. This does not create a public review submission form.</p>
+        </div>
+        <PublicPreviewLink href="/#reviews" label="View reviews" />
+      </div>
       <form className="card stack gap-sm" onSubmit={save}>
         <div className="grid two-col gap-sm">
           <label className="field-block">
@@ -340,6 +437,7 @@ export function GalleryPage() {
   const [items, setItems] = useState([]);
   const [form, setForm] = useState(defaultForm);
   const [feedback, setFeedback] = useState(null);
+  const [draggedGalleryItem, setDraggedGalleryItem] = useState(null);
 
   const load = useCallback(async () => {
     const response = await api.get('/gallery-items');
@@ -385,10 +483,48 @@ export function GalleryPage() {
     });
   };
 
+  const reorderGalleryItems = async (nextItems) => {
+    setItems(nextItems);
+    try {
+      await Promise.all(nextItems.map((item) => api.post('/gallery-items', {
+        id: item.id,
+        title: item.title,
+        caption: item.caption || '',
+        item_type: item.item_type || 'groomed_pet',
+        primary_media_id: item.primary_media_id,
+        secondary_media_id: item.secondary_media_id,
+        sort_order: Number(item.sort_order) || 0,
+        is_published: item.is_published ? 1 : 0,
+      })));
+      setFeedback({ tone: 'success', message: 'Gallery order saved.' });
+      load();
+    } catch (err) {
+      setFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to save gallery order.' });
+      load();
+    }
+  };
+
+  const moveGalleryItem = (item, offset) => {
+    reorderGalleryItems(reorderedItems(items, item.id, { offset }));
+  };
+
+  const dropGalleryItem = (target) => {
+    if (!draggedGalleryItem || draggedGalleryItem.id === target.id) {
+      return;
+    }
+    reorderGalleryItems(reorderedItems(items, draggedGalleryItem.id, { targetId: target.id }));
+    setDraggedGalleryItem(null);
+  };
+
   return (
     <div>
-      <h1>Gallery</h1>
-      <p className="muted">Choose the media shown in the public gallery, before/after blocks, and trust-building photo sections. Upload once in the media library, then reuse the same photo here or in the hero.</p>
+      <div className="page-header">
+        <div>
+          <h1>Gallery</h1>
+          <p className="muted">Choose the media shown in the public gallery, before/after blocks, and trust-building photo sections. Upload once in the media library, then reuse the same photo here or in the hero.</p>
+        </div>
+        <PublicPreviewLink href="/#gallery" label="View gallery" />
+      </div>
       <div className="inline-note">
         <strong>Keep it simple</strong>
         <p className="muted small-text">Use this page to decide what appears publicly. Use the media library only for uploading and managing the source images.</p>
@@ -442,7 +578,7 @@ export function GalleryPage() {
       </form>
 
       <div className="card-grid">
-        {items.map((item) => (
+        {items.map((item, index) => (
           <div key={item.id} className="card">
             <div className="happy-preview">
               {item.primary_media && <img src={item.primary_media.fallback_url || item.primary_media.original_url} alt={item.title} />}
@@ -453,6 +589,15 @@ export function GalleryPage() {
             <p className="small-text">
               {item.item_type} · {item.is_published ? 'Published' : 'Hidden'}
             </p>
+            <PublishState isPublished={item.is_published} />
+            <SortOrderTools
+              item={item}
+              index={index}
+              total={items.length}
+              onMove={moveGalleryItem}
+              onDragStart={setDraggedGalleryItem}
+              onDrop={dropGalleryItem}
+            />
             <p className="small-text muted">Display order: {item.sort_order ?? 0}</p>
             <button type="button" className="btn btn-tertiary" onClick={() => edit(item)}>
               Edit item
@@ -481,14 +626,17 @@ export function ContactMessagesPage() {
   return (
     <div>
       <div className="page-header">
-        <h1>Contact Inbox</h1>
+        <div>
+          <h1>Contact Inbox</h1>
+          <p className="muted">General contact messages live here only. Booking requests stay in the booking queue.</p>
+        </div>
         <div className="page-toolbar">
+          <PublicPreviewLink href="/#contact" label="View contact form" />
           <button className="btn btn-tertiary" onClick={load}>
             Refresh
           </button>
         </div>
       </div>
-      <p className="muted">General contact messages live here only. Booking requests stay in the booking queue.</p>
       <div className="booking-list">
         {items.map((item) => (
           <div key={item.id} className="card">

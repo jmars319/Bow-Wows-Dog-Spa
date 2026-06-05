@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { PublicPreviewLink, PublishState, SortOrderTools, reorderedItems } from '@jamarq/cpanel-admin-kit/convenience';
 import { useAdminConfirm } from '../ConfirmProvider';
 import { api, useAuth } from '../AdminShell';
 import { BOOKING_STAT_LABELS, BOOKING_STAT_ORDER, StatusBadge, getBookingActions, parseServices, summarizePets, summarizeServices } from '../bookingDisplay';
@@ -40,6 +41,8 @@ export function RetailPage() {
   const [productFeedback, setProductFeedback] = useState(null);
   const [savingCategory, setSavingCategory] = useState(false);
   const [savingProduct, setSavingProduct] = useState(false);
+  const [draggedCategory, setDraggedCategory] = useState(null);
+  const [draggedProduct, setDraggedProduct] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -87,6 +90,7 @@ export function RetailPage() {
         id: categoryForm.id || undefined,
         name: categoryForm.name,
         is_published: categoryForm.is_published ? 1 : 0,
+        ...(categoryForm.id || Number(categoryForm.sort_order) > 0 ? { sort_order: Number(categoryForm.sort_order) || 0 } : {}),
       });
 
       const savedCategory = response.data.data.category;
@@ -134,6 +138,7 @@ export function RetailPage() {
         inventory_status: productForm.inventory_status,
         fulfillment_mode: productForm.fulfillment_mode,
         is_published: productForm.is_published ? 1 : 0,
+        ...(productForm.id || Number(productForm.sort_order) > 0 ? { sort_order: Number(productForm.sort_order) || 0 } : {}),
       });
 
       const savedItem = response.data.data.item;
@@ -159,6 +164,7 @@ export function RetailPage() {
       id: category.id,
       name: category.name,
       is_published: Boolean(category.is_published),
+      sort_order: category.sort_order || 0,
     });
   };
 
@@ -176,6 +182,7 @@ export function RetailPage() {
       inventory_status: item.inventory_status || 'untracked',
       fulfillment_mode: item.fulfillment_mode || 'undecided',
       is_published: Boolean(item.is_published),
+      sort_order: item.sort_order || 0,
     });
   };
 
@@ -236,6 +243,48 @@ export function RetailPage() {
 
   const totalProducts = categories.reduce((sum, category) => sum + (category.items?.length || 0), 0);
 
+  const saveCategoryOrder = async (nextCategories) => {
+    setCategories(nextCategories);
+    try {
+      await Promise.all(nextCategories.map((category) => api.post('/retail/categories', {
+        id: category.id,
+        name: category.name,
+        is_published: category.is_published ? 1 : 0,
+        sort_order: Number(category.sort_order) || 0,
+      })));
+      setCategoryFeedback({ tone: 'success', message: 'Category order saved.' });
+      load();
+    } catch (err) {
+      setCategoryFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to save category order.' });
+      load();
+    }
+  };
+
+  const saveProductOrder = async (category, nextItems) => {
+    setCategories((current) => current.map((entry) => entry.id === category.id ? { ...entry, items: nextItems } : entry));
+    try {
+      await Promise.all(nextItems.map((item) => api.post('/retail', {
+        id: item.id,
+        category_id: item.category_id,
+        name: item.name,
+        sku: item.sku || '',
+        description: item.description || '',
+        price_cents: item.price_cents,
+        media_id: item.media_id,
+        online_sale_status: item.online_sale_status,
+        inventory_status: item.inventory_status,
+        fulfillment_mode: item.fulfillment_mode,
+        is_published: item.is_published ? 1 : 0,
+        sort_order: Number(item.sort_order) || 0,
+      })));
+      setProductFeedback({ tone: 'success', message: 'Product order saved.' });
+      load();
+    } catch (err) {
+      setProductFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to save product order.' });
+      load();
+    }
+  };
+
   return (
     <div className="stack gap-md">
       <div className="page-header">
@@ -243,6 +292,7 @@ export function RetailPage() {
           <h1>Products</h1>
           <p className="muted">Create simple categories, add products under each one, and the public site updates automatically.</p>
         </div>
+        <PublicPreviewLink href="/#products" label="View products" />
       </div>
 
       <div className="card">
@@ -274,6 +324,14 @@ export function RetailPage() {
               onChange={(event) => setCategoryForm((current) => ({ ...current, is_published: event.target.checked }))}
             />
             Show this category on the site
+          </label>
+          <label className="field-block">
+            <span className="field-label">Display order</span>
+            <input
+              type="number"
+              value={categoryForm.sort_order || 0}
+              onChange={(event) => setCategoryForm((current) => ({ ...current, sort_order: event.target.value }))}
+            />
           </label>
           <div className="form-actions">
             <button className="btn" disabled={savingCategory}>
@@ -467,6 +525,7 @@ export function RetailPage() {
                     {category.is_published ? 'Visible on the site' : 'Hidden from the site'} · {category.items?.length || 0} product
                     {(category.items?.length || 0) === 1 ? '' : 's'}
                   </p>
+                  <PublishState isPublished={category.is_published} />
                 </div>
                 <div className="retail-inline-actions">
                   <button type="button" className="btn btn-tertiary" onClick={() => startProductForCategory(category.id)}>
@@ -480,10 +539,23 @@ export function RetailPage() {
                   </button>
                 </div>
               </div>
+              <SortOrderTools
+                item={category}
+                index={categories.findIndex((entry) => entry.id === category.id)}
+                total={categories.length}
+                onMove={(item, offset) => saveCategoryOrder(reorderedItems(categories, item.id, { offset }))}
+                onDragStart={setDraggedCategory}
+                onDrop={(target) => {
+                  if (draggedCategory && draggedCategory.id !== target.id) {
+                    saveCategoryOrder(reorderedItems(categories, draggedCategory.id, { targetId: target.id }));
+                  }
+                  setDraggedCategory(null);
+                }}
+              />
 
               {category.items?.length ? (
                 <div className="retail-product-list">
-                  {category.items.map((item) => (
+                  {category.items.map((item, index) => (
                     <div key={item.id} className="retail-product-row">
                       {item.media ? (
                         <img
@@ -503,6 +575,19 @@ export function RetailPage() {
                         </div>
                         {item.description ? <p className="muted small-text">{item.description}</p> : <p className="muted small-text">No extra notes.</p>}
                         <p className="small-text muted">{item.is_published ? 'Visible on the site' : 'Hidden from the site'}</p>
+                        <SortOrderTools
+                          item={item}
+                          index={index}
+                          total={category.items.length}
+                          onMove={(entry, offset) => saveProductOrder(category, reorderedItems(category.items, entry.id, { offset }))}
+                          onDragStart={setDraggedProduct}
+                          onDrop={(target) => {
+                            if (draggedProduct && draggedProduct.id !== target.id) {
+                              saveProductOrder(category, reorderedItems(category.items, draggedProduct.id, { targetId: target.id }));
+                            }
+                            setDraggedProduct(null);
+                          }}
+                        />
                       </div>
                       <div className="retail-inline-actions">
                         <button type="button" className="btn btn-link" onClick={() => editProduct(item)}>

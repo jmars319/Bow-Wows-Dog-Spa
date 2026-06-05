@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { AdminTaskList } from '@jamarq/cpanel-admin-kit/convenience';
 import { ManualBookingLauncher } from '../admin/ManualBooking';
 import { api } from '../admin/AdminShell';
 import { BOOKING_STAT_LABELS } from '../admin/bookingDisplay';
@@ -38,6 +39,9 @@ export function DashboardPage() {
                 <strong>{value}</strong>
               </div>
             ))}
+          </div>
+          <div style={{ marginTop: '2rem' }}>
+            <AdminTaskList tasks={data.tasks || []} />
           </div>
           <div className="card" style={{ marginTop: '2rem' }}>
             <h3>Recent Activity</h3>

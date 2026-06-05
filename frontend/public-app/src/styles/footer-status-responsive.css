@@ -1,12 +1,14 @@
 .site-footer {
   background: #2f3a3a;
   color: #fff;
-  padding: 3rem 0 6rem;
+  padding: 3rem 0;
 }
 
 .footer-grid {
   display: grid;
-  gap: 1.4rem;
+  grid-template-columns: minmax(0, 1.15fr) minmax(12rem, 0.45fr) minmax(12rem, 0.45fr);
+  gap: 2rem;
+  align-items: start;
 }
 
 .site-footer a {
@@ -21,6 +23,7 @@
 
 .footer-cta {
   display: inline-flex;
+  width: min(100%, 22rem);
   margin-top: 1rem;
 }
 
@@ -61,7 +64,7 @@
 }
 
 .footer-credit {
-  margin-top: 1.6rem;
+  margin-top: 2rem;
   font-size: 0.82rem;
   color: rgba(255, 255, 255, 0.56);
 }
@@ -192,7 +195,6 @@
   .about-grid,
   .contact-grid,
   .booking-layout,
-  .footer-grid,
   .section-cta {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -236,6 +238,24 @@
 
   .site-footer {
     padding-bottom: 3rem;
+  }
+
+  .footer-grid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(12rem, 0.45fr) minmax(12rem, 0.45fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .site-footer {
+    padding-bottom: 7rem;
+  }
+
+  .footer-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .footer-cta {
+    width: 100%;
   }
 }
 

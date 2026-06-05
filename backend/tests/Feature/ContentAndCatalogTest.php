@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BowWowSpa\Tests\Feature;
 
+use BowWowSpa\Services\AdminUserService;
 use BowWowSpa\Services\ServiceCatalogService;
 use BowWowSpa\Services\SiteContentService;
 use BowWowSpa\Tests\TestCase;
@@ -39,6 +40,50 @@ final class ContentAndCatalogTest extends TestCase
         $this->assertStringNotContainsString('<script', (string) $bath['description']);
         $this->assertSame(90, $selection['total_duration_minutes']);
         $this->assertSame([$nails['id'], $bath['id']], array_column($ordered, 'id'));
+    }
+
+    public function testServiceCatalogCanHideShowAndRemoveServices(): void
+    {
+        $catalog = new ServiceCatalogService();
+        $service = $catalog->save([
+            'name' => 'Seasonal Shed Treatment',
+            'short_summary' => 'Spring coat support',
+            'duration_minutes' => 30,
+            'price_label' => '$35+',
+            'is_active' => 1,
+        ]);
+
+        $hidden = $catalog->setActive((int) $service['id'], false);
+        $this->assertFalse((bool) $hidden['is_active']);
+        $activeNames = array_column($catalog->list(true), 'name');
+        $this->assertFalse(
+            in_array('Seasonal Shed Treatment', $activeNames, true),
+            'Hidden services should not appear in public active lists.'
+        );
+
+        $visible = $catalog->setActive((int) $service['id'], true);
+        $this->assertTrue((bool) $visible['is_active']);
+
+        $catalog->delete((int) $service['id']);
+        $this->assertNull($catalog->find((int) $service['id']));
+    }
+
+    public function testAdminUserCanChangeOwnPasswordWithCurrentPassword(): void
+    {
+        $adminId = $this->env->seedAdminUser([
+            'password_hash' => password_hash('old-password', PASSWORD_DEFAULT),
+        ]);
+
+        $users = new AdminUserService();
+        $users->changePassword($adminId, 'old-password', 'new-password');
+
+        $row = $this->env->pdo()
+            ->query('SELECT password_hash FROM admin_users WHERE id = ' . (int) $adminId)
+            ->fetch();
+
+        $this->assertTrue(password_verify('new-password', (string) $row['password_hash']));
+        $this->assertThrows(fn () => $users->changePassword($adminId, 'old-password', 'another-password'), 'Current password is incorrect');
+        $this->assertThrows(fn () => $users->changePassword($adminId, 'new-password', 'short'), 'at least 8 characters');
     }
 
     public function testSiteContentSnapshotSanitizesHtmlAndRespectsSectionToggles(): void

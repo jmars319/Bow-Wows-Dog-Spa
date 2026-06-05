@@ -86,6 +86,24 @@ final class GalleryService
         return $saved;
     }
 
+    public function createDraftFromMedia(array $media): array
+    {
+        $title = Input::clean(
+            $media['title'] ?? $media['alt_text'] ?? $this->titleFromPath((string) ($media['original_path'] ?? 'gallery photo')),
+            191
+        ) ?? 'Gallery photo';
+
+        return $this->save([
+            'title' => $title,
+            'caption' => $media['caption'] ?? '',
+            'item_type' => 'groomed_pet',
+            'primary_media_id' => (int) $media['id'],
+            'secondary_media_id' => null,
+            'sort_order' => $this->nextSortOrder(),
+            'is_published' => 0,
+        ]);
+    }
+
     public function find(int $id): ?array
     {
         $row = Database::fetch('SELECT * FROM gallery_items WHERE id = :id LIMIT 1', ['id' => $id]);
@@ -116,5 +134,21 @@ final class GalleryService
         $allowed = ['groomed_pet', 'before_after', 'facility', 'boutique'];
 
         return in_array($type, $allowed, true) ? $type : 'groomed_pet';
+    }
+
+    private function nextSortOrder(): int
+    {
+        $row = Database::fetch('SELECT COALESCE(MAX(sort_order), 0) AS max_sort FROM gallery_items');
+        return ((int) ($row['max_sort'] ?? 0)) + 10;
+    }
+
+    private function titleFromPath(string $path): string
+    {
+        $name = pathinfo($path, PATHINFO_FILENAME) ?: 'gallery photo';
+        $name = preg_replace('/-[a-f0-9]{8,}$/i', '', $name) ?? $name;
+        $name = str_replace(['-', '_'], ' ', $name);
+        $name = trim(preg_replace('/\s+/', ' ', $name) ?? $name);
+
+        return $name !== '' ? ucwords($name) : 'Gallery photo';
     }
 }

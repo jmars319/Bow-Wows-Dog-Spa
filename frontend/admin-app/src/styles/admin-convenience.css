@@ -1,0 +1,82 @@
+.sort-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.6rem 0;
+}
+
+.sort-tools__handle {
+  border: 1px dashed #b7afa2;
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  color: #62594f;
+  cursor: grab;
+  font-size: 0.85rem;
+}
+
+.admin-preview-panel,
+.dashboard-task-list {
+  margin-bottom: 1rem;
+}
+
+.rich-preview {
+  border: 1px solid #e5ddd0;
+  border-radius: 12px;
+  padding: 0.9rem;
+  background: #fffdf8;
+}
+
+.rich-preview + .rich-preview {
+  margin-top: 0.75rem;
+}
+
+.preview-grid,
+.calendar-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.preview-card,
+.calendar-check {
+  border: 1px solid #e5ddd0;
+  border-radius: 12px;
+  padding: 0.9rem;
+  background: #fffdf8;
+}
+
+.calendar-check.is-ready {
+  border-color: #95c7a5;
+  background: #f5fff7;
+}
+
+.calendar-check.is-warning {
+  border-color: #f0c56a;
+  background: #fff9e9;
+}
+
+.dashboard-task {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid #ded7c9;
+  border-left: 4px solid #7aa7a0;
+  border-radius: 12px;
+  padding: 0.8rem;
+  color: inherit;
+  text-decoration: none;
+  background: #fffdf8;
+}
+
+.dashboard-task--warning {
+  border-left-color: #f59e0b;
+}
+
+.dashboard-task--info {
+  border-left-color: #3b82f6;
+}
+
+.dashboard-task span {
+  color: #6b6b6b;
+  font-size: 0.9rem;
+}

@@ -1,22 +1,29 @@
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAdminConfirm } from '../ConfirmProvider';
 import { api, useAuth } from '../AdminShell';
-import { BOOKING_STAT_LABELS, BOOKING_STAT_ORDER, StatusBadge, getBookingActions, parseServices, summarizePets, summarizeServices } from '../bookingDisplay';
-import { EditorSection, ListEditor, RichTextEditor, SectionEnabledToggle } from '../ContentEditorControls';
-import { ManualBookingLauncher } from '../ManualBooking';
-import { MediaPicker, MediaPicture } from '../MediaPicker';
-import { formatDateLabel, formatDateTime, formatMetadata, formatTimeAgo, formatTimeLabel, formatTimeRange, renderHoldExpiry, truncateText, getHoldInfo } from '../formatters';
-import { createRetailCategoryForm, createRetailProductForm } from '../retailDefaults';
-import { buildScheduleTimeOptions, formatScheduleTime, minutesToScheduleValue, normalizeAdminTimeInput, sortScheduleTimes, timeValueToMinutes, toggleScheduleTime } from '../scheduleTime';
+import { MediaPicture } from '../MediaPicker';
+import { formatDateTime, formatMetadata } from '../formatters';
 
 export function MediaPage() {
   const confirm = useAdminConfirm();
   const [items, setItems] = useState([]);
-  const [file, setFile] = useState();
+  const [files, setFiles] = useState([]);
   const [metadata, setMetadata] = useState({ alt_text: '', title: '', caption: '', category: 'default' });
+  const [createGalleryDrafts, setCreateGalleryDrafts] = useState(false);
   const [uploadStatus, setUploadStatus] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [filter, setFilter] = useState('all');
+  const [filters, setFilters] = useState({
+    category: 'all',
+    asset_type: 'all',
+    archived: 'active',
+    in_use: 'all',
+    health: 'all',
+    search: '',
+  });
+  const [editingId, setEditingId] = useState(null);
+  const [editDraft, setEditDraft] = useState({});
+  const [replacementIds, setReplacementIds] = useState({});
+  const uploadInputRef = useRef(null);
 
   const isImageAsset = (item) => !item?.asset_type || item.asset_type === 'image';
   const mediaKindLabel = (item) => {
@@ -27,9 +34,12 @@ export function MediaPage() {
   };
 
   const load = useCallback(async () => {
-    const response = await api.get('/media');
+    const params = Object.fromEntries(
+      Object.entries(filters).filter(([, value]) => value !== '' && value !== 'all')
+    );
+    const response = await api.get('/media', { params });
     setItems(response.data.data.items);
-  }, []);
+  }, [filters]);
 
   useEffect(() => {
     load();
@@ -37,10 +47,21 @@ export function MediaPage() {
 
   const upload = (e) => {
     e.preventDefault();
-    if (!file) return;
+    if (files.length === 0) return;
+    if (files.length > 1 && !['default', 'gallery'].includes(metadata.category)) {
+      setUploadStatus('Bulk upload is available for Default and Gallery images only.');
+      return;
+    }
 
     const formData = new FormData();
-    formData.append('file', file);
+    if (files.length > 1) {
+      files.forEach((item) => formData.append('files[]', item));
+      if (metadata.category === 'gallery' && createGalleryDrafts) {
+        formData.append('create_gallery_drafts', '1');
+      }
+    } else {
+      formData.append('file', files[0]);
+    }
     Object.entries(metadata).forEach(([key, value]) => formData.append(key, value || ''));
 
     const request = new XMLHttpRequest();
@@ -55,12 +76,28 @@ export function MediaPage() {
     request.onreadystatechange = () => {
       if (request.readyState === XMLHttpRequest.DONE) {
         if (request.status >= 200 && request.status < 300) {
-      setUploadStatus(file.type.startsWith('image/') ? 'Processing image variants...' : 'Saving file...');
+          setUploadStatus(files.some((item) => item.type.startsWith('image/')) ? 'Processing image variants...' : 'Saving file...');
           setUploadProgress(100);
-          setFile(null);
+          setFiles([]);
+          if (uploadInputRef.current) {
+            uploadInputRef.current.value = '';
+          }
           setMetadata({ alt_text: '', title: '', caption: '', category: metadata.category });
           load().then(() => {
-            setUploadStatus('Upload complete');
+            let message = 'Upload complete';
+            try {
+              const parsed = JSON.parse(request.responseText);
+              const duplicateMessage = parsed.data?.message || parsed.data?.messages?.[0];
+              const draftCount = parsed.data?.gallery_drafts?.length || 0;
+              if (duplicateMessage) {
+                message = duplicateMessage;
+              } else if (draftCount > 0) {
+                message = `${draftCount} gallery draft${draftCount === 1 ? '' : 's'} created for review.`;
+              }
+            } catch (err) {
+              // ignore parse errors
+            }
+            setUploadStatus(message);
             setTimeout(() => setUploadStatus(null), 2000);
             setUploadProgress(0);
           });
@@ -84,9 +121,81 @@ export function MediaPage() {
     request.send(formData);
   };
 
+  const startEdit = (item) => {
+    setEditingId(item.id);
+    setEditDraft({
+      title: item.title || '',
+      alt_text: item.alt_text || '',
+      caption: item.caption || '',
+      category: item.category || 'default',
+      focal_x: item.focal_x ?? '',
+      focal_y: item.focal_y ?? '',
+      is_archived: Boolean(item.is_archived),
+    });
+  };
+
+  const updateDraft = (key, value) => {
+    setEditDraft((current) => ({ ...current, [key]: value }));
+  };
+
+  const saveEdit = async (id) => {
+    try {
+      await api.put(`/media/${id}`, editDraft);
+      setUploadStatus('Media details saved.');
+      setEditingId(null);
+      setEditDraft({});
+      load();
+    } catch (err) {
+      setUploadStatus(err.response?.data?.error?.message ?? 'Unable to save media details.');
+    }
+  };
+
+  const archiveItem = async (item, archived) => {
+    const label = archived ? 'Archive this media item?' : 'Restore this media item?';
+    if (!(await confirm({
+      message: label,
+      confirmLabel: archived ? 'Archive media' : 'Restore media',
+      tone: archived ? 'warning' : 'default',
+    }))) {
+      return;
+    }
+
+    try {
+      await api.put(`/media/${item.id}`, { is_archived: archived ? 1 : 0 });
+      setUploadStatus(archived ? 'Media archived.' : 'Media restored.');
+      load();
+    } catch (err) {
+      setUploadStatus(err.response?.data?.error?.message ?? 'Unable to update archive status.');
+    }
+  };
+
+  const replaceEverywhere = async (item) => {
+    const replacementId = Number(replacementIds[item.id] || 0);
+    if (!replacementId) {
+      setUploadStatus('Choose a replacement image first.');
+      return;
+    }
+    if (!(await confirm({
+      message: `Replace every known use of "${item.title || item.alt_text || `Media #${item.id}`}" with the selected image? The old image will be archived.`,
+      confirmLabel: 'Replace everywhere',
+      tone: 'warning',
+    }))) {
+      return;
+    }
+
+    try {
+      const response = await api.post(`/media/${item.id}/replace`, { replacement_media_id: replacementId });
+      setUploadStatus(`Updated ${response.data.data.replaced || 0} reference${response.data.data.replaced === 1 ? '' : 's'} and archived the old image.`);
+      setReplacementIds((current) => ({ ...current, [item.id]: '' }));
+      load();
+    } catch (err) {
+      setUploadStatus(err.response?.data?.error?.message ?? 'Unable to replace this image.');
+    }
+  };
+
   const destroy = async (id) => {
     if (!(await confirm({
-      message: 'Delete this media item? This can remove it from gallery, reviews, retail, or other public sections that reference it.',
+      message: 'Permanently delete this archived media item? This removes the database record and stored files. This is only allowed when it is unused.',
       confirmLabel: 'Delete media',
       tone: 'danger',
     }))) {
@@ -103,25 +212,36 @@ export function MediaPage() {
   };
 
   const categories = useMemo(() => {
-    const uniq = new Set(items.map((item) => item.category || 'default'));
+    const standard = ['default', 'gallery', 'retail', 'attachments'];
+    const uniq = new Set([...standard, ...items.map((item) => item.category || 'default')]);
     return ['all', ...uniq];
   }, [items]);
 
-  const filteredItems = useMemo(() => {
-    if (filter === 'all') {
-      return items;
-    }
-    return items.filter((item) => item.category === filter);
-  }, [items, filter]);
+  const replacementOptions = useMemo(
+    () => items.filter((item) => isImageAsset(item) && !item.is_archived),
+    [items]
+  );
+
+  const updateFilter = (key, value) => {
+    setFilters((current) => ({ ...current, [key]: value }));
+  };
 
   return (
     <div>
       <h1>Media Library</h1>
       <p className="muted">Upload reusable site images and safe documents here once, then assign them where they belong.</p>
-      <form className="card" onSubmit={upload}>
+      <form className="card" data-media-upload-form onSubmit={upload}>
         <label className="field-block">
           <span className="field-label">File</span>
-          <input type="file" accept="image/*,.pdf,.txt,.csv,.doc,.docx,.xls,.xlsx" onChange={(e) => setFile(e.target.files?.[0])} />
+          <input
+            ref={uploadInputRef}
+            type="file"
+            accept="image/*,.pdf,.txt,.csv,.doc,.docx,.xls,.xlsx"
+            multiple
+            onChange={(e) => setFiles(Array.from(e.target.files || []))}
+          />
+          <span className="small-text muted">Images are optimized after upload. Multiple uploads are only for Default or Gallery images.</span>
+          {files.length > 0 && <span className="small-text">{files.length} file{files.length === 1 ? '' : 's'} selected.</span>}
         </label>
         <label className="field-block">
           <span className="field-label">Alt text</span>
@@ -144,31 +264,81 @@ export function MediaPage() {
             <option value="attachments">Documents</option>
           </select>
         </label>
-        <button className="btn">Upload</button>
+        {files.length > 1 && metadata.category === 'gallery' && (
+          <label className="toggle gallery-draft-option">
+            <input
+              type="checkbox"
+              checked={createGalleryDrafts}
+              onChange={(event) => setCreateGalleryDrafts(event.target.checked)}
+            />
+            Create unpublished Gallery review drafts from these uploads
+          </label>
+        )}
+        <button className="btn" disabled={files.length === 0}>{files.length > 1 ? `Upload ${files.length} files` : 'Upload'}</button>
         {uploadProgress > 0 && (
           <div style={{ marginTop: '0.5rem', background: '#eee', borderRadius: '8px', height: '8px', overflow: 'hidden' }}>
             <div style={{ width: `${uploadProgress}%`, background: '#1f2937', height: '8px' }} />
           </div>
         )}
-        {uploadStatus && <p role={uploadStatus.toLowerCase().includes('failed') ? 'alert' : 'status'}>{uploadStatus}</p>}
+        {uploadStatus && (
+          <p role={/failed|larger|could not|unable|error/i.test(uploadStatus) ? 'alert' : 'status'} className={/failed|larger|could not|unable|error/i.test(uploadStatus) ? 'save-feedback is-error' : 'save-feedback is-success'}>
+            {uploadStatus}
+          </p>
+        )}
       </form>
       <div className="media-filter card">
-        <label className="field-label">Filter by upload type</label>
-        <div className="chip-row">
-          {categories.map((category) => (
-            <button
-              key={category}
-              type="button"
-              className={`chip ${filter === category ? 'is-active' : ''}`}
-              onClick={() => setFilter(category)}
-            >
-              {category === 'all' ? 'All' : category}
-            </button>
-          ))}
+        <div className="grid three-col gap-sm">
+          <label className="field-block">
+            <span className="field-label">Search</span>
+            <input value={filters.search} placeholder="Name, caption, filename..." onChange={(event) => updateFilter('search', event.target.value)} />
+          </label>
+          <label className="field-block">
+            <span className="field-label">Category</span>
+            <select value={filters.category} onChange={(event) => updateFilter('category', event.target.value)}>
+              {categories.map((category) => (
+                <option key={category} value={category}>{category === 'all' ? 'All' : category}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field-block">
+            <span className="field-label">Type</span>
+            <select value={filters.asset_type} onChange={(event) => updateFilter('asset_type', event.target.value)}>
+              <option value="all">All</option>
+              <option value="image">Images</option>
+              <option value="document">Documents</option>
+              <option value="spreadsheet">Spreadsheets</option>
+              <option value="text">Text files</option>
+            </select>
+          </label>
+          <label className="field-block">
+            <span className="field-label">Archive</span>
+            <select value={filters.archived} onChange={(event) => updateFilter('archived', event.target.value)}>
+              <option value="active">Active</option>
+              <option value="archived">Archived</option>
+              <option value="all">Active and archived</option>
+            </select>
+          </label>
+          <label className="field-block">
+            <span className="field-label">Usage</span>
+            <select value={filters.in_use} onChange={(event) => updateFilter('in_use', event.target.value)}>
+              <option value="all">Any use</option>
+              <option value="yes">In use</option>
+              <option value="no">Unused</option>
+            </select>
+          </label>
+          <label className="field-block">
+            <span className="field-label">Needs attention</span>
+            <select value={filters.health} onChange={(event) => updateFilter('health', event.target.value)}>
+              <option value="all">Any status</option>
+              <option value="missing_alt">Alt text needed</option>
+              <option value="missing_variants">Optimized versions missing</option>
+              <option value="missing_local_file">Local fallback missing</option>
+            </select>
+          </label>
         </div>
       </div>
       <div className="media-gallery">
-        {filteredItems.map((item) => (
+        {items.map((item) => (
           <div key={item.id} className="card" data-media-id={item.id}>
             {isImageAsset(item) ? (
               <MediaPicture media={item} alt={item.alt_text || item.title || `Media ${item.id}`} />
@@ -182,15 +352,115 @@ export function MediaPage() {
               <strong>{item.title || item.alt_text || `Media #${item.id}`}</strong>
             </p>
             <p>
-              #{item.id} · {item.category}
+              #{item.id} · {item.category} · {item.is_archived ? 'Archived' : 'Active'}
             </p>
-            <small>{item.mime_type}</small>
-            <button className="btn btn-warn" style={{ marginTop: '0.5rem' }} onClick={() => destroy(item.id)}>
-              Delete
-            </button>
+            <small>{mediaKindLabel(item)} · {item.mime_type}</small>
+            {item.usages?.length > 0 ? (
+              <div className="usage-link-row" aria-label="Media usage shortcuts">
+                {item.usages.map((usage) => (
+                  usage.admin_path ? (
+                    <a key={`${usage.type}-${usage.label}`} href={usage.admin_path}>
+                      Used by: {usage.label}
+                    </a>
+                  ) : (
+                    <span key={`${usage.type}-${usage.label}`}>Used by: {usage.label}</span>
+                  )
+                ))}
+              </div>
+            ) : (
+              <p className="small-text muted">Not currently used.</p>
+            )}
+            {item.diagnostics?.length > 0 && (
+              <div className="chip-row media-diagnostics">
+                {item.diagnostics.map((diagnostic) => (
+                  <span key={diagnostic.code} className="chip is-warning">{diagnostic.label}</span>
+                ))}
+              </div>
+            )}
+            {editingId === item.id ? (
+              <div className="media-edit-panel">
+                <label className="field-block">
+                  <span className="field-label">Title</span>
+                  <input value={editDraft.title || ''} onChange={(event) => updateDraft('title', event.target.value)} />
+                </label>
+                <label className="field-block">
+                  <span className="field-label">Alt text</span>
+                  <input value={editDraft.alt_text || ''} onChange={(event) => updateDraft('alt_text', event.target.value)} />
+                </label>
+                {isImageAsset(item) && !editDraft.alt_text && (editDraft.title || editDraft.caption) && (
+                  <button
+                    type="button"
+                    className="btn btn-tertiary"
+                    onClick={() => updateDraft('alt_text', editDraft.title || editDraft.caption)}
+                  >
+                    Use title/caption as alt text
+                  </button>
+                )}
+                <label className="field-block">
+                  <span className="field-label">Caption</span>
+                  <textarea value={editDraft.caption || ''} onChange={(event) => updateDraft('caption', event.target.value)} />
+                </label>
+                <div className="grid two-col gap-sm">
+                  <label className="field-block">
+                    <span className="field-label">Category</span>
+                    <select value={editDraft.category || 'default'} onChange={(event) => updateDraft('category', event.target.value)}>
+                      <option value="default">Default</option>
+                      <option value="gallery">Gallery</option>
+                      <option value="retail">Retail</option>
+                      <option value="attachments">Documents</option>
+                    </select>
+                  </label>
+                  <label className="toggle">
+                    <input type="checkbox" checked={Boolean(editDraft.is_archived)} onChange={(event) => updateDraft('is_archived', event.target.checked)} /> Archived
+                  </label>
+                </div>
+                {isImageAsset(item) && (
+                  <div className="grid two-col gap-sm">
+                    <label className="field-block">
+                      <span className="field-label">Crop focus X</span>
+                      <input type="number" min="0" max="100" step="1" value={editDraft.focal_x} onChange={(event) => updateDraft('focal_x', event.target.value)} />
+                    </label>
+                    <label className="field-block">
+                      <span className="field-label">Crop focus Y</span>
+                      <input type="number" min="0" max="100" step="1" value={editDraft.focal_y} onChange={(event) => updateDraft('focal_y', event.target.value)} />
+                    </label>
+                  </div>
+                )}
+                <div className="form-actions">
+                  <button type="button" className="btn" onClick={() => saveEdit(item.id)}>Save details</button>
+                  <button type="button" className="btn btn-link" onClick={() => setEditingId(null)}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div className="inline-actions">
+                <button type="button" className="btn btn-tertiary" onClick={() => startEdit(item)}>Edit details</button>
+                <button type="button" className="btn btn-tertiary" onClick={() => archiveItem(item, !item.is_archived)}>
+                  {item.is_archived ? 'Restore' : 'Archive'}
+                </button>
+              </div>
+            )}
+            {isImageAsset(item) && item.usage_labels?.length > 0 && (
+              <div className="replace-panel">
+                <label className="field-block">
+                  <span className="field-label">Replace everywhere with</span>
+                  <select value={replacementIds[item.id] || ''} onChange={(event) => setReplacementIds((current) => ({ ...current, [item.id]: event.target.value }))}>
+                    <option value="">Choose image</option>
+                    {replacementOptions.filter((option) => option.id !== item.id).map((option) => (
+                      <option key={option.id} value={option.id}>{option.title || option.alt_text || `Media #${option.id}`}</option>
+                    ))}
+                  </select>
+                </label>
+                <button type="button" className="btn btn-warn" onClick={() => replaceEverywhere(item)}>Replace everywhere</button>
+              </div>
+            )}
+            {item.can_delete && (
+              <button className="btn btn-warn" style={{ marginTop: '0.5rem' }} onClick={() => destroy(item.id)}>
+                Delete archived media
+              </button>
+            )}
           </div>
         ))}
-        {filteredItems.length === 0 && <div className="card">No media files match this filter.</div>}
+        {items.length === 0 && <div className="card">No media files match this filter.</div>}
       </div>
     </div>
   );
@@ -343,6 +613,72 @@ export function AdminUsersPage() {
           <strong>{item.username || item.email}</strong> {item.username ? <span className="small-text">({item.email})</span> : null} – {item.role} · {item.is_enabled ? 'Enabled' : 'Disabled'}
         </div>
       ))}
+    </div>
+  );
+}
+
+export function ChangePasswordPage() {
+  const [form, setForm] = useState({ current_password: '', new_password: '', confirm_password: '' });
+  const [status, setStatus] = useState(null);
+
+  const save = async (event) => {
+    event.preventDefault();
+    setStatus(null);
+    try {
+      await api.post('/change-password', form);
+      setForm({ current_password: '', new_password: '', confirm_password: '' });
+      setStatus({ tone: 'success', message: 'Password updated.' });
+    } catch (err) {
+      setStatus({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to update password.' });
+    }
+  };
+
+  return (
+    <div>
+      <h1>Change Password</h1>
+      <p className="muted">Update the password for the admin account you are signed into.</p>
+      <form className="card stack gap-sm" onSubmit={save}>
+        <label className="field-block">
+          <span className="field-label">Current password</span>
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={form.current_password}
+            onChange={(event) => setForm((current) => ({ ...current, current_password: event.target.value }))}
+            required
+          />
+        </label>
+        <label className="field-block">
+          <span className="field-label">New password</span>
+          <input
+            type="password"
+            autoComplete="new-password"
+            minLength={8}
+            value={form.new_password}
+            onChange={(event) => setForm((current) => ({ ...current, new_password: event.target.value }))}
+            required
+          />
+        </label>
+        <label className="field-block">
+          <span className="field-label">Confirm new password</span>
+          <input
+            type="password"
+            autoComplete="new-password"
+            minLength={8}
+            value={form.confirm_password}
+            onChange={(event) => setForm((current) => ({ ...current, confirm_password: event.target.value }))}
+            required
+          />
+        </label>
+        <div className="form-actions">
+          <button className="btn">Update Password</button>
+          {status && (
+            <p role={status.tone === 'error' ? 'alert' : 'status'} className={`save-feedback ${status.tone === 'error' ? 'is-error' : 'is-success'}`}>
+              {status.message}
+            </p>
+          )}
+        </div>
+      </form>
     </div>
   );
 }

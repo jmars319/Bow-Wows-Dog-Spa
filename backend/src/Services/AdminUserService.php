@@ -85,6 +85,26 @@ final class AdminUserService
         Database::insert($sql, $fields);
     }
 
+    public function changePassword(int $userId, string $currentPassword, string $newPassword): void
+    {
+        if (strlen($newPassword) < 8) {
+            throw new \RuntimeException('New password must be at least 8 characters.');
+        }
+
+        $user = Database::fetch('SELECT id, password_hash FROM admin_users WHERE id = :id AND is_enabled = 1', ['id' => $userId]);
+        if (!$user || !password_verify($currentPassword, (string) $user['password_hash'])) {
+            throw new \RuntimeException('Current password is incorrect.');
+        }
+
+        Database::run(
+            'UPDATE admin_users SET password_hash = :password_hash, updated_at = NOW() WHERE id = :id',
+            [
+                'password_hash' => password_hash($newPassword, PASSWORD_DEFAULT),
+                'id' => $userId,
+            ]
+        );
+    }
+
     private function normalizeUsername(mixed $username): ?string
     {
         $value = Input::clean($username, 50);

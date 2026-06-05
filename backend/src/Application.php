@@ -106,6 +106,7 @@ final class Application
         $this->router->add('POST', '/api/admin/login', [$auth, 'login']);
         $this->router->add('POST', '/api/admin/logout', [$auth, 'logout']);
         $this->router->add('GET', '/api/admin/me', [$auth, 'me']);
+        $this->router->add('POST', '/api/admin/change-password', [$auth, 'changePassword']);
 
         $dashboard = new AdminDashboardController();
         $this->router->add('GET', '/api/admin/dashboard', [$dashboard, 'overview']);
@@ -134,6 +135,8 @@ final class Application
         $services = new AdminServicesController();
         $this->router->add('GET', '/api/admin/services', [$services, 'index']);
         $this->router->add('POST', '/api/admin/services', [$services, 'save']);
+        $this->router->add('POST', '/api/admin/services/{id}/active', [$services, 'setActive']);
+        $this->router->add('DELETE', '/api/admin/services/{id}', [$services, 'delete']);
 
         $reviews = new AdminFeaturedReviewsController();
         $this->router->add('GET', '/api/admin/reviews', [$reviews, 'index']);
@@ -156,6 +159,9 @@ final class Application
         $media = new AdminMediaController();
         $this->router->add('GET', '/api/admin/media', [$media, 'index']);
         $this->router->add('POST', '/api/admin/media', [$media, 'upload']);
+        $this->router->add('PUT', '/api/admin/media/{id}', [$media, 'update']);
+        $this->router->add('GET', '/api/admin/media/{id}/usages', [$media, 'usages']);
+        $this->router->add('POST', '/api/admin/media/{id}/replace', [$media, 'replace']);
         $this->router->add('DELETE', '/api/admin/media/{id}', [$media, 'delete']);
 
         $audit = new AdminAuditController();

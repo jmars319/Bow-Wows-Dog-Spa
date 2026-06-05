@@ -7,11 +7,14 @@ namespace BowWowSpa\Controllers;
 use BowWowSpa\Http\Request;
 use BowWowSpa\Http\Response;
 use BowWowSpa\Services\AuthService;
+use BowWowSpa\Services\AdminUserService;
 
 final class AdminAuthController
 {
-    public function __construct(private readonly AuthService $auth = new AuthService())
-    {
+    public function __construct(
+        private readonly AuthService $auth = new AuthService(),
+        private readonly AdminUserService $users = new AdminUserService(),
+    ) {
     }
 
     public function login(Request $request): void
@@ -59,5 +62,28 @@ final class AdminAuthController
             'user' => $user,
             'allowed_sections' => $this->auth->allowedSections($user),
         ]);
+    }
+
+    public function changePassword(Request $request): void
+    {
+        $user = $this->auth->requireAuth();
+        $currentPassword = (string) ($request->body['current_password'] ?? '');
+        $newPassword = (string) ($request->body['new_password'] ?? '');
+        $confirmPassword = (string) ($request->body['confirm_password'] ?? '');
+
+        if ($currentPassword === '' || $newPassword === '' || $confirmPassword === '') {
+            Response::error('validation_error', 'Current password, new password, and confirmation are required.', 422);
+        }
+        if ($newPassword !== $confirmPassword) {
+            Response::error('validation_error', 'New passwords do not match.', 422);
+        }
+
+        try {
+            $this->users->changePassword((int) $user['id'], $currentPassword, $newPassword);
+        } catch (\RuntimeException $e) {
+            Response::error('validation_error', $e->getMessage(), 422);
+        }
+
+        Response::success(['changed' => true]);
     }
 }

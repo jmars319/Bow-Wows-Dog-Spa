@@ -42,6 +42,8 @@ export function SectionEnabledToggle({ label, value, onChange }) {
 }
 
 export function ListEditor({ items, onChange, fields }) {
+  const [draggedIndex, setDraggedIndex] = useState(null);
+
   const addItem = () => {
     const blank = {};
     fields.forEach((field) => {
@@ -62,10 +64,49 @@ export function ListEditor({ items, onChange, fields }) {
     onChange(next);
   };
 
+  const moveItem = (index, offset) => {
+    const nextIndex = Math.max(0, Math.min((items || []).length - 1, index + offset));
+    if (nextIndex === index) {
+      return;
+    }
+    const next = [...items];
+    const [item] = next.splice(index, 1);
+    next.splice(nextIndex, 0, item);
+    onChange(next);
+  };
+
+  const dropItem = (targetIndex) => {
+    if (draggedIndex === null || draggedIndex === targetIndex) {
+      setDraggedIndex(null);
+      return;
+    }
+    const next = [...items];
+    const [item] = next.splice(draggedIndex, 1);
+    next.splice(targetIndex, 0, item);
+    onChange(next);
+    setDraggedIndex(null);
+  };
+
   return (
     <div className="stack gap-sm">
       {items?.map((item, index) => (
-        <div key={index} className="list-editor-row">
+        <div
+          key={index}
+          className="list-editor-row"
+          draggable
+          onDragStart={() => setDraggedIndex(index)}
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={() => dropItem(index)}
+        >
+          <div className="sort-tools">
+            <span className="sort-tools__handle" aria-hidden="true">Drag</span>
+            <button type="button" className="btn btn-link" onClick={() => moveItem(index, -1)} disabled={index === 0}>
+              Move up
+            </button>
+            <button type="button" className="btn btn-link" onClick={() => moveItem(index, 1)} disabled={index >= (items || []).length - 1}>
+              Move down
+            </button>
+          </div>
           {fields.map((field) =>
             field.rich ? (
               <div key={field.name} className="field-block">

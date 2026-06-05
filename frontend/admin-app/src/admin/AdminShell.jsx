@@ -1,14 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, Outlet, useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { useAdminConfirm } from './ConfirmProvider';
+import { api } from './adminApi';
+export { api } from './adminApi';
 
 export const ADMIN_BASE = '/admin';
-
-export const api = axios.create({
-  baseURL: '/api/admin',
-  withCredentials: true,
-});
 
 const AuthContext = createContext(null);
 
@@ -34,6 +30,7 @@ const NAV_ITEMS = [
   { path: `${ADMIN_BASE}/users`, label: 'Admin Users', section: 'users', superOnly: true },
   { path: `${ADMIN_BASE}/calendar-sync`, label: 'Calendar Sync', section: 'system' },
   { path: `${ADMIN_BASE}/system`, label: 'System', section: 'system' },
+  { path: `${ADMIN_BASE}/change-password`, label: 'Change Password', always: true },
 ];
 
 export function AuthProvider({ children }) {
@@ -166,6 +163,7 @@ export function AdminLayout() {
   const visibleNav = useMemo(
     () =>
       NAV_ITEMS.filter((item) => {
+        if (item.always) return true;
         if (item.superOnly && user?.role !== 'super_admin') return false;
         if (allowedSections.includes('*')) return true;
         return allowedSections.includes(item.section);
@@ -225,6 +223,23 @@ export function AdminLayout() {
           ))}
         </nav>
         <div className="admin-nav__footer">
+          <a
+            className="btn btn-tertiary admin-nav__site-link"
+            href="/"
+            title="Back to public site"
+            onClick={async (event) => {
+              if (!isDirty) {
+                return;
+              }
+              event.preventDefault();
+              if (await confirmNavigation()) {
+                window.location.assign('/');
+              }
+            }}
+          >
+            <span className="admin-nav__icon" aria-hidden="true">←</span>
+            <span className="admin-nav__label">Back to Site</span>
+          </a>
           <button className="btn btn-warn" onClick={handleLogout} title="Logout">
             <span className="admin-nav__icon" aria-hidden="true">L</span>
             <span className="admin-nav__label">Logout</span>

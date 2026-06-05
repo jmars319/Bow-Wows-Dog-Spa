@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { PublicPreviewLink, RichPreview } from '@jamarq/cpanel-admin-kit/convenience';
 import { useAdminConfirm } from '../ConfirmProvider';
 import { api, useAdminDirtyState, useAuth } from '../AdminShell';
 import { BOOKING_STAT_LABELS, BOOKING_STAT_ORDER, StatusBadge, getBookingActions, parseServices, summarizePets, summarizeServices } from '../bookingDisplay';
@@ -17,6 +18,7 @@ export function ContentPage() {
   const [savedSnapshot, setSavedSnapshot] = useState('');
   const [status, setStatus] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const currentSnapshot = useMemo(() => {
     if (!settings || !sections) {
@@ -134,6 +136,12 @@ export function ContentPage() {
           <h1>Text & Site Info</h1>
           <p className="muted">Manage public-site copy, contact details, and section messaging without changing the site structure.</p>
         </div>
+        <div className="page-toolbar">
+          <PublicPreviewLink href="/" label="View public site" />
+          <button type="button" className="btn btn-tertiary" onClick={() => setPreviewOpen((value) => !value)}>
+            {previewOpen ? 'Hide preview' : 'Preview current copy'}
+          </button>
+        </div>
       </div>
 
       <form className="stack gap-md" onSubmit={save}>
@@ -154,6 +162,37 @@ export function ContentPage() {
             </button>
           </div>
         </div>
+
+        {previewOpen && (
+          <div className="card admin-preview-panel">
+            <div className="booking-card__header">
+              <h3>Current Copy Preview</h3>
+              <span className="small-text muted">{isDirty ? 'Unsaved draft' : 'Saved copy'}</span>
+            </div>
+            <div className="preview-grid">
+              <div className="preview-card">
+                <p className="small-text muted">Hero</p>
+                <h2>{sections.hero?.headline || 'Hero headline'}</h2>
+                <RichPreview html={sections.hero?.subheading || ''} />
+              </div>
+              <div className="preview-card">
+                <p className="small-text muted">Services</p>
+                <h2>{sections.services?.title || 'Services title'}</h2>
+                <RichPreview html={sections.services?.intro || ''} />
+              </div>
+              <div className="preview-card">
+                <p className="small-text muted">Gallery</p>
+                <h2>{sections.gallery?.title || 'Gallery title'}</h2>
+                <RichPreview html={sections.gallery?.intro || ''} />
+              </div>
+              <div className="preview-card">
+                <p className="small-text muted">Contact</p>
+                <h2>{sections.contact?.title || 'Contact title'}</h2>
+                <RichPreview html={sections.contact?.note || ''} />
+              </div>
+            </div>
+          </div>
+        )}
 
         <EditorSection title="Business Details" description="Phone, hours, address, map links, and public trust profile settings." initiallyOpen>
           <div className="grid two-col gap-sm">

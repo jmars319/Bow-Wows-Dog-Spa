@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import axios from 'axios';
 import { ResponsivePicture } from '../Branding';
 import { escapeHtml, formatDuration, toPhoneHref } from '../bookingUtils';
+import { publicApi } from '../publicApi';
 import { textHasContent } from '../siteConfig';
 
 export function HeroSection({ settings, content, primaryCta, secondaryCta }) {
@@ -286,7 +286,7 @@ export function RetailSection({ content, categories, settings }) {
                         <ResponsivePicture media={item.media} alt={item.name} />
                       ) : (
                         <div className="retail-card__placeholder" aria-hidden="true">
-                          {item.name.slice(0, 1).toUpperCase()}
+                          <span>Photo coming soon</span>
                         </div>
                       )}
                     </div>
@@ -463,7 +463,7 @@ export function ContactSection({ content, location, settings }) {
     setStatus(null);
 
     try {
-      await axios.post('/api/public/contact', form);
+      await publicApi.post('/api/public/contact', form);
       setStatus({ tone: 'success', message: 'Message received. We’ll reply soon.' });
       setForm({ name: '', email: '', phone: '', message: '', bowwow_hp: '' });
     } catch (error) {

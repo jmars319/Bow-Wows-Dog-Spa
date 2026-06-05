@@ -1,6 +1,6 @@
 .hero-section {
   position: relative;
-  padding: 3.35rem 0 4.6rem;
+  padding: 3.1rem 0 4.25rem;
   overflow: hidden;
 }
 
@@ -51,8 +51,8 @@
 }
 
 .hero-copy h1 {
-  font-size: clamp(2.5rem, 7vw, 5rem);
-  max-width: 12ch;
+  font-size: clamp(2.45rem, 5.4vw, 4.45rem);
+  max-width: 14ch;
 }
 
 .hero-copy,
@@ -62,7 +62,7 @@
 }
 
 .hero-subheading {
-  max-width: 36rem;
+  max-width: 34rem;
 }
 
 .hero-subheading,
@@ -171,7 +171,7 @@
 }
 
 .hero-card {
-  margin: -4.5rem 1rem 0 auto;
+  margin: 1rem 0 0 auto;
   width: min(100%, 24rem);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(244, 246, 255, 0.92));
@@ -221,7 +221,7 @@
 
 .hero-visual__media,
 .hero-visual__placeholder {
-  min-height: 420px;
+  min-height: 360px;
   border-radius: 34px;
   overflow: hidden;
   border: 1px solid rgba(135, 77, 255, 0.16);
@@ -285,6 +285,7 @@
 .section-heading {
   display: grid;
   gap: 0.8rem;
+  min-width: 0;
   max-width: 48rem;
   margin-bottom: 1.8rem;
 }
@@ -294,7 +295,8 @@
 }
 
 .section-heading h2 {
-  font-size: clamp(2rem, 5vw, 3.4rem);
+  font-size: clamp(2rem, 4.1vw, 3.25rem);
+  max-width: 18ch;
 }
 
 .trust-grid,
@@ -306,10 +308,12 @@
 }
 
 .proof-strip {
+  align-items: stretch;
   flex-direction: column;
 }
 
 .proof-card {
+  min-width: 0;
   padding: 1.1rem 1.2rem;
 }
 

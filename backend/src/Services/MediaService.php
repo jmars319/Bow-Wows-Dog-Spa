@@ -10,58 +10,74 @@ use BowWowSpa\Support\Input;
 
 final class MediaService
 {
-    private const ALLOWED_MIME = [
-        'image/jpeg',
-        'image/png',
-        'image/gif',
-        'image/webp',
-        'application/pdf',
-        'text/plain',
-        'text/csv',
-        'application/csv',
-        'application/msword',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/zip',
-    ];
-
-    private const BLOCKED_EXTENSIONS = [
-        'app', 'bat', 'bin', 'cmd', 'com', 'dll', 'dmg', 'exe', 'html', 'htm',
-        'iso', 'jar', 'js', 'mjs', 'php', 'phar', 'phtml', 'sh', 'svg', 'swf',
-        'tar', 'gz', 'tgz', 'rar', '7z', 'zip',
-    ];
-
-    private const EXTENSION_MIME_MAP = [
-        'jpg' => ['image/jpeg'],
-        'jpeg' => ['image/jpeg'],
-        'png' => ['image/png'],
-        'gif' => ['image/gif'],
-        'webp' => ['image/webp'],
-        'pdf' => ['application/pdf'],
-        'txt' => ['text/plain'],
-        'csv' => ['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'],
-        'doc' => ['application/msword'],
-        'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip'],
-        'xls' => ['application/vnd.ms-excel'],
-        'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip'],
-    ];
-
-    public function __construct(private readonly StorageService $storage = new StorageService())
+    public function __construct(
+        private readonly StorageService $storage = new StorageService(),
+        private readonly MediaUploadValidator $uploadValidator = new MediaUploadValidator(),
+    )
     {
     }
 
-    public function list(?string $category = null): array
+    public function list(?string $category = null, array $filters = []): array
     {
         $sql = 'SELECT * FROM media_assets';
         $params = [];
+        $where = [];
+
         if ($category) {
-            $sql .= ' WHERE category = :category';
+            $where[] = 'category = :category';
             $params['category'] = $this->normalizeCategory($category);
         }
+
+        $archived = strtolower((string) ($filters['archived'] ?? 'active'));
+        if ($archived === 'archived') {
+            $where[] = 'archived_at IS NOT NULL';
+        } elseif ($archived !== 'all') {
+            $where[] = 'archived_at IS NULL';
+        }
+
+        $search = trim((string) ($filters['search'] ?? ''));
+        if ($search !== '') {
+            $where[] = '(title LIKE :search OR alt_text LIKE :search OR caption LIKE :search OR original_path LIKE :search OR original_url LIKE :search)';
+            $params['search'] = '%' . $search . '%';
+        }
+
+        if ($where !== []) {
+            $sql .= ' WHERE ' . implode(' AND ', $where);
+        }
+
         $sql .= ' ORDER BY created_at DESC';
         $rows = Database::fetchAll($sql, $params);
-        return array_map(fn ($row) => $this->hydrateRow($row), $rows);
+        $items = array_map(fn ($row) => $this->hydrateRow($row), $rows);
+
+        $type = strtolower((string) ($filters['asset_type'] ?? 'all'));
+        if ($type !== 'all' && $type !== '') {
+            $items = array_values(array_filter(
+                $items,
+                static fn (array $item): bool => $type === 'image'
+                    ? (bool) ($item['is_image'] ?? false)
+                    : (string) ($item['asset_type'] ?? '') === $type
+            ));
+        }
+
+        $inUse = strtolower((string) ($filters['in_use'] ?? 'all'));
+        if ($inUse === 'yes' || $inUse === 'no') {
+            $items = array_values(array_filter(
+                $items,
+                static fn (array $item): bool => $inUse === 'yes'
+                    ? !empty($item['usage_labels'])
+                    : empty($item['usage_labels'])
+            ));
+        }
+
+        $health = strtolower((string) ($filters['health'] ?? 'all'));
+        if ($health !== 'all' && $health !== '') {
+            $items = array_values(array_filter(
+                $items,
+                static fn (array $item): bool => in_array($health, $item['diagnostic_codes'] ?? [], true)
+            ));
+        }
+
+        return $items;
     }
 
     public function upload(array $file, int $adminId, array $payload = []): array
@@ -69,18 +85,35 @@ final class MediaService
         try {
             $config = $this->resolveConfig();
             $this->ensureUploadStructure();
-            $this->validateUpload($file, $config);
+            $this->uploadValidator->validateUpload($file, $config);
 
             $category = $this->normalizeCategory($payload['category'] ?? 'default');
             $altText = Input::clean($payload['alt_text'] ?? null, 255);
             $title = Input::clean($payload['title'] ?? null, 255);
             $caption = Input::clean($payload['caption'] ?? null, 4000, true);
 
-            $detectedMime = $this->detectMime($file['tmp_name']);
-            $this->validateExtensionAndMime($file['tmp_name'], (string) ($file['name'] ?? ''), $detectedMime);
-            $mime = $this->normalizeDetectedMime($detectedMime, (string) ($file['name'] ?? ''));
-            $extension = $this->extensionFromMime($mime, (string) ($file['name'] ?? ''));
-            $assetType = $this->assetTypeForMime($mime, (string) ($file['name'] ?? ''));
+            $detectedMime = $this->uploadValidator->detectMime($file['tmp_name']);
+            $this->uploadValidator->validateExtensionAndMime($file['tmp_name'], (string) ($file['name'] ?? ''), $detectedMime);
+            $mime = $this->uploadValidator->normalizeDetectedMime($detectedMime, (string) ($file['name'] ?? ''));
+            $extension = $this->uploadValidator->extensionFromMime($mime, (string) ($file['name'] ?? ''));
+            $assetType = $this->uploadValidator->assetTypeForMime($mime, (string) ($file['name'] ?? ''));
+            $checksum = hash_file('sha256', $file['tmp_name']) ?: null;
+            if ($assetType === 'image' && $checksum !== null) {
+                $duplicate = $this->findDuplicateAsset($checksum);
+                if ($duplicate !== null) {
+                    if (!empty($duplicate['archived_at'])) {
+                        $this->archive((int) $duplicate['id'], false);
+                        $duplicate = Database::fetch('SELECT * FROM media_assets WHERE id = :id', ['id' => (int) $duplicate['id']]) ?: $duplicate;
+                    }
+
+                    $hydrated = $this->hydrateRow($duplicate);
+                    $hydrated['was_duplicate'] = true;
+                    $hydrated['duplicate_reused'] = true;
+                    $hydrated['message'] = 'This image was already in the library, so we reused it.';
+                    return $hydrated;
+                }
+            }
+
             $hash = hash_file('sha1', $file['tmp_name']);
             $baseName = $this->buildBaseName($category, (string) ($file['name'] ?? 'upload'), $hash);
             $paths = $this->pathConfig();
@@ -90,7 +123,7 @@ final class MediaService
             );
 
             $originalPath = ($assetType === 'image' ? $paths['originals_path'] : $paths['attachments_path']) . '/' . $originalFilename;
-            if (!move_uploaded_file($file['tmp_name'], $originalPath)) {
+            if (!$this->storeUploadedFile($file['tmp_name'], $originalPath)) {
                 throw new \RuntimeException('Failed moving uploaded file.');
             }
 
@@ -107,7 +140,7 @@ final class MediaService
             $storageProvider = 'local';
             $storageBucket = null;
             $storageKey = $originalStoredPath;
-            $checksum = hash_file('sha256', $originalPath) ?: null;
+            $checksum = $checksum ?? (hash_file('sha256', $originalPath) ?: null);
 
             if ($assetType === 'image') {
                 $this->normalizeOrientation($originalPath, $mime);
@@ -195,7 +228,11 @@ final class MediaService
             return;
         }
 
-        $usages = $this->findUsages($id);
+        if (empty($asset['archived_at'])) {
+            throw new \RuntimeException('Archive this media item before deleting it.');
+        }
+
+        $usages = $this->usageLabels($id);
         if ($usages !== []) {
             throw new \RuntimeException(
                 'This image is still being used by ' . implode(', ', $usages) . '. Replace it there before deleting it.'
@@ -250,6 +287,97 @@ final class MediaService
         Database::run('DELETE FROM media_assets WHERE id = :id', ['id' => $id]);
     }
 
+    public function update(int $id, array $payload): ?array
+    {
+        $existing = Database::fetch('SELECT * FROM media_assets WHERE id = :id', ['id' => $id]);
+        if (!$existing) {
+            return null;
+        }
+
+        $category = array_key_exists('category', $payload)
+            ? $this->normalizeCategory((string) $payload['category'])
+            : (string) ($existing['category'] ?? 'default');
+        $focalX = $this->normalizeFocalValue($payload['focal_x'] ?? ($existing['focal_x'] ?? null));
+        $focalY = $this->normalizeFocalValue($payload['focal_y'] ?? ($existing['focal_y'] ?? null));
+        $archivedAt = $existing['archived_at'] ?? null;
+        if (array_key_exists('is_archived', $payload)) {
+            $archivedAt = !empty($payload['is_archived']) ? date('Y-m-d H:i:s') : null;
+        }
+
+        Database::run(
+            'UPDATE media_assets
+             SET category = :category,
+                 title = :title,
+                 caption = :caption,
+                 alt_text = :alt_text,
+                 focal_x = :focal_x,
+                 focal_y = :focal_y,
+                 archived_at = :archived_at
+             WHERE id = :id',
+            [
+                'category' => $category,
+                'title' => Input::clean($payload['title'] ?? ($existing['title'] ?? null), 255),
+                'caption' => Input::clean($payload['caption'] ?? ($existing['caption'] ?? null), 4000, true),
+                'alt_text' => Input::clean($payload['alt_text'] ?? ($existing['alt_text'] ?? null), 255),
+                'focal_x' => $focalX,
+                'focal_y' => $focalY,
+                'archived_at' => $archivedAt,
+                'id' => $id,
+            ]
+        );
+
+        return $this->find($id);
+    }
+
+    public function archive(int $id, bool $archived = true): ?array
+    {
+        Database::run(
+            'UPDATE media_assets SET archived_at = :archived_at WHERE id = :id',
+            ['archived_at' => $archived ? date('Y-m-d H:i:s') : null, 'id' => $id]
+        );
+
+        return $this->find($id);
+    }
+
+    public function usages(int $id): array
+    {
+        return $this->usageDetails($id);
+    }
+
+    public function replace(int $id, int $replacementId): array
+    {
+        if ($id === $replacementId) {
+            throw new \RuntimeException('Choose a different replacement image.');
+        }
+
+        $asset = $this->find($id);
+        $replacement = $this->find($replacementId);
+        if (!$asset || !$replacement) {
+            throw new \RuntimeException('Media item not found.');
+        }
+        if (empty($replacement['is_image'])) {
+            throw new \RuntimeException('Replacement must be an image.');
+        }
+
+        $counts = [
+            'products' => $this->replaceColumnReferences('retail_items', 'media_id', $id, $replacementId),
+            'gallery_primary' => $this->replaceColumnReferences('gallery_items', 'primary_media_id', $id, $replacementId),
+            'gallery_secondary' => $this->replaceColumnReferences('gallery_items', 'secondary_media_id', $id, $replacementId),
+            'legacy_gallery_before' => $this->replaceColumnReferences('happy_clients', 'before_media_id', $id, $replacementId),
+            'legacy_gallery_after' => $this->replaceColumnReferences('happy_clients', 'after_media_id', $id, $replacementId),
+            'content_blocks' => $this->replaceContentBlockReferences($id, $replacementId),
+        ];
+
+        $this->archive($id, true);
+
+        return [
+            'replaced' => array_sum($counts),
+            'counts' => $counts,
+            'old_media' => $this->find($id),
+            'replacement_media' => $this->find($replacementId),
+        ];
+    }
+
     public function find(int $id): ?array
     {
         $row = Database::fetch('SELECT * FROM media_assets WHERE id = :id', ['id' => $id]);
@@ -272,6 +400,11 @@ final class MediaService
         $variants = $manifest['variants'] ?? json_decode($row['responsive_variants_json'] ?? '[]', true) ?? [];
         $optimizedSrcset = $manifest['srcset']['optimized'] ?? $row['optimized_srcset'];
         $webpSrcset = $manifest['srcset']['webp'] ?? $row['webp_srcset'];
+        $assetType = $this->uploadValidator->assetTypeForMime($row['mime_type'] ?? '', $row['original_path'] ?? '');
+        $usages = $this->usageDetails((int) $row['id']);
+        $diagnostics = $this->diagnosticsForRow($row, $assetType, $optimizedSrcset, $webpSrcset);
+        $focalX = isset($row['focal_x']) && $row['focal_x'] !== null ? (float) $row['focal_x'] : null;
+        $focalY = isset($row['focal_y']) && $row['focal_y'] !== null ? (float) $row['focal_y'] : null;
 
         return [
             'id' => (int) $row['id'],
@@ -279,28 +412,49 @@ final class MediaService
             'original_url' => $row['original_url'],
             'category' => $row['category'],
             'mime_type' => $row['mime_type'],
-            'asset_type' => $this->assetTypeForMime($row['mime_type'] ?? '', $row['original_path'] ?? ''),
+            'asset_type' => $assetType,
             'storage_provider' => $row['storage_provider'] ?? 'local',
             'storage_bucket' => $row['storage_bucket'] ?? null,
             'storage_key' => $row['storage_key'] ?? $row['original_path'],
             'checksum_sha256' => $row['checksum_sha256'] ?? null,
-            'download_url' => $this->assetTypeForMime($row['mime_type'] ?? '', $row['original_path'] ?? '') === 'image' ? null : $row['original_url'],
-            'is_image' => $this->assetTypeForMime($row['mime_type'] ?? '', $row['original_path'] ?? '') === 'image',
+            'download_url' => $assetType === 'image' ? null : $row['original_url'],
+            'is_image' => $assetType === 'image',
             'intrinsic_width' => $row['intrinsic_width'],
             'intrinsic_height' => $row['intrinsic_height'],
             'title' => $row['title'],
             'caption' => $row['caption'],
             'alt_text' => $row['alt_text'],
+            'focal_x' => $focalX,
+            'focal_y' => $focalY,
+            'object_position' => ($focalX !== null && $focalY !== null)
+                ? $this->formatFocal($focalX) . '% ' . $this->formatFocal($focalY) . '%'
+                : null,
             'responsive_variants' => $variants,
             'manifest_path' => $row['manifest_path'],
             'optimized_srcset' => $optimizedSrcset,
             'webp_srcset' => $webpSrcset,
             'fallback_url' => $row['fallback_url'] ?? $row['original_url'],
+            'archived_at' => $row['archived_at'] ?? null,
+            'is_archived' => !empty($row['archived_at']),
+            'health_status' => $row['health_status'] ?? null,
+            'last_verified_at' => $row['last_verified_at'] ?? null,
+            'usages' => $usages,
+            'usage_labels' => array_map(static fn (array $usage): string => $usage['label'], $usages),
+            'is_in_use' => $usages !== [],
+            'diagnostics' => $diagnostics,
+            'diagnostic_codes' => array_map(static fn (array $diagnostic): string => $diagnostic['code'], $diagnostics),
+            'can_archive' => empty($row['archived_at']),
+            'can_delete' => !empty($row['archived_at']) && $usages === [],
             'created_at' => $row['created_at'],
         ];
     }
 
-    private function findUsages(int $mediaId): array
+    private function usageLabels(int $mediaId): array
+    {
+        return array_map(static fn (array $usage): string => $usage['label'], $this->usageDetails($mediaId));
+    }
+
+    private function usageDetails(int $mediaId): array
     {
         $usages = [];
 
@@ -312,7 +466,13 @@ final class MediaService
         );
         $retailTotal = (int) ($retail['total'] ?? 0);
         if ($retailTotal > 0) {
-            $usages[] = $retailTotal . ' product' . ($retailTotal === 1 ? '' : 's');
+            $usages[] = [
+                'type' => 'retail',
+                'count' => $retailTotal,
+                'label' => $retailTotal . ' product' . ($retailTotal === 1 ? '' : 's'),
+                'admin_path' => '/admin/retail',
+                'public_path' => '/#products',
+            ];
         }
 
         $gallery = Database::fetch(
@@ -323,7 +483,13 @@ final class MediaService
         );
         $galleryTotal = (int) ($gallery['total'] ?? 0);
         if ($galleryTotal > 0) {
-            $usages[] = $galleryTotal . ' gallery item' . ($galleryTotal === 1 ? '' : 's');
+            $usages[] = [
+                'type' => 'gallery',
+                'count' => $galleryTotal,
+                'label' => $galleryTotal . ' gallery item' . ($galleryTotal === 1 ? '' : 's'),
+                'admin_path' => '/admin/gallery',
+                'public_path' => '/#gallery',
+            ];
         }
 
         $legacyGallery = Database::fetch(
@@ -334,7 +500,13 @@ final class MediaService
         );
         $legacyTotal = (int) ($legacyGallery['total'] ?? 0);
         if ($legacyTotal > 0) {
-            $usages[] = $legacyTotal . ' legacy gallery item' . ($legacyTotal === 1 ? '' : 's');
+            $usages[] = [
+                'type' => 'legacy_gallery',
+                'count' => $legacyTotal,
+                'label' => $legacyTotal . ' legacy gallery item' . ($legacyTotal === 1 ? '' : 's'),
+                'admin_path' => '/admin/gallery',
+                'public_path' => '/#gallery',
+            ];
         }
 
         $hero = Database::fetch(
@@ -346,136 +518,129 @@ final class MediaService
         );
         $heroTotal = (int) ($hero['total'] ?? 0);
         if ($heroTotal > 0) {
-            $usages[] = 'the hero section';
+            $usages[] = [
+                'type' => 'hero',
+                'count' => $heroTotal,
+                'label' => 'the hero section',
+                'admin_path' => '/admin/content',
+                'public_path' => '/#home',
+            ];
         }
 
         return $usages;
     }
 
-    private function validateUpload(array $file, array $config): void
+    private function diagnosticsForRow(array $row, string $assetType, ?string $optimizedSrcset, ?string $webpSrcset): array
     {
-        if (($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
-            throw new \RuntimeException('Upload error.');
+        $diagnostics = [];
+
+        if (!empty($row['archived_at'])) {
+            $diagnostics[] = ['code' => 'archived', 'label' => 'Archived'];
         }
 
-        if (($file['size'] ?? 0) <= 0) {
-            throw new \RuntimeException('Empty upload.');
-        }
-
-        if ($file['size'] > $config['max_bytes']) {
-            throw new \RuntimeException('File exceeds allowed size.');
-        }
-
-        $tmpName = (string) ($file['tmp_name'] ?? '');
-        if ($tmpName === '' || !is_uploaded_file($tmpName)) {
-            throw new \RuntimeException('Uploaded file could not be verified.');
-        }
-
-        $mime = $this->detectMime($file['tmp_name']);
-        if (!in_array($mime, self::ALLOWED_MIME, true)) {
-            throw new \RuntimeException('Unsupported file type.');
-        }
-    }
-
-    private function detectMime(string $path): string
-    {
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mime = finfo_file($finfo, $path) ?: 'application/octet-stream';
-        if (PHP_VERSION_ID < 80500) {
-            finfo_close($finfo);
-        }
-        return $mime;
-    }
-
-    private function extensionFromMime(string $mime, string $originalName = ''): string
-    {
-        return match ($mime) {
-            'image/png' => 'png',
-            'image/gif' => 'gif',
-            'image/webp' => 'webp',
-            'application/pdf' => 'pdf',
-            'text/csv', 'application/csv' => 'csv',
-            'text/plain' => strtolower(pathinfo($originalName, PATHINFO_EXTENSION)) === 'csv' ? 'csv' : 'txt',
-            'application/msword' => 'doc',
-            'application/vnd.ms-excel' => strtolower(pathinfo($originalName, PATHINFO_EXTENSION)) === 'csv' ? 'csv' : 'xls',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
-            default => 'jpg',
-        };
-    }
-
-    private function extensionForOriginalName(string $originalName): string
-    {
-        return strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-    }
-
-    private function validateExtensionAndMime(string $path, string $originalName, string $mime): void
-    {
-        $extension = $this->extensionForOriginalName($originalName);
-        if ($extension === '') {
-            throw new \RuntimeException('Uploaded file needs a valid extension.');
-        }
-        if (in_array($extension, self::BLOCKED_EXTENSIONS, true)) {
-            throw new \RuntimeException('File type not allowed.');
-        }
-        if (!isset(self::EXTENSION_MIME_MAP[$extension])) {
-            throw new \RuntimeException('File type not allowed.');
-        }
-        if (!in_array($mime, self::EXTENSION_MIME_MAP[$extension], true)) {
-            throw new \RuntimeException('File extension does not match the file type.');
-        }
-        if ($mime === 'application/zip' && in_array($extension, ['docx', 'xlsx'], true) && !$this->isOfficeOpenXml($path, $extension)) {
-            throw new \RuntimeException('Office document could not be verified.');
-        }
-    }
-
-    private function isOfficeOpenXml(string $path, string $extension): bool
-    {
-        if (!class_exists(\ZipArchive::class)) {
-            return true;
-        }
-        $zip = new \ZipArchive();
-        if ($zip->open($path) !== true) {
-            return false;
-        }
-        $hasContentTypes = $zip->locateName('[Content_Types].xml') !== false;
-        $hasOfficeRoot = $extension === 'docx'
-            ? $zip->locateName('word/document.xml') !== false
-            : $zip->locateName('xl/workbook.xml') !== false;
-        $zip->close();
-        return $hasContentTypes && $hasOfficeRoot;
-    }
-
-    private function normalizeDetectedMime(string $mime, string $originalName): string
-    {
-        $extension = $this->extensionForOriginalName($originalName);
-        if ($mime === 'application/zip') {
-            if ($extension === 'docx') {
-                return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        if ($assetType === 'image') {
+            if (trim((string) ($row['alt_text'] ?? '')) === '') {
+                $diagnostics[] = ['code' => 'missing_alt', 'label' => 'Alt text needed'];
             }
-            if ($extension === 'xlsx') {
-                return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+            if (!$optimizedSrcset && !$webpSrcset) {
+                $diagnostics[] = ['code' => 'missing_variants', 'label' => 'Optimized versions missing'];
+            }
+            if (($row['storage_provider'] ?? 'local') === 'local') {
+                $paths = $this->pathConfig();
+                $localOriginal = $paths['base_path'] . '/' . ltrim((string) ($row['original_path'] ?? ''), '/');
+                if (!is_file($localOriginal)) {
+                    $diagnostics[] = ['code' => 'missing_local_file', 'label' => 'Local fallback missing'];
+                }
             }
         }
-        return $mime;
+
+        return $diagnostics;
     }
 
-    private function assetTypeForMime(string $mime, string $name = ''): string
+    private function storeUploadedFile(string $source, string $target): bool
     {
-        if (str_starts_with($mime, 'image/')) {
-            return 'image';
+        if (is_uploaded_file($source)) {
+            return move_uploaded_file($source, $target);
         }
-        $extension = $this->extensionForOriginalName($name);
-        if (in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) {
-            return 'image';
+
+        if (Config::get('app.env') === 'testing' && is_file($source)) {
+            return rename($source, $target) || copy($source, $target);
         }
-        if (in_array($extension, ['csv', 'xls', 'xlsx'], true)) {
-            return 'spreadsheet';
+
+        return false;
+    }
+
+    private function findDuplicateAsset(string $checksum): ?array
+    {
+        if ($checksum === '') {
+            return null;
         }
-        if ($extension === 'txt') {
-            return 'text';
+
+        $rows = Database::fetchAll(
+            'SELECT * FROM media_assets
+             WHERE checksum_sha256 = :checksum
+             ORDER BY archived_at IS NULL DESC, created_at ASC, id ASC',
+            ['checksum' => $checksum]
+        );
+
+        foreach ($rows as $row) {
+            if ($this->uploadValidator->assetTypeForMime($row['mime_type'] ?? '', $row['original_path'] ?? '') === 'image') {
+                return $row;
+            }
         }
-        return 'document';
+
+        return null;
+    }
+
+    private function normalizeFocalValue(mixed $value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return max(0.0, min(100.0, round((float) $value, 2)));
+    }
+
+    private function formatFocal(float $value): string
+    {
+        return rtrim(rtrim(number_format($value, 2), '0'), '.');
+    }
+
+    private function replaceColumnReferences(string $table, string $column, int $oldId, int $replacementId): int
+    {
+        $count = Database::fetch(
+            sprintf('SELECT COUNT(*) AS total FROM %s WHERE %s = :old_id', $table, $column),
+            ['old_id' => $oldId]
+        );
+
+        Database::run(
+            sprintf('UPDATE %s SET %s = :replacement_id WHERE %s = :old_id', $table, $column, $column),
+            ['replacement_id' => $replacementId, 'old_id' => $oldId]
+        );
+
+        return (int) ($count['total'] ?? 0);
+    }
+
+    private function replaceContentBlockReferences(int $oldId, int $replacementId): int
+    {
+        $updated = 0;
+        $rows = Database::fetchAll('SELECT `key`, content_json FROM content_blocks');
+        foreach ($rows as $row) {
+            $content = json_decode((string) ($row['content_json'] ?? ''), true);
+            if (!is_array($content) || (int) ($content['media_id'] ?? 0) !== $oldId) {
+                continue;
+            }
+
+            $content['media_id'] = $replacementId;
+            unset($content['media']);
+            Database::run(
+                'UPDATE content_blocks SET content_json = :content WHERE `key` = :key',
+                ['content' => json_encode($content), 'key' => $row['key']]
+            );
+            $updated++;
+        }
+
+        return $updated;
     }
 
     private function slugify(string $value, string $fallback = 'asset'): string

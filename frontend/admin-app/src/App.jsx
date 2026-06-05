@@ -2,7 +2,6 @@ import { BrowserRouter } from 'react-router-dom';
 import { ConfirmProvider } from './admin/ConfirmProvider';
 import { AuthProvider, DirtyStateProvider } from './admin/AdminShell';
 import { AdminRoutes } from './admin/AdminRoutes';
-import { AdminUsersPage, AuditLogPage, BookingRequestsPage, ContactMessagesPage, ContentPage, FeaturedReviewsPage, GalleryPage, MediaPage, RetailPage, SchedulePage, ServicesPage } from './admin/pages';
 
 function App() {
   return (
@@ -10,21 +9,7 @@ function App() {
       <AuthProvider>
         <ConfirmProvider>
           <DirtyStateProvider>
-            <AdminRoutes
-              pages={{
-                BookingRequestsPage,
-                SchedulePage,
-                ServicesPage,
-                FeaturedReviewsPage,
-                GalleryPage,
-                RetailPage,
-                ContentPage,
-                ContactMessagesPage,
-                MediaPage,
-                AuditLogPage,
-                AdminUsersPage,
-              }}
-            />
+            <AdminRoutes />
           </DirtyStateProvider>
         </ConfirmProvider>
       </AuthProvider>

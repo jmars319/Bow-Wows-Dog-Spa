@@ -74,8 +74,8 @@
       {
         "label": "admin",
         "dir": "frontend/admin-app/dist/assets",
-        "maxTotalJsKb": 406,
-        "maxLargestJsKb": 406
+        "maxTotalJsKb": 412,
+        "maxLargestJsKb": 412
       }
     ]
   }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import axios from 'axios';
 import { BookingSteps, canIntakeContinue, createDog, formatDateLong, formatDuration, formatHoldRemaining, requiresNewSlot, toPhoneHref, todayString } from '../bookingUtils';
+import { publicApi } from '../publicApi';
 import { textHasContent } from '../siteConfig';
 
 export function BookingSection({ settings, content, services }) {
@@ -132,7 +132,7 @@ export function BookingSection({ settings, content, services }) {
       setLoadingAvailability(true);
       setSlotError(null);
       try {
-        const response = await axios.get('/api/public/schedule', {
+        const response = await publicApi.get('/api/public/schedule', {
           params: {
             date: bookingDate,
             service_ids: selectedServiceIds,
@@ -263,7 +263,7 @@ export function BookingSection({ settings, content, services }) {
     setFlowStatus(null);
     setSubmitStatus(null);
     try {
-      const response = await axios.post('/api/public/booking-hold', {
+      const response = await publicApi.post('/api/public/booking-hold', {
         date: bookingDate,
         time: slot.time,
         selected_services: selectedServiceIds,
@@ -290,7 +290,7 @@ export function BookingSection({ settings, content, services }) {
     setSubmitStatus(null);
 
     try {
-      const response = await axios.post('/api/public/booking-hold', {
+      const response = await publicApi.post('/api/public/booking-hold', {
         date: bookingDate,
         time: selectedSlot.time,
         selected_services: selectedServiceIds,
@@ -399,7 +399,7 @@ export function BookingSection({ settings, content, services }) {
         payload.append('paperwork_upload', form.paperwork_upload);
       }
 
-      await axios.post('/api/public/booking-request', payload, {
+      await publicApi.post('/api/public/booking-request', payload, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

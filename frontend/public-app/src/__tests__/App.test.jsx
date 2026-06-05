@@ -6,8 +6,8 @@ const { axiosGet, axiosPost } = vi.hoisted(() => ({
   axiosPost: vi.fn(),
 }));
 
-vi.mock('axios', () => ({
-  default: {
+vi.mock('../public/publicApi', () => ({
+  publicApi: {
     get: axiosGet,
     post: axiosPost,
   },
@@ -101,6 +101,7 @@ describe('public app', () => {
 
     expect(await screen.findByText('Boutique Products')).toBeInTheDocument();
     expect(screen.getByText('Blueberry Biscuits')).toBeInTheDocument();
+    expect(screen.getByText('Photo coming soon')).toBeInTheDocument();
     expect(screen.queryByText('Trusted neighborhood boutique grooming for Greater Winston-Salem and Triad families.')).not.toBeInTheDocument();
   });
 
@@ -125,6 +126,41 @@ describe('public app', () => {
       'href',
       'https://www.rapidscansecure.com/siteseal/Verify.aspx?code=65,1A16737D200DD8330060FA24C50C3C48F287EC3C',
     );
+  });
+
+  it('uses media focal point metadata for public image crops', async () => {
+    axiosGet.mockResolvedValueOnce({
+      data: createPayload({
+        retail_categories: [
+          {
+            id: 1,
+            name: 'Treats',
+            items: [
+              {
+                id: 11,
+                category_id: 1,
+                name: 'Blueberry Biscuits',
+                description: 'Front-counter favorite',
+                price_label: '$8.99',
+                media: {
+                  id: 99,
+                  fallback_url: '/uploads/originals/biscuits.jpg',
+                  original_url: '/uploads/originals/biscuits.jpg',
+                  alt_text: 'Blueberry biscuits on a shelf',
+                  title: 'Blueberry biscuits',
+                  object_position: '42% 38%',
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    render(<App />);
+
+    const image = await screen.findByAltText('Blueberry Biscuits');
+    expect(image).toHaveStyle({ objectPosition: '42% 38%' });
   });
 
   it('shows unavailable messaging for disabled legal pages without rendering the footer', async () => {

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import axios from 'axios';
+import { publicApi } from './publicApi';
 
 const SiteContentContext = createContext({ data: null, loading: true, error: null });
 
@@ -15,7 +15,7 @@ export function SiteContentProvider({ children }) {
       setLoading(true);
       setError(null);
       try {
-        const response = await axios.get('/api/public/site');
+        const response = await publicApi.get('/api/public/site');
         const payload = response?.data;
         if (!payload || typeof payload !== 'object' || !payload.data || typeof payload.data !== 'object') {
           throw new Error(

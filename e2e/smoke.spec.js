@@ -136,7 +136,7 @@ test.describe.serial('stability smoke suite', () => {
     await expect(detailDialog.locator('.status-badge')).toContainText('Cancelled');
   });
 
-  test('media still attached to products cannot be deleted', async ({ page }) => {
+  test('media still attached to products can be archived but not deleted', async ({ page }) => {
     const mediaTitle = uniqueLabel('E2E Media');
     const mediaAlt = `${mediaTitle} Alt`;
     const categoryName = uniqueLabel('E2E Media Category');
@@ -146,11 +146,12 @@ test.describe.serial('stability smoke suite', () => {
     await acceptDialogs(page);
     await login(page);
     await page.goto('/admin/media');
-    await page.getByLabel('Alt text').fill(mediaAlt);
-    await page.getByLabel('Title').fill(mediaTitle);
-    await page.getByLabel('Library category').selectOption('retail');
-    await page.getByLabel('File').setInputFiles(uploadFile);
-    await page.getByRole('button', { name: 'Upload' }).click();
+    const uploadForm = page.locator('[data-media-upload-form]');
+    await uploadForm.getByLabel('Alt text', { exact: true }).fill(mediaAlt);
+    await uploadForm.getByLabel('Title', { exact: true }).fill(mediaTitle);
+    await uploadForm.locator('select').selectOption('retail');
+    await uploadForm.locator('input[type="file"]').setInputFiles(uploadFile);
+    await uploadForm.getByRole('button', { name: 'Upload', exact: true }).click();
     await expect(page.getByText('Upload complete')).toBeVisible();
 
     await page.goto('/admin/retail');
@@ -169,10 +170,16 @@ test.describe.serial('stability smoke suite', () => {
     await expect(page.getByText('Product saved.')).toBeVisible();
 
     await page.goto('/admin/media');
-    await page.getByRole('button', { name: 'retail' }).click();
+    await page.locator('.media-filter select').first().selectOption('retail');
     const mediaCard = page.locator('[data-media-id]').filter({ hasText: mediaTitle }).first();
-    await mediaCard.getByRole('button', { name: 'Delete' }).click();
-    await confirmAdminAction(page, 'Delete media');
-    await expect(page.getByText(/still being used by 1 product/i)).toBeVisible();
+    await expect(mediaCard).toBeVisible();
+    await expect(mediaCard).toContainText('1 product');
+    await mediaCard.getByRole('button', { name: 'Archive' }).click();
+    await confirmAdminAction(page, 'Archive media');
+    await expect(page.getByText('Media archived.')).toBeVisible();
+    await page.locator('.media-filter select').nth(2).selectOption('archived');
+    const archivedCard = page.locator('[data-media-id]').filter({ hasText: mediaTitle }).first();
+    await expect(archivedCard).toBeVisible();
+    await expect(archivedCard.getByRole('button', { name: 'Delete archived media' })).toHaveCount(0);
   });
 });

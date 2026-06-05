@@ -3,6 +3,7 @@ export function createRetailCategoryForm() {
     id: null,
     name: '',
     is_published: true,
+    sort_order: 0,
   };
 }
 
@@ -19,5 +20,6 @@ export function createRetailProductForm(categoryId = '') {
     inventory_status: 'untracked',
     fulfillment_mode: 'undecided',
     is_published: true,
+    sort_order: 0,
   };
 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { PublicPreviewLink } from '@jamarq/cpanel-admin-kit/convenience';
 import { useAdminConfirm } from '../ConfirmProvider';
 import { api, useAuth } from '../AdminShell';
 import { BOOKING_STAT_LABELS, BOOKING_STAT_ORDER, StatusBadge, getBookingActions, parseServices, summarizePets, summarizeServices } from '../bookingDisplay';
@@ -140,6 +141,35 @@ export function BookingRequestsPage() {
     }
   };
 
+  const performListAction = async (event, request, action) => {
+    event.stopPropagation();
+    const prompts = {
+      confirm: 'Confirm this booking and notify the customer?',
+      decline: 'Decline this booking request?',
+      cancel: 'Cancel this booking?',
+      complete: 'Mark this booking as completed?',
+    };
+    if (!(await confirm({ message: prompts[action], confirmLabel: 'Continue', tone: 'danger' }))) {
+      return;
+    }
+
+    try {
+      const response = await api.post('/booking-requests/action', { id: request.id, action, notes: request.admin_notes || '' });
+      const updated = response.data.data;
+      setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      if (selected?.id === updated.id) {
+        setSelected(updated);
+        setNotes(updated.admin_notes || '');
+        setEditForm(createBookingEditForm(updated));
+      }
+      setFeedback({ tone: 'success', message: 'Booking updated.' });
+      setTimeout(() => setFeedback(null), 2500);
+      load();
+    } catch (err) {
+      setFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to update booking.' });
+    }
+  };
+
   const extendHold = async () => {
     if (!selected) return;
     try {
@@ -225,6 +255,7 @@ export function BookingRequestsPage() {
           <div className="page-header">
             <h1>Booking Requests</h1>
             <div className="page-toolbar">
+              <PublicPreviewLink href="/#booking" label="View booking flow" />
               <button className="btn" onClick={() => openManual()}>
                 Create Manual Reservation
               </button>
@@ -256,6 +287,9 @@ export function BookingRequestsPage() {
               </div>
 
               <div className="booking-list">
+                {feedback && !selected && (
+                  <p className={`save-feedback ${feedback.tone === 'error' ? 'is-error' : 'is-success'}`}>{feedback.message}</p>
+                )}
                 {items.map((request) => {
                   const holdInfo = getHoldInfo(request.created_at, scheduleSettings?.booking_pending_expire_hours);
                   return (
@@ -291,7 +325,19 @@ export function BookingRequestsPage() {
                         Submitted {formatTimeAgo(request.created_at)}
                         {holdInfo && request.status === 'pending_confirmation' ? ` · ~${holdInfo.hoursRemaining}h hold left` : ''}
                       </p>
-                      <button className="btn btn-tertiary" type="button">
+                      <div className="booking-card__quick-actions">
+                        {getBookingActions(request.status).map((action) => (
+                          <button
+                            key={action.key}
+                            className={`btn ${action.className}`}
+                            type="button"
+                            onClick={(event) => performListAction(event, request, action.key)}
+                          >
+                            {action.label}
+                          </button>
+                        ))}
+                      </div>
+                      <button className="btn btn-tertiary" type="button" onClick={(event) => { event.stopPropagation(); openDetails(request); }}>
                         Open request
                       </button>
                     </article>

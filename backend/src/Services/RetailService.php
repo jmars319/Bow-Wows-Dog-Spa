@@ -78,7 +78,9 @@ final class RetailService
         $published = array_key_exists('is_published', $payload)
             ? (int) (!empty($payload['is_published']))
             : (int) ($existing['is_published'] ?? 1);
-        $sortOrder = $existing ? (int) $existing['sort_order'] : $this->nextCategorySortOrder();
+        $sortOrder = array_key_exists('sort_order', $payload)
+            ? (int) $payload['sort_order']
+            : ($existing ? (int) $existing['sort_order'] : $this->nextCategorySortOrder());
 
         if ($existing) {
             Database::run(
@@ -190,7 +192,9 @@ final class RetailService
         $featured = array_key_exists('is_featured', $payload)
             ? (int) (!empty($payload['is_featured']))
             : (int) ($existing['is_featured'] ?? 0);
-        $sortOrder = $existing ? (int) $existing['sort_order'] : $this->nextItemSortOrder($categoryId);
+        $sortOrder = array_key_exists('sort_order', $payload)
+            ? (int) $payload['sort_order']
+            : ($existing ? (int) $existing['sort_order'] : $this->nextItemSortOrder($categoryId));
         $description = Input::clean($payload['description'] ?? null, 4000, true);
 
         if ($existing) {

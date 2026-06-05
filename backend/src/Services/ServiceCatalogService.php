@@ -116,6 +116,29 @@ final class ServiceCatalogService
         return $saved;
     }
 
+    public function setActive(int $id, bool $active): array
+    {
+        Database::run(
+            'UPDATE services SET is_active = :active, updated_at = NOW() WHERE id = :id',
+            [
+                'active' => $active ? 1 : 0,
+                'id' => $id,
+            ]
+        );
+
+        $saved = $this->find($id);
+        if ($saved === null) {
+            throw new \RuntimeException('Unable to load service.');
+        }
+
+        return $saved;
+    }
+
+    public function delete(int $id): void
+    {
+        Database::run('DELETE FROM services WHERE id = :id', ['id' => $id]);
+    }
+
     public function calculateSelection(array $serviceIds, int $petCount = 1): array
     {
         $services = $this->findMany($serviceIds, true);

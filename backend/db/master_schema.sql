@@ -113,10 +113,17 @@ CREATE TABLE IF NOT EXISTS media_assets (
     storage_bucket VARCHAR(191) NULL,
     storage_key VARCHAR(255) NULL,
     checksum_sha256 CHAR(64) NULL,
+    archived_at DATETIME NULL,
+    focal_x DECIMAL(5,2) NULL,
+    focal_y DECIMAL(5,2) NULL,
+    health_status VARCHAR(32) NULL,
+    last_verified_at DATETIME NULL,
     created_by INT UNSIGNED NULL,
     created_at DATETIME NOT NULL,
     INDEX idx_media_creator (created_by),
     INDEX idx_media_assets_storage_provider (storage_provider, category, created_at),
+    INDEX idx_media_assets_archived_category (archived_at, category, created_at),
+    INDEX idx_media_assets_checksum (checksum_sha256),
     CONSTRAINT fk_media_admin FOREIGN KEY (created_by) REFERENCES admin_users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -500,10 +507,73 @@ EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
 SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'media_assets' AND column_name = 'archived_at'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE media_assets ADD COLUMN archived_at DATETIME NULL AFTER checksum_sha256', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'media_assets' AND column_name = 'focal_x'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE media_assets ADD COLUMN focal_x DECIMAL(5,2) NULL AFTER archived_at', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'media_assets' AND column_name = 'focal_y'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE media_assets ADD COLUMN focal_y DECIMAL(5,2) NULL AFTER focal_x', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'media_assets' AND column_name = 'health_status'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE media_assets ADD COLUMN health_status VARCHAR(32) NULL AFTER focal_y', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'media_assets' AND column_name = 'last_verified_at'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE media_assets ADD COLUMN last_verified_at DATETIME NULL AFTER health_status', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
     SELECT COUNT(*) FROM information_schema.statistics
     WHERE table_schema = @dbName AND table_name = 'media_assets' AND index_name = 'idx_media_assets_storage_provider'
 );
 SET @ddl := IF(@exists = 0, 'ALTER TABLE media_assets ADD INDEX idx_media_assets_storage_provider (storage_provider, category, created_at)', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.statistics
+    WHERE table_schema = @dbName AND table_name = 'media_assets' AND index_name = 'idx_media_assets_archived_category'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE media_assets ADD INDEX idx_media_assets_archived_category (archived_at, category, created_at)', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.statistics
+    WHERE table_schema = @dbName AND table_name = 'media_assets' AND index_name = 'idx_media_assets_checksum'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE media_assets ADD INDEX idx_media_assets_checksum (checksum_sha256)', 'SELECT 1');
 PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;

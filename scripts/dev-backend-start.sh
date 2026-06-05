@@ -10,7 +10,12 @@ ensure_not_running "backend"
 log_status "backend" "info" "Starting PHP server on ${DEV_HOST}:${BACKEND_PORT}"
 
 start_detached_service "backend" "$BACKEND_DIR" \
-  php -S "${DEV_HOST}:${BACKEND_PORT}" -t "$BACKEND_PUBLIC_DIR" "$BACKEND_PUBLIC_DIR/index.php"
+  php \
+    -d upload_max_filesize=16M \
+    -d post_max_size=18M \
+    -S "${DEV_HOST}:${BACKEND_PORT}" \
+    -t "$BACKEND_PUBLIC_DIR" \
+    "$BACKEND_PUBLIC_DIR/index.php"
 PID="$(read_pid backend)"
 
 if wait_for_url "http://${DEV_HOST}:${BACKEND_PORT}/api/public/site" 30; then

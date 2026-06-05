@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from 'react';
-import axios from 'axios';
 import { api } from './AdminShell';
+import { publicApi } from './adminApi';
 import { buildServiceList, todayString } from './formatters';
 
 export function ManualBookingLauncher({ children, onCreated, scheduleSettings }) {
@@ -74,7 +74,7 @@ function ManualBookingModal({ defaults, onClose, onCreated, scheduleSettings }) 
     const loadAvailability = async () => {
       setLoading(true);
       try {
-        const response = await axios.get('/api/public/schedule', { params: { date: form.date } });
+        const response = await publicApi.get('/schedule', { params: { date: form.date } });
         if (!ignore) {
           setAvailability(response.data.data.availability);
         }

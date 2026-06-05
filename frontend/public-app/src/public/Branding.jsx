@@ -18,7 +18,7 @@ export function BrandLockup({ compact = false }) {
           alt="Bow Wow's Dog Spa logo"
           width={LOGO_WIDTH}
           height={LOGO_HEIGHT}
-          fetchpriority="high"
+          fetchPriority="high"
         />
       </picture>
       <div>
@@ -45,6 +45,7 @@ export function ResponsivePicture({ media, alt, loading = 'lazy', fetchPriority 
         height={media.intrinsic_height || undefined}
         loading={loading}
         fetchPriority={fetchPriority}
+        style={media.object_position ? { objectPosition: media.object_position } : undefined}
       />
     </picture>
   );
