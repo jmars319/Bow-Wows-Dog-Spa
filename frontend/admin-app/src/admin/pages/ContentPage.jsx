@@ -1,14 +1,23 @@
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { PublicPreviewLink, RichPreview } from '@jamarq/cpanel-admin-kit/convenience';
+import { useEffect, useMemo, useState } from 'react';
+import { LocalDraftStatus, PublicPreviewLink, RichPreview, useLocalDraft } from '@jamarq/cpanel-admin-kit/convenience';
 import { useAdminConfirm } from '../ConfirmProvider';
-import { api, useAdminDirtyState, useAuth } from '../AdminShell';
-import { BOOKING_STAT_LABELS, BOOKING_STAT_ORDER, StatusBadge, getBookingActions, parseServices, summarizePets, summarizeServices } from '../bookingDisplay';
+import { api, useAdminDirtyState } from '../AdminShell';
 import { EditorSection, ListEditor, RichTextEditor, SectionEnabledToggle } from '../ContentEditorControls';
-import { ManualBookingLauncher } from '../ManualBooking';
-import { MediaPicker, MediaPicture } from '../MediaPicker';
-import { formatDateLabel, formatDateTime, formatMetadata, formatTimeAgo, formatTimeLabel, formatTimeRange, renderHoldExpiry, truncateText, getHoldInfo } from '../formatters';
-import { createRetailCategoryForm, createRetailProductForm } from '../retailDefaults';
-import { buildScheduleTimeOptions, formatScheduleTime, minutesToScheduleValue, normalizeAdminTimeInput, sortScheduleTimes, timeValueToMinutes, toggleScheduleTime } from '../scheduleTime';
+import { MediaPicker } from '../MediaPicker';
+
+const HOMEPAGE_ORDER = ['trust', 'services', 'booking', 'gallery', 'retail', 'reviews', 'about', 'contact', 'faq', 'policies'];
+const HOMEPAGE_SECTION_LABELS = {
+  trust: 'Trust signals',
+  services: 'Services',
+  booking: 'Booking request',
+  gallery: 'Gallery / Happy Customers',
+  retail: 'Retail products',
+  reviews: 'Reviews',
+  about: 'About',
+  contact: 'Contact and location',
+  faq: 'FAQ',
+  policies: 'Policies',
+};
 
 export function ContentPage() {
   const { setDirtyState, clearDirty } = useAdminDirtyState();
@@ -29,6 +38,11 @@ export function ContentPage() {
   }, [sections, settings]);
 
   const isDirty = Boolean(savedSnapshot && currentSnapshot && currentSnapshot !== savedSnapshot);
+  const browserDraft = useLocalDraft({
+    key: 'bowwow-site-content-draft',
+    value: { settings, sections },
+    enabled: Boolean(isDirty && settings && sections),
+  });
 
   useEffect(() => {
     let ignore = false;
@@ -88,6 +102,28 @@ export function ContentPage() {
     updateSection(key, { items });
   };
 
+  const homepageOrder = useMemo(() => {
+    const saved = Array.isArray(sections?.homepage_order?.items) ? sections.homepage_order.items : [];
+    return [
+      ...saved.filter((item) => HOMEPAGE_ORDER.includes(item)),
+      ...HOMEPAGE_ORDER.filter((item) => !saved.includes(item)),
+    ];
+  }, [sections]);
+
+  const moveHomepageSection = (sectionId, direction) => {
+    const currentIndex = homepageOrder.indexOf(sectionId);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= homepageOrder.length) {
+      return;
+    }
+
+    const nextOrder = [...homepageOrder];
+    const [item] = nextOrder.splice(currentIndex, 1);
+    nextOrder.splice(nextIndex, 0, item);
+    updateSection('homepage_order', { items: nextOrder, enabled: true });
+    setStatus({ tone: 'success', message: 'Homepage section order updated. Save content to publish this order.' });
+  };
+
   const restoreLastSaved = async () => {
     if (!savedSnapshot) {
       return;
@@ -116,6 +152,7 @@ export function ContentPage() {
     try {
       await api.post('/content/site', { settings, sections });
       setSavedSnapshot(currentSnapshot);
+      browserDraft.clearDraft();
       clearDirty();
       setStatus({ tone: 'success', message: 'Site content saved.' });
     } catch (err) {
@@ -128,6 +165,31 @@ export function ContentPage() {
   if (!settings || !sections) {
     return <div className="card">{status?.message || 'Loading site content…'}</div>;
   }
+
+  const restoreBrowserDraft = async () => {
+    const draft = browserDraft.readDraft();
+    if (!draft?.value?.settings || !draft?.value?.sections) {
+      setStatus({ tone: 'error', message: 'No browser draft was found.' });
+      return;
+    }
+
+    if (isDirty && !(await confirm({
+      message: 'Restore the browser draft and replace the current unsaved changes on this page?',
+      confirmLabel: 'Restore draft',
+      tone: 'warning',
+    }))) {
+      return;
+    }
+
+    setSettings(draft.value.settings);
+    setSections(draft.value.sections);
+    setStatus({ tone: 'success', message: 'Browser draft restored. Review it, then save to update the public site.' });
+  };
+
+  const discardBrowserDraft = () => {
+    browserDraft.clearDraft();
+    setStatus({ tone: 'success', message: 'Browser draft discarded.' });
+  };
 
   return (
     <div>
@@ -149,6 +211,12 @@ export function ContentPage() {
           <div>
             <strong>{isDirty ? 'Unsaved changes' : 'All changes saved'}</strong>
             <p className="muted small-text">This page controls live public-site text and settings.</p>
+            <LocalDraftStatus
+              hasDraft={browserDraft.hasDraft}
+              isDirty={isDirty}
+              onRestore={restoreBrowserDraft}
+              onDiscard={discardBrowserDraft}
+            />
           </div>
           <div className="editor-savebar__actions">
             {status && <p className={`save-feedback ${status.tone === 'error' ? 'is-error' : 'is-success'}`}>{status.message}</p>}
@@ -247,6 +315,31 @@ export function ContentPage() {
           </div>
         </EditorSection>
 
+        <EditorSection title="Homepage Section Order" description="Hero always stays first and the footer always stays last. Reorder the middle homepage sections here.">
+          <div className="homepage-order-list">
+            {homepageOrder.map((sectionId, index) => (
+              <div key={sectionId} className="homepage-order-row">
+                <div>
+                  <strong>{HOMEPAGE_SECTION_LABELS[sectionId] || sectionId}</strong>
+                  <p className="muted small-text">
+                    Position {index + 1} after the hero
+                    {sections[sectionId]?.enabled === false ? ' · hidden from website' : ''}
+                  </p>
+                </div>
+                <div className="inline-actions">
+                  <PublicPreviewLink href={`/#${sectionId}`} label="Preview" />
+                  <button type="button" className="btn btn-tertiary" onClick={() => moveHomepageSection(sectionId, -1)} disabled={index === 0}>
+                    Move up
+                  </button>
+                  <button type="button" className="btn btn-tertiary" onClick={() => moveHomepageSection(sectionId, 1)} disabled={index === homepageOrder.length - 1}>
+                    Move down
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </EditorSection>
+
         <EditorSection title="Hero" description="First-screen headline, supporting copy, CTA labels, and the main hero image." initiallyOpen>
           <SectionEnabledToggle
             label="Show hero section"
@@ -271,7 +364,7 @@ export function ContentPage() {
               label="Hero image"
               media={sections.hero?.media || null}
               onChange={(media) => updateSection('hero', { media_id: media?.id ?? null, media: media || null })}
-              uploadCategory="gallery"
+              uploadCategory="hero"
             />
           </div>
           <div className="grid two-col gap-sm">

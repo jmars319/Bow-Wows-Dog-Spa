@@ -1,12 +1,6 @@
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAdminConfirm } from '../ConfirmProvider';
 import { api, useAuth } from '../AdminShell';
-import { BOOKING_STAT_LABELS, BOOKING_STAT_ORDER, StatusBadge, getBookingActions, parseServices, summarizePets, summarizeServices } from '../bookingDisplay';
-import { EditorSection, ListEditor, RichTextEditor, SectionEnabledToggle } from '../ContentEditorControls';
-import { ManualBookingLauncher } from '../ManualBooking';
-import { MediaPicker, MediaPicture } from '../MediaPicker';
-import { formatDateLabel, formatDateTime, formatMetadata, formatTimeAgo, formatTimeLabel, formatTimeRange, renderHoldExpiry, truncateText, getHoldInfo } from '../formatters';
-import { createRetailCategoryForm, createRetailProductForm } from '../retailDefaults';
 import { buildScheduleTimeOptions, formatScheduleTime, minutesToScheduleValue, normalizeAdminTimeInput, sortScheduleTimes, timeValueToMinutes, toggleScheduleTime } from '../scheduleTime';
 
 export const WEEKDAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -16,7 +10,12 @@ export function SchedulePage() {
   const confirm = useAdminConfirm();
   const [templates, setTemplates] = useState([]);
   const [overrides, setOverrides] = useState([]);
-  const [settings, setSettings] = useState({ booking_hold_minutes: 1440, booking_pending_expire_hours: 24 });
+  const [settings, setSettings] = useState({
+    booking_hold_minutes: 1440,
+    booking_pending_expire_hours: 24,
+    booking_pause_enabled: false,
+    booking_pause_message: 'Online appointment times are paused right now. Please call or send a message and we will help find a safe appointment time.',
+  });
   const [timeDrafts, setTimeDrafts] = useState({});
   const [overrideTimeDraft, setOverrideTimeDraft] = useState('');
   const [overrideForm, setOverrideForm] = useState({ id: null, date: '', is_closed: false, times: [] });
@@ -189,6 +188,24 @@ export function SchedulePage() {
   };
 
   const canDeleteOverride = user?.role === 'super_admin';
+  const hasVisibleSlots = templates.some((template) => (template.is_enabled === 1 || template.is_enabled === true) && (template.times || []).length > 0);
+  const bookingSafety = settings.booking_pause_enabled
+    ? {
+        tone: 'warning',
+        title: 'Online time selection is paused',
+        message: 'Customers can still read the booking section, but appointment times are hidden and routed to contact.',
+      }
+    : hasVisibleSlots
+      ? {
+          tone: 'success',
+          title: 'Booking time selection is ready',
+          message: 'Public booking can show time buttons based on active services and the schedule.',
+        }
+      : {
+          tone: 'error',
+          title: 'No public booking times are available',
+          message: 'Add enabled weekday times or keep vacation mode on so customers are routed to contact.',
+        };
 
   const addOverrideTime = () => {
     const normalized = normalizeAdminTimeInput(overrideTimeDraft);
@@ -210,6 +227,39 @@ export function SchedulePage() {
     <div>
       <h1>Schedule Setup</h1>
       {feedback && <p className={`save-feedback ${feedback.tone === 'error' ? 'is-error' : 'is-success'}`}>{feedback.message}</p>}
+      <div className={`card booking-safety-card booking-safety-card--${bookingSafety.tone}`}>
+        <div className="booking-card__header">
+          <div>
+            <h3>Booking safety preview</h3>
+            <p className="muted">{bookingSafety.title}</p>
+          </div>
+          <span className={`status-pill status-pill--${bookingSafety.tone}`}>{bookingSafety.tone === 'success' ? 'Safe' : 'Needs attention'}</span>
+        </div>
+        <p className="muted small-text">{bookingSafety.message}</p>
+      </div>
+      <div className="card">
+        <h3>Business Closed / Vacation Mode</h3>
+        <p className="muted">Use this when the shop is closed, the calendar is being repaired, or staff wants requests to come through contact instead of time buttons.</p>
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={Boolean(settings.booking_pause_enabled)}
+            onChange={(event) => setSettings((prev) => ({ ...prev, booking_pause_enabled: event.target.checked }))}
+          />{' '}
+          Hide online appointment times and show contact fallback
+        </label>
+        <label className="field-block" style={{ marginTop: '0.75rem' }}>
+          <span className="field-label">Fallback message customers see</span>
+          <textarea
+            value={settings.booking_pause_message || ''}
+            onChange={(event) => setSettings((prev) => ({ ...prev, booking_pause_message: event.target.value }))}
+            rows={3}
+          />
+        </label>
+        <button className="btn btn-tertiary" type="button" onClick={saveTemplates}>
+          Save Vacation Mode
+        </button>
+      </div>
       <div className="card">
         <h3>Standard Schedule Builder</h3>
         <p className="muted">Generate {slotMinutes}-minute time buttons and apply them to multiple weekdays at once.</p>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ResponsivePicture } from '../Branding';
-import { escapeHtml, formatDuration, toPhoneHref } from '../bookingUtils';
+import { escapeHtml, formatDuration, richHtml, toPhoneHref } from '../bookingUtils';
 import { publicApi } from '../publicApi';
 import { textHasContent } from '../siteConfig';
 
@@ -19,11 +19,21 @@ export function HeroSection({ settings, content, primaryCta, secondaryCta }) {
 
   return (
     <section id="hero" className={`hero-section ${heroMedia ? 'hero-section--with-media' : 'hero-section--without-media'}`}>
+      {heroMedia && (
+        <div className="hero-background" aria-hidden="true">
+          <ResponsivePicture
+            media={heroMedia}
+            alt=""
+            loading="eager"
+            fetchPriority="high"
+          />
+        </div>
+      )}
       <div className="container hero-grid">
         <div className="hero-copy">
           {textHasContent(content.eyebrow) && <p className="eyebrow">{content.eyebrow}</p>}
           <h1>{content.headline || 'Calm grooming care and a boutique dog spa experience.'}</h1>
-          <div className="hero-subheading" dangerouslySetInnerHTML={{ __html: heroSubheading }} />
+          <div className="hero-subheading" dangerouslySetInnerHTML={richHtml(heroSubheading)} />
           <div className="hero-actions">
             {primaryCta && (
               <a className="btn btn-primary" href={primaryCta.href}>
@@ -56,16 +66,7 @@ export function HeroSection({ settings, content, primaryCta, secondaryCta }) {
         </div>
 
         <div className={`hero-visual ${heroMedia ? 'hero-visual--has-media' : 'hero-visual--placeholder'}`}>
-          {heroMedia ? (
-            <div className="hero-visual__media">
-              <ResponsivePicture
-                media={heroMedia}
-                alt={heroMedia.alt_text || heroMedia.title || "Freshly groomed Bow Wow's Dog Spa client"}
-                loading="eager"
-                fetchPriority="high"
-              />
-            </div>
-          ) : (
+          {!heroMedia && (
             <div className="hero-visual__placeholder" aria-hidden="true">
               <p>Comfort-first care</p>
               <strong>Colorful boutique results with a calm, neighborhood feel.</strong>
@@ -102,7 +103,7 @@ export function TrustStrip({ settings, content }) {
         <div className="section-heading section-heading--tight">
           <p className="eyebrow">Trust signals</p>
           <h2>{content.title || 'Why local families choose Bow Wow’s'}</h2>
-          {textHasContent(content.intro) && <div className="section-intro" dangerouslySetInnerHTML={{ __html: content.intro }} />}
+          {textHasContent(content.intro) && <div className="section-intro" dangerouslySetInnerHTML={richHtml(content.intro)} />}
         </div>
 
         <div className="trust-grid">
@@ -148,7 +149,7 @@ export function ServicesSection({ content, services, settings, primaryCta }) {
         <div className="section-heading">
           <p className="eyebrow">Services & pricing</p>
           <h2>{content.title || 'Clear service options with transparent starting prices'}</h2>
-          {textHasContent(content.intro) && <div className="section-intro" dangerouslySetInnerHTML={{ __html: content.intro }} />}
+          {textHasContent(content.intro) && <div className="section-intro" dangerouslySetInnerHTML={richHtml(content.intro)} />}
         </div>
 
         <div className="accordion-list">
@@ -165,7 +166,7 @@ export function ServicesSection({ content, services, settings, primaryCta }) {
                 </div>
               </summary>
               <div className="accordion-body">
-                {textHasContent(service.description) && <div dangerouslySetInnerHTML={{ __html: service.description }} />}
+                {textHasContent(service.description) && <div dangerouslySetInnerHTML={richHtml(service.description)} />}
                 {textHasContent(service.breed_weight_note) && <p className="muted-text">{service.breed_weight_note}</p>}
                 {primaryCta && (
                   <a className="btn btn-outline" href={primaryCta.href}>
@@ -178,7 +179,7 @@ export function ServicesSection({ content, services, settings, primaryCta }) {
         </div>
 
         {textHasContent(content.disclaimer) && (
-          <div className="section-note" dangerouslySetInnerHTML={{ __html: content.disclaimer }} />
+          <div className="section-note" dangerouslySetInnerHTML={richHtml(content.disclaimer)} />
         )}
 
         <div className="section-cta">
@@ -212,7 +213,7 @@ export function GallerySection({ content, items }) {
         <div className="section-heading">
           <p className="eyebrow">Visual trust</p>
           <h2>{content.title || 'Fresh from the spa'}</h2>
-          {textHasContent(content.intro) && <div className="section-intro" dangerouslySetInnerHTML={{ __html: content.intro }} />}
+          {textHasContent(content.intro) && <div className="section-intro" dangerouslySetInnerHTML={richHtml(content.intro)} />}
         </div>
 
         <div className="gallery-grid">
@@ -255,7 +256,7 @@ export function RetailSection({ content, categories, settings }) {
         <div className="section-heading">
           <p className="eyebrow">In-spa products</p>
           <h2>{content.title || 'Boutique Products'}</h2>
-          {textHasContent(content.body) && <div className="section-intro" dangerouslySetInnerHTML={{ __html: content.body }} />}
+          {textHasContent(content.body) && <div className="section-intro" dangerouslySetInnerHTML={richHtml(content.body)} />}
         </div>
 
         {showCategoryLinks && (
@@ -335,7 +336,7 @@ export function ReviewsSection({ settings, content, items, primaryCta }) {
         <div className="section-heading">
           <p className="eyebrow">Reviews & trust</p>
           <h2>{content.title || 'Google reviews and neighborhood trust'}</h2>
-          {textHasContent(content.intro) && <div className="section-intro" dangerouslySetInnerHTML={{ __html: content.intro }} />}
+          {textHasContent(content.intro) && <div className="section-intro" dangerouslySetInnerHTML={richHtml(content.intro)} />}
         </div>
 
         <div className="reviews-shell">
@@ -422,7 +423,7 @@ export function AboutSection({ content, settings }) {
         <div className="section-heading section-heading--tight">
           <p className="eyebrow">Care philosophy</p>
           <h2>{content.title || 'Comfort-first care'}</h2>
-          <div className="section-intro" dangerouslySetInnerHTML={{ __html: content.body || '' }} />
+          <div className="section-intro" dangerouslySetInnerHTML={richHtml(content.body)} />
         </div>
         <div className="about-aside">
           <div className="sidebar-card">
@@ -479,7 +480,7 @@ export function ContactSection({ content, location, settings }) {
         <div className="section-heading">
           <p className="eyebrow">Contact & location</p>
           <h2>{content.title || 'Contact Bow Wow’s'}</h2>
-          {textHasContent(content.note) && <div className="section-intro" dangerouslySetInnerHTML={{ __html: content.note }} />}
+          {textHasContent(content.note) && <div className="section-intro" dangerouslySetInnerHTML={richHtml(content.note)} />}
         </div>
 
         <div className="contact-grid">
@@ -516,7 +517,7 @@ export function ContactSection({ content, location, settings }) {
             {textHasContent(location.note) && (
               <div className="contact-card contact-card--note">
                 <span>{location.title || 'Location & hours'}</span>
-                <div dangerouslySetInnerHTML={{ __html: location.note }} />
+                <div dangerouslySetInnerHTML={richHtml(location.note)} />
               </div>
             )}
           </div>
@@ -620,7 +621,7 @@ export function FaqSection({ content, items }) {
                   <h3>{item.question}</h3>
                 </div>
               </summary>
-              <div className="accordion-body" dangerouslySetInnerHTML={{ __html: item.answer || '' }} />
+              <div className="accordion-body" dangerouslySetInnerHTML={richHtml(item.answer)} />
             </details>
           ))}
         </div>
@@ -643,7 +644,7 @@ export function PoliciesSection({ content, items }) {
           {items.map((item, index) => (
             <article key={index} className="policy-card">
               <h3>{item.title}</h3>
-              <div dangerouslySetInnerHTML={{ __html: item.body || '' }} />
+              <div dangerouslySetInnerHTML={richHtml(item.body)} />
             </article>
           ))}
         </div>

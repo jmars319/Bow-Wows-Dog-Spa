@@ -102,6 +102,10 @@ final class SiteContentService
             'title' => 'Contact Bow Wow’s',
             'note' => 'Questions about coat care, first visits, or paperwork? Send a note and our team will point you in the right direction.',
         ],
+        'homepage_order' => [
+            'enabled' => true,
+            'items' => ['trust', 'services', 'booking', 'gallery', 'retail', 'reviews', 'about', 'contact', 'faq', 'policies'],
+        ],
         'footer' => [
             'enabled' => true,
             'tagline' => 'Trusted neighborhood boutique grooming for Greater Winston-Salem and Triad families.',
@@ -251,6 +255,20 @@ final class SiteContentService
         if ($key === 'trust') {
             $points = $value['points'] ?? [];
             $value['points'] = is_array($points) ? array_values($points) : [];
+        }
+
+        if ($key === 'homepage_order') {
+            $allowed = ['trust', 'services', 'booking', 'gallery', 'retail', 'reviews', 'about', 'contact', 'faq', 'policies'];
+            $items = is_array($value['items'] ?? null) ? $value['items'] : [];
+            $value['items'] = array_values(array_unique(array_filter(
+                array_map(static fn (mixed $item): string => (string) $item, $items),
+                static fn (string $item): bool => in_array($item, $allowed, true)
+            )));
+            foreach ($allowed as $item) {
+                if (!in_array($item, $value['items'], true)) {
+                    $value['items'][] = $item;
+                }
+            }
         }
 
         $value = $this->sanitizeSectionHtml($key, $value);

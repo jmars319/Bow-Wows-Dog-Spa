@@ -1,34 +1,44 @@
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import { PublicPreviewLink } from '@jamarq/cpanel-admin-kit/convenience';
 import { useAdminConfirm } from '../ConfirmProvider';
-import { api, useAuth } from '../AdminShell';
+import { api } from '../AdminShell';
 import { BOOKING_STAT_LABELS, BOOKING_STAT_ORDER, StatusBadge, getBookingActions, parseServices, summarizePets, summarizeServices } from '../bookingDisplay';
-import { EditorSection, ListEditor, RichTextEditor, SectionEnabledToggle } from '../ContentEditorControls';
 import { ManualBookingLauncher } from '../ManualBooking';
-import { MediaPicker, MediaPicture } from '../MediaPicker';
-import { formatDateLabel, formatDateTime, formatMetadata, formatTimeAgo, formatTimeLabel, formatTimeRange, renderHoldExpiry, truncateText, getHoldInfo } from '../formatters';
-import { createRetailCategoryForm, createRetailProductForm } from '../retailDefaults';
-import { buildScheduleTimeOptions, formatScheduleTime, minutesToScheduleValue, normalizeAdminTimeInput, sortScheduleTimes, timeValueToMinutes, toggleScheduleTime } from '../scheduleTime';
+import { formatDateLabel, formatTimeAgo, formatTimeLabel, formatTimeRange, renderHoldExpiry, truncateText, getHoldInfo } from '../formatters';
 
 export function BookingRequestsPage() {
   const confirm = useAdminConfirm();
   const [items, setItems] = useState([]);
   const [stats, setStats] = useState({});
   const [statusFilter, setStatusFilter] = useState('');
+  const [testFilter, setTestFilter] = useState('hide');
+  const [requestSearch, setRequestSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [selected, setSelected] = useState(null);
   const [notes, setNotes] = useState('');
   const [notesDirty, setNotesDirty] = useState(false);
   const [editForm, setEditForm] = useState(null);
   const [editDirty, setEditDirty] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [emailPreview, setEmailPreview] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [scheduleSettings, setScheduleSettings] = useState(null);
   const dialogTitleId = useId();
 
   const load = useCallback(async () => {
-    const response = await api.get('/booking-requests', { params: { status: statusFilter || undefined } });
+    const response = await api.get('/booking-requests', {
+      params: {
+        status: statusFilter || undefined,
+        test: testFilter,
+        search: requestSearch.trim() || undefined,
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
+      },
+    });
     setItems(response.data.data.items);
     setStats(response.data.data.stats);
-  }, [statusFilter]);
+  }, [dateFrom, dateTo, requestSearch, statusFilter, testFilter]);
 
   useEffect(() => {
     load();
@@ -81,6 +91,7 @@ export function BookingRequestsPage() {
     setNotesDirty(false);
     setEditForm(createBookingEditForm(request));
     setEditDirty(false);
+    setEmailPreview(null);
   };
 
   const closeDetails = () => {
@@ -89,6 +100,7 @@ export function BookingRequestsPage() {
     setNotesDirty(false);
     setEditForm(null);
     setEditDirty(false);
+    setEmailPreview(null);
   };
 
   const saveNotes = async () => {
@@ -110,13 +122,7 @@ export function BookingRequestsPage() {
 
   const performAction = async (action) => {
     if (!selected) return;
-    const prompts = {
-      confirm: 'Confirm this booking and notify the customer?',
-      decline: 'Decline this booking request?',
-      cancel: 'Cancel this booking?',
-      complete: 'Mark this booking as completed?',
-    };
-    if (!(await confirm({ message: prompts[action], confirmLabel: 'Continue', tone: 'danger' }))) {
+    if (!(await confirm({ message: bookingActionPrompt(selected, action), confirmLabel: 'Continue', tone: 'danger' }))) {
       return;
     }
     try {
@@ -143,13 +149,7 @@ export function BookingRequestsPage() {
 
   const performListAction = async (event, request, action) => {
     event.stopPropagation();
-    const prompts = {
-      confirm: 'Confirm this booking and notify the customer?',
-      decline: 'Decline this booking request?',
-      cancel: 'Cancel this booking?',
-      complete: 'Mark this booking as completed?',
-    };
-    if (!(await confirm({ message: prompts[action], confirmLabel: 'Continue', tone: 'danger' }))) {
+    if (!(await confirm({ message: bookingActionPrompt(request, action), confirmLabel: 'Continue', tone: 'danger' }))) {
       return;
     }
 
@@ -238,6 +238,37 @@ export function BookingRequestsPage() {
     }
   };
 
+  const previewCustomerEmail = async (template) => {
+    if (!selected) return;
+    setPreviewLoading(true);
+    setEmailPreview(null);
+    try {
+      const response = await api.post('/booking-requests/email-preview', {
+        id: selected.id,
+        template,
+        notes,
+      });
+      setEmailPreview({
+        template,
+        ...response.data.data,
+      });
+    } catch (err) {
+      setFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to preview that email.' });
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const exportFilteredRequests = () => {
+    const params = new URLSearchParams();
+    if (statusFilter) params.set('status', statusFilter);
+    if (testFilter) params.set('test', testFilter);
+    if (requestSearch.trim()) params.set('search', requestSearch.trim());
+    if (dateFrom) params.set('date_from', dateFrom);
+    if (dateTo) params.set('date_to', dateTo);
+    window.location.href = `/api/admin/booking-requests/export?${params.toString()}`;
+  };
+
   const statusOptions = [
     { value: '', label: 'All statuses' },
     { value: 'pending_confirmation', label: 'Pending' },
@@ -247,7 +278,6 @@ export function BookingRequestsPage() {
     { value: 'cancelled', label: 'Cancelled' },
     { value: 'expired', label: 'Expired' },
   ];
-
   return (
     <ManualBookingLauncher onCreated={load} scheduleSettings={scheduleSettings}>
       {(openManual) => (
@@ -255,19 +285,22 @@ export function BookingRequestsPage() {
           <div className="page-header">
             <h1>Booking Requests</h1>
             <div className="page-toolbar">
-              <PublicPreviewLink href="/#booking" label="View booking flow" />
+              <PublicPreviewLink href="/#booking" label="View booking" />
               <button className="btn" onClick={() => openManual()}>
-                Create Manual Reservation
+                Manual Request
               </button>
-              <button className="btn btn-tertiary" onClick={load}>
-                Refresh
+              <button className="btn btn-tertiary" onClick={() => openManual({ isInternalTest: true })}>
+                Test Request
+              </button>
+              <button className="btn btn-tertiary" onClick={exportFilteredRequests}>
+                Export CSV
               </button>
             </div>
           </div>
           <div className="booking-layout booking-layout--queue">
             <div className="booking-column">
               <div className="card">
-                <label className="field-label">Filter by status</label>
+                <label className="field-label">Status</label>
                 <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                   {statusOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -275,6 +308,32 @@ export function BookingRequestsPage() {
                     </option>
                   ))}
                 </select>
+                <label className="field-block" style={{ marginTop: '0.75rem' }}>
+                  <span className="field-label">Test requests</span>
+                  <select value={testFilter} onChange={(event) => setTestFilter(event.target.value)}>
+                    <option value="hide">Hide</option>
+                    <option value="all">Show all</option>
+                    <option value="only">Tests</option>
+                  </select>
+                </label>
+                <div className="grid two-col gap-sm" style={{ marginTop: '0.75rem' }}>
+                  <label className="field-block">
+                    <span className="field-label">From</span>
+                    <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
+                  </label>
+                  <label className="field-block">
+                    <span className="field-label">To</span>
+                    <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
+                  </label>
+                </div>
+                <label className="field-block" style={{ marginTop: '0.75rem' }}>
+                  <span className="field-label">Find</span>
+                  <input
+                    value={requestSearch}
+                    placeholder="Search requests..."
+                    onChange={(event) => setRequestSearch(event.target.value)}
+                  />
+                </label>
               </div>
 
               <div className="stat-grid">
@@ -307,6 +366,7 @@ export function BookingRequestsPage() {
                         </div>
                         <StatusBadge status={request.status} />
                       </div>
+                      {request.is_internal_test && <span className="status-pill status-pill--info">Internal test</span>}
                       <div className="booking-card__meta">
                         <div>
                           <p className="small-text">{request.email}</p>
@@ -343,7 +403,7 @@ export function BookingRequestsPage() {
                     </article>
                   );
                 })}
-                {items.length === 0 && <div className="card">No booking requests found.</div>}
+                {items.length === 0 && <div className="card">No requests found.</div>}
               </div>
             </div>
           </div>
@@ -355,7 +415,7 @@ export function BookingRequestsPage() {
                 <div className="modal__header">
                   <div>
                     <h3 id={dialogTitleId}>Booking Request</h3>
-                    <p className="muted small-text">Review request #{selected.id}, manage notes, and confirm or decline from one place.</p>
+                    <p className="muted small-text">Review and respond to request #{selected.id}.</p>
                   </div>
                   <button type="button" className="btn btn-link" onClick={closeDetails}>
                     Close
@@ -366,10 +426,16 @@ export function BookingRequestsPage() {
                   <h2>{selected.customer_name}</h2>
                   <p className="muted small-text">Request #{selected.id}</p>
                   <StatusBadge status={selected.status} />
+                  {selected.is_internal_test && (
+                    <div className="inline-note booking-detail__notice">
+                      <strong>Internal test request</strong>
+                      <p className="muted small-text">No customer emails or calendar sync unless staff runs a sync test.</p>
+                    </div>
+                  )}
                   {selected.status === 'pending_confirmation' && (
                     <div className="inline-note booking-detail__notice">
                       <strong>Pending review</strong>
-                      <p className="muted small-text">This request is still holding availability until staff confirms, declines, or releases it.</p>
+                      <p className="muted small-text">This request holds time until staff responds or releases it.</p>
                     </div>
                   )}
                   <div className="detail-section">
@@ -515,7 +581,7 @@ export function BookingRequestsPage() {
                         setNotes(e.target.value);
                         setNotesDirty(true);
                       }}
-                      placeholder="Add internal notes, confirmation details, or follow-up reminders..."
+                      placeholder="Add internal notes or follow-up reminders..."
                     />
                     <div className="detail-actions detail-actions--secondary">
                       <button className="btn btn-tertiary" type="button" onClick={saveNotes} disabled={!notesDirty}>
@@ -538,6 +604,16 @@ export function BookingRequestsPage() {
                     </div>
                   )}
                   <div className="detail-actions">
+                    {['pending_confirmation'].includes(selected.status) && !selected.is_internal_test && (
+                      <>
+                        <button className="btn btn-tertiary" type="button" onClick={() => previewCustomerEmail('confirm')} disabled={previewLoading}>
+                          Approval email preview
+                        </button>
+                        <button className="btn btn-tertiary" type="button" onClick={() => previewCustomerEmail('decline')} disabled={previewLoading}>
+                          Rejection email preview
+                        </button>
+                      </>
+                    )}
                     {getBookingActions(selected.status).map((action) => (
                       <button
                         key={action.key}
@@ -549,6 +625,16 @@ export function BookingRequestsPage() {
                       </button>
                     ))}
                   </div>
+                  {emailPreview && (
+                    <div className="detail-section email-preview-panel">
+                      <div className="booking-card__header">
+                        <h4>{emailPreview.template === 'decline' ? 'Decline' : 'Confirm'} Email Preview</h4>
+                        <span className="small-text muted">Not sent yet</span>
+                      </div>
+                      <p className="small-text"><strong>Subject:</strong> {emailPreview.subject}</p>
+                      <div className="rich-preview" dangerouslySetInnerHTML={{ __html: emailPreview.html || '' }} />
+                    </div>
+                  )}
                   {feedback && <p className={`save-feedback ${feedback.tone === 'error' ? 'is-error' : 'is-success'}`}>{feedback.message}</p>}
                 </div>
               </div>
@@ -574,4 +660,19 @@ function createBookingEditForm(request) {
     paperwork_notes: request?.paperwork_notes || '',
     admin_notes: request?.admin_notes || '',
   };
+}
+
+function bookingActionPrompt(request, action) {
+  if (action === 'confirm') {
+    return request.is_internal_test
+      ? 'Confirm this test? No email or calendar event will be created.'
+      : 'Confirm this booking and notify the customer?';
+  }
+  if (action === 'decline') {
+    return request.is_internal_test ? 'Decline this test? No customer email will be sent.' : 'Decline this booking request?';
+  }
+  return {
+    cancel: 'Cancel this booking?',
+    complete: 'Mark this booking as completed?',
+  }[action];
 }

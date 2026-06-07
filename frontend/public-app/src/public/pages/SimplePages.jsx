@@ -5,6 +5,7 @@ import { STATUS_PAGE_CONTENT, computeLegalSections, isSectionEnabled } from '../
 import { applySeo, applyStructuredData, buildLocalBusinessSchema, buildSimpleSeo, buildStatusSeo } from '../seo';
 import { useSiteContent } from '../SiteContentContext';
 import { Footer, StatusFooter } from '../components/SiteLayout';
+import { richHtml } from '../bookingUtils';
 
 export function SimplePage({ fallbackTitle, blockKey }) {
   const { data, loading, error } = useSiteContent();
@@ -69,7 +70,7 @@ export function SimplePage({ fallbackTitle, blockKey }) {
           {items.map((item, index) => (
             <article key={index} className="simple-page__item">
               {item.title && <h3>{item.title}</h3>}
-              <div dangerouslySetInnerHTML={{ __html: item.body || item.text || '' }} />
+              <div dangerouslySetInnerHTML={richHtml(item.body || item.text)} />
             </article>
           ))}
         </div>

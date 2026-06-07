@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { BrandLockup } from '../Branding';
 import { SECTION_LINKS, computeLegalSections, computeVisibleSections, isSectionEnabled, resolvePrimaryCta, resolveSecondaryCta } from '../siteConfig';
@@ -65,6 +65,18 @@ export function PublicPage() {
     return () => window.cancelAnimationFrame(frameId);
   }, [data, loading, error, location.hash]);
 
+  useEffect(() => {
+    if (loading || error || !data || location.hash) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [data, loading, error, location.hash, location.pathname]);
+
   if (loading) {
     return (
       <div className="site-shell">
@@ -104,7 +116,16 @@ export function PublicPage() {
   const retailCategories = Array.isArray(data.retail_categories) ? data.retail_categories : [];
   const visibleSections = computeVisibleSections(sections, services, galleryItems, featuredReviews, retailCategories, settings);
   const legalSections = computeLegalSections(sections);
-  const navSections = SECTION_LINKS.filter((item) => visibleSections[item.id]);
+  const defaultMiddleOrder = ['trust', 'services', 'booking', 'gallery', 'retail', 'reviews', 'about', 'contact', 'faq', 'policies'];
+  const savedMiddleOrder = Array.isArray(sections.homepage_order?.items) ? sections.homepage_order.items : [];
+  const middleOrder = [
+    ...savedMiddleOrder.filter((id) => defaultMiddleOrder.includes(id)),
+    ...defaultMiddleOrder.filter((id) => !savedMiddleOrder.includes(id)),
+  ];
+  const orderedSectionIds = ['hero', ...middleOrder];
+  const navSections = orderedSectionIds
+    .map((id) => SECTION_LINKS.find((item) => item.id === id))
+    .filter((item) => item && visibleSections[item.id]);
   const primaryCta = resolvePrimaryCta(visibleSections, settings);
   const secondaryCta = resolveSecondaryCta(visibleSections, settings, primaryCta);
   const brandHref = visibleSections.hero ? '#hero' : navSections[0] ? `#${navSections[0].id}` : '/';
@@ -127,20 +148,24 @@ export function PublicPage() {
         {visibleSections.hero && (
           <HeroSection settings={settings} content={sections.hero || {}} primaryCta={primaryCta} secondaryCta={secondaryCta} />
         )}
-        {visibleSections.trust && <TrustStrip settings={settings} content={sections.trust || {}} />}
-        {visibleSections.services && (
-          <ServicesSection content={sections.services || {}} services={services} settings={settings} primaryCta={primaryCta} />
-        )}
-        {visibleSections.booking && <BookingSection settings={settings} content={sections.booking || {}} services={services} />}
-        {visibleSections.gallery && <GallerySection content={sections.gallery || {}} items={galleryItems} />}
-        {visibleSections.retail && <RetailSection content={sections.retail || {}} categories={retailCategories} settings={settings} />}
-        {visibleSections.reviews && (
-          <ReviewsSection settings={settings} content={sections.reviews || {}} items={featuredReviews} primaryCta={primaryCta} />
-        )}
-        {visibleSections.about && <AboutSection content={sections.about || {}} settings={settings} />}
-        {visibleSections.contact && <ContactSection content={sections.contact || {}} location={sections.location || {}} settings={settings} />}
-        {visibleSections.faq && <FaqSection content={sections.faq || {}} items={sections.faq?.items || []} />}
-        {visibleSections.policies && <PoliciesSection content={sections.policies || {}} items={sections.policies?.items || []} />}
+        {middleOrder.map((sectionId) => {
+          if (!visibleSections[sectionId]) {
+            return null;
+          }
+          const renderers = {
+            trust: <TrustStrip settings={settings} content={sections.trust || {}} />,
+            services: <ServicesSection content={sections.services || {}} services={services} settings={settings} primaryCta={primaryCta} />,
+            booking: <BookingSection settings={settings} content={sections.booking || {}} services={services} />,
+            gallery: <GallerySection content={sections.gallery || {}} items={galleryItems} />,
+            retail: <RetailSection content={sections.retail || {}} categories={retailCategories} settings={settings} />,
+            reviews: <ReviewsSection settings={settings} content={sections.reviews || {}} items={featuredReviews} primaryCta={primaryCta} />,
+            about: <AboutSection content={sections.about || {}} settings={settings} />,
+            contact: <ContactSection content={sections.contact || {}} location={sections.location || {}} settings={settings} />,
+            faq: <FaqSection content={sections.faq || {}} items={sections.faq?.items || []} />,
+            policies: <PoliciesSection content={sections.policies || {}} items={sections.policies?.items || []} />,
+          };
+          return <Fragment key={sectionId}>{renderers[sectionId]}</Fragment>;
+        })}
       </main>
       {showFooter && (
         <Footer sections={navSections} legalSections={legalSections} settings={settings} content={sections.footer || {}} primaryCta={primaryCta} />

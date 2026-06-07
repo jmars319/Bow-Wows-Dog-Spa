@@ -197,6 +197,49 @@ export function CalendarSyncPage() {
       detail: failedJobs === 0 ? 'No failed sync work is waiting.' : `${failedJobs} failed job${failedJobs === 1 ? '' : 's'} need attention.`,
     },
   ];
+  const bookingSafe = checklist.every((item) => item.ready);
+  const wizardSteps = [
+    {
+      id: 'env',
+      title: '1. Check calendar settings',
+      ready: Boolean(data.config?.enabled && data.config?.google_oauth_configured),
+      detail: data.config?.google_oauth_configured
+        ? 'Google OAuth settings are present.'
+        : 'Add Google client id, secret, redirect URI, and token key before connecting.',
+    },
+    {
+      id: 'connect',
+      title: '2. Connect Google',
+      ready: connectedCalendars.length > 0,
+      detail: connectedCalendars.length > 0
+        ? `${connectedCalendars.length} enabled calendar${connectedCalendars.length === 1 ? '' : 's'} connected.`
+        : 'Save a calendar slot, then use Connect Google.',
+    },
+    {
+      id: 'primary',
+      title: '3. Choose the write calendar',
+      ready: Boolean(primaryCalendar),
+      detail: primaryCalendar
+        ? `${primaryCalendar.label} receives confirmed appointments.`
+        : 'Mark one connected calendar as the primary write calendar.',
+    },
+    {
+      id: 'blocking',
+      title: '4. Review blocking calendars',
+      ready: blockingCalendars.length > 0,
+      detail: blockingCalendars.length > 0
+        ? 'Busy time on blocking calendars will hide public slots.'
+        : 'Choose at least one calendar that blocks public availability.',
+    },
+    {
+      id: 'test',
+      title: '5. Test and sync',
+      ready: failedJobs === 0,
+      detail: failedJobs === 0
+        ? 'Run Test on the calendar card, then Run Sync Now when ready.'
+        : `${failedJobs} failed sync job${failedJobs === 1 ? '' : 's'} should be reviewed.`,
+    },
+  ];
 
   return (
     <div>
@@ -214,11 +257,32 @@ export function CalendarSyncPage() {
       {status && <p role={status.tone === 'error' ? 'alert' : 'status'} className={`save-feedback ${status.tone === 'error' ? 'is-error' : 'is-success'}`}>{status.message}</p>}
 
       <div className="card">
-        <h3>Current setup</h3>
+        <div className="booking-card__header">
+          <div>
+            <h3>Booking safety preview</h3>
+            <p className="muted">{bookingSafe ? 'Public booking can use Google Calendar availability.' : 'Calendar setup still needs review before launch.'}</p>
+          </div>
+          <span className={`status-pill status-pill--${bookingSafe ? 'success' : 'warning'}`}>
+            {bookingSafe ? 'Safe' : 'Review'}
+          </span>
+        </div>
         <p>Calendar sync: {data.config?.enabled ? 'Enabled' : 'Disabled'}</p>
         <p>Default timezone: {data.config?.default_timezone || 'Not set'}</p>
         <p>Google OAuth: {data.config?.google_oauth_configured ? 'Configured' : 'Needs client id, secret, redirect URI, and token key'}</p>
         <p className="muted">Bow Wow remains the source of truth. Google Calendar blocks availability and receives confirmed bookings, but Google edits do not change booking records.</p>
+      </div>
+
+      <div className="card" style={{ marginTop: '1rem' }}>
+        <h3>Calendar Setup Wizard</h3>
+        <p className="muted">Work through these steps in order. The buttons below stay the same; the wizard just shows what still needs attention.</p>
+        <div className="calendar-checklist">
+          {wizardSteps.map((item) => (
+            <div key={item.id} className={`calendar-check ${item.ready ? 'is-ready' : 'is-warning'}`}>
+              <strong>{item.ready ? 'Ready' : 'Needs setup'} · {item.title}</strong>
+              <p className="muted small-text">{item.detail}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="card" style={{ marginTop: '1rem' }}>

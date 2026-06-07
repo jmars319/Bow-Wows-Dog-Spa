@@ -34,13 +34,16 @@ export function ResponsivePicture({ media, alt, loading = 'lazy', fetchPriority 
     return null;
   }
 
+  const resolvedAlt =
+    alt !== undefined ? alt : media.alt_text || media.title || "Bow Wow's Dog Spa gallery image";
+
   return (
     <picture className="responsive-picture">
       {media.webp_srcset && <source type="image/webp" srcSet={media.webp_srcset} />}
       {media.optimized_srcset && <source srcSet={media.optimized_srcset} />}
       <img
         src={media.fallback_url || media.original_url}
-        alt={alt || media.alt_text || media.title || "Bow Wow's Dog Spa gallery image"}
+        alt={resolvedAlt}
         width={media.intrinsic_width || undefined}
         height={media.intrinsic_height || undefined}
         loading={loading}

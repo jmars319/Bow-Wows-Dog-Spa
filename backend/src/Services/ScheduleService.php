@@ -12,6 +12,8 @@ final class ScheduleService
     private array $defaultSettings = [
         'booking_hold_minutes' => 30,
         'booking_pending_expire_hours' => 24,
+        'booking_pause_enabled' => 0,
+        'booking_pause_message' => 'Online appointment times are paused right now. Please call or send a message and we will help find a safe appointment time.',
     ];
 
     private ?array $settingsCache = null;
@@ -82,6 +84,10 @@ final class ScheduleService
 
     public function availabilityForDate(string $date, array $options = []): array
     {
+        if ($this->isOnlineBookingPaused()) {
+            return [];
+        }
+
         $times = $this->publishedTimesForDate($date);
         if ($times === []) {
             return [];
@@ -191,7 +197,7 @@ final class ScheduleService
         foreach (array_keys($this->defaultSettings) as $key) {
             $row = Database::fetch('SELECT `value` FROM site_settings WHERE `key` = :key LIMIT 1', ['key' => $key]);
             if ($row && isset($row['value'])) {
-                $settings[$key] = (int) $row['value'];
+                $settings[$key] = $this->normalizeSettingValue($key, (string) $row['value']);
             }
         }
 
@@ -207,18 +213,12 @@ final class ScheduleService
                 continue;
             }
 
-            $sanitized = (int) $value;
-            if ($key === 'booking_hold_minutes') {
-                $sanitized = max(5, min(240, $sanitized));
-            }
-            if ($key === 'booking_pending_expire_hours') {
-                $sanitized = max(0, min(72, $sanitized));
-            }
+            $sanitized = $this->sanitizeSettingForStorage($key, $value);
 
             Database::run(
                 'INSERT INTO site_settings (`key`, `value`) VALUES (:key, :value)
                  ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)',
-                ['key' => $key, 'value' => (string) $sanitized]
+                ['key' => $key, 'value' => $sanitized]
             );
         }
 
@@ -240,6 +240,56 @@ final class ScheduleService
     {
         $settings = $this->getSettings();
         return max(0, (int) ($settings['booking_pending_expire_hours'] ?? $this->defaultSettings['booking_pending_expire_hours']));
+    }
+
+    public function isOnlineBookingPaused(): bool
+    {
+        $settings = $this->getSettings();
+        return (int) ($settings['booking_pause_enabled'] ?? 0) === 1;
+    }
+
+    public function pauseStatus(): array
+    {
+        $settings = $this->getSettings();
+        $message = trim((string) ($settings['booking_pause_message'] ?? ''));
+        if ($message === '') {
+            $message = (string) $this->defaultSettings['booking_pause_message'];
+        }
+
+        return [
+            'paused' => $this->isOnlineBookingPaused(),
+            'message' => $message,
+        ];
+    }
+
+    private function normalizeSettingValue(string $key, string $value): int|string
+    {
+        if ($key === 'booking_pause_message') {
+            return trim($value) !== '' ? trim($value) : (string) $this->defaultSettings[$key];
+        }
+
+        return (int) $value;
+    }
+
+    private function sanitizeSettingForStorage(string $key, mixed $value): string
+    {
+        if ($key === 'booking_pause_message') {
+            $message = trim(strip_tags((string) $value));
+            return substr($message !== '' ? $message : (string) $this->defaultSettings[$key], 0, 500);
+        }
+
+        $sanitized = (int) $value;
+        if ($key === 'booking_hold_minutes') {
+            $sanitized = max(5, min(240, $sanitized));
+        }
+        if ($key === 'booking_pending_expire_hours') {
+            $sanitized = max(0, min(72, $sanitized));
+        }
+        if ($key === 'booking_pause_enabled') {
+            $sanitized = $sanitized ? 1 : 0;
+        }
+
+        return (string) $sanitized;
     }
 
     public function deleteOverride(int $id): void

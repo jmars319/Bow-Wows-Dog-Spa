@@ -163,8 +163,8 @@ test.describe.serial('stability smoke suite', () => {
     const productForm = page.locator('[data-retail-form="product"]');
     await productForm.getByLabel('Category').selectOption({ label: categoryName });
     await productForm.getByLabel('Product name').fill(productName);
-    await productForm.getByRole('button', { name: 'Choose image' }).click();
-    const picker = page.getByRole('dialog', { name: 'Select media' });
+    await productForm.getByRole('button', { name: 'Choose existing image' }).click();
+    const picker = page.getByRole('dialog', { name: 'Choose existing image' });
     await picker.getByAltText(mediaAlt).click();
     await productForm.getByRole('button', { name: 'Save product' }).click();
     await expect(page.getByText('Product saved.')).toBeVisible();

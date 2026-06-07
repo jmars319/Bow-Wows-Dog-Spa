@@ -85,6 +85,14 @@ export function escapeHtml(value) {
     .replaceAll("'", '&#39;');
 }
 
+export function normalizeDisplayHtml(value) {
+  return String(value || '').replace(/(?:&nbsp;|\u00a0)+/g, ' ');
+}
+
+export function richHtml(value) {
+  return { __html: normalizeDisplayHtml(value) };
+}
+
 export function formatDuration(minutes) {
   const total = Number(minutes) || 0;
   const hours = Math.floor(total / 60);

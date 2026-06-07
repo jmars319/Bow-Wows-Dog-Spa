@@ -113,8 +113,10 @@ final class Application
 
         $booking = new AdminBookingController();
         $this->router->add('GET', '/api/admin/booking-requests', [$booking, 'index']);
+        $this->router->add('GET', '/api/admin/booking-requests/export', [$booking, 'export']);
         $this->router->add('POST', '/api/admin/booking-requests', [$booking, 'create']);
         $this->router->add('POST', '/api/admin/booking-requests/action', [$booking, 'transition']);
+        $this->router->add('POST', '/api/admin/booking-requests/email-preview', [$booking, 'emailPreview']);
         $this->router->add('POST', '/api/admin/booking-requests/update', [$booking, 'updateDetails']);
         $this->router->add('POST', '/api/admin/booking-requests/notes', [$booking, 'updateNotes']);
         $this->router->add('POST', '/api/admin/booking-requests/extend', [$booking, 'extendHold']);

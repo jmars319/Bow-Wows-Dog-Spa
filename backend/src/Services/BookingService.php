@@ -9,13 +9,11 @@ use BowWowSpa\Database\Database;
 use BowWowSpa\Support\Config;
 use BowWowSpa\Support\Input;
 use DateTimeImmutable;
-use DateTimeZone;
 use PDO;
 
 final class BookingService
 {
     private bool $staleChecked = false;
-
     public function __construct(
         private readonly ScheduleService $schedule = new ScheduleService(),
         private readonly BookingCustomerEmailService $customerEmails = new BookingCustomerEmailService(),
@@ -102,6 +100,8 @@ final class BookingService
         $petsJson = json_encode($pets);
         $firstPet = $pets[0] ?? [];
         $legacyDogNotes = $this->firstPetNotes($firstPet);
+        $isInternalTest = !empty($payload['is_internal_test']);
+        $source = Input::clean($payload['source'] ?? ($isInternalTest ? 'admin_test' : 'public'), 64) ?? ($isInternalTest ? 'admin_test' : 'public');
 
         return Database::transaction(function (PDO $pdo) use (
             $date,
@@ -119,7 +119,9 @@ final class BookingService
             $duration,
             $firstPet,
             $legacyDogNotes,
-            $files
+            $files,
+            $isInternalTest,
+            $source
         ) {
             $pdo->prepare('DELETE FROM booking_holds WHERE expires_at <= NOW()')->execute();
 
@@ -159,6 +161,8 @@ final class BookingService
                     vet_phone,
                     request_notes,
                     paperwork_notes,
+                    is_internal_test,
+                    source,
                     admin_notes,
                     status,
                     created_at,
@@ -179,6 +183,8 @@ final class BookingService
                     :vet_phone,
                     :request_notes,
                     :paperwork_notes,
+                    :is_internal_test,
+                    :source,
                     :admin_notes,
                     "pending_confirmation",
                     NOW(),
@@ -201,6 +207,8 @@ final class BookingService
                 'vet_phone' => Input::phone($payload['vet_phone'] ?? null),
                 'request_notes' => Input::clean($payload['notes'] ?? $payload['request_notes'] ?? null, 5000, true),
                 'paperwork_notes' => Input::clean($payload['paperwork_notes'] ?? null, 5000, true),
+                'is_internal_test' => $isInternalTest ? 1 : 0,
+                'source' => $source,
                 'admin_notes' => Input::clean($payload['admin_notes'] ?? null, 5000, true),
             ]);
 
@@ -247,6 +255,31 @@ final class BookingService
         if (!empty($filters['status'])) {
             $sql .= ' AND status = :status';
             $params['status'] = $filters['status'];
+        }
+
+        $testMode = (string) ($filters['test'] ?? 'hide');
+        if ($testMode === 'only') {
+            $sql .= ' AND is_internal_test = 1';
+        } elseif ($testMode !== 'all') {
+            $sql .= ' AND is_internal_test = 0';
+        }
+
+        $search = trim((string) ($filters['search'] ?? ''));
+        if ($search !== '') {
+            $sql .= ' AND (customer_name LIKE :search OR email LIKE :search OR phone LIKE :search OR dog_name LIKE :search OR request_notes LIKE :search OR admin_notes LIKE :search)';
+            $params['search'] = '%' . $search . '%';
+        }
+
+        $dateFrom = $this->normalizeDate((string) ($filters['date_from'] ?? ''));
+        if ($dateFrom !== null) {
+            $sql .= ' AND date >= :date_from';
+            $params['date_from'] = $dateFrom;
+        }
+
+        $dateTo = $this->normalizeDate((string) ($filters['date_to'] ?? ''));
+        if ($dateTo !== null) {
+            $sql .= ' AND date <= :date_to';
+            $params['date_to'] = $dateTo;
         }
 
         $sql .= ' ORDER BY created_at DESC LIMIT 250';
@@ -308,10 +341,11 @@ final class BookingService
             throw new \RuntimeException('Unable to load updated booking.');
         }
 
-        if (Config::get('sendgrid.send_customer_confirmations', true) && $newStatus === 'confirmed') {
+        $isInternalTest = (int) ($updated['is_internal_test'] ?? 0) === 1;
+        if (!$isInternalTest && Config::get('sendgrid.send_customer_confirmations', true) && $newStatus === 'confirmed') {
             $this->customerEmails->sendConfirmed($updated);
         }
-        if (Config::get('sendgrid.send_customer_confirmations', true) && $newStatus === 'declined') {
+        if (!$isInternalTest && Config::get('sendgrid.send_customer_confirmations', true) && $newStatus === 'declined') {
             $this->customerEmails->sendDeclined($updated, $notes);
         }
 
@@ -504,31 +538,6 @@ final class BookingService
         return $updated;
     }
 
-    public function stats(): array
-    {
-        $this->expireStalePending();
-
-        $today = date('Y-m-d');
-        $week = (new DateTimeImmutable('today', new DateTimeZone('UTC')))->modify('monday this week')->format('Y-m-d');
-
-        $new = Database::fetch('SELECT COUNT(*) as total FROM booking_requests WHERE status = "pending_confirmation"')['total'] ?? 0;
-        $confirmedToday = Database::fetch(
-            'SELECT COUNT(*) as total FROM booking_requests WHERE status = "confirmed" AND date = :date',
-            ['date' => $today]
-        )['total'] ?? 0;
-        $confirmedWeek = Database::fetch(
-            'SELECT COUNT(*) as total FROM booking_requests WHERE status = "confirmed" AND date >= :week_start',
-            ['week_start' => $week]
-        )['total'] ?? 0;
-
-        return [
-            'new_requests' => (int) $new,
-            'pending_confirmation' => (int) $new,
-            'confirmed_today' => (int) $confirmedToday,
-            'confirmed_week' => (int) $confirmedWeek,
-        ];
-    }
-
     public function extendHold(int $bookingId): array
     {
         $booking = Database::fetch('SELECT * FROM booking_requests WHERE id = :id LIMIT 1', ['id' => $bookingId]);
@@ -568,16 +577,6 @@ final class BookingService
         return $updated;
     }
 
-    public function findAttachment(int $bookingId, int $attachmentId): ?array
-    {
-        return $this->attachments->find($bookingId, $attachmentId);
-    }
-
-    public function attachmentAbsolutePath(array $attachment): string
-    {
-        return $this->attachments->absolutePath($attachment);
-    }
-
     private function hydrateBooking(array $row): array
     {
         $services = json_decode($row['services_json'] ?? '[]', true);
@@ -612,6 +611,8 @@ final class BookingService
             'request_notes' => $row['request_notes'] ?? null,
             'paperwork_notes' => $row['paperwork_notes'] ?? null,
             'paperwork_attachments' => $this->attachments->listForBooking((int) $row['id']),
+            'is_internal_test' => (int) ($row['is_internal_test'] ?? 0) === 1,
+            'source' => $row['source'] ?? 'public',
             'status' => $row['status'],
             'admin_notes' => $row['admin_notes'],
             'created_at' => $row['created_at'],
@@ -830,7 +831,7 @@ final class BookingService
         }
     }
 
-    private function expireStalePending(): void
+    public function expireStalePending(): void
     {
         if ($this->staleChecked) {
             return;
@@ -953,6 +954,10 @@ final class BookingService
 
     private function queueCalendarSync(array $booking, string $previousStatus): void
     {
+        if (!empty($booking['is_internal_test'])) {
+            return;
+        }
+
         try {
             $this->calendarSync->queueBookingSync($booking, $previousStatus);
         } catch (\Throwable $e) {

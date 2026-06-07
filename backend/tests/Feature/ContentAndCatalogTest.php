@@ -120,4 +120,23 @@ final class ContentAndCatalogTest extends TestCase
         $this->assertStringContainsString('rel="noopener noreferrer"', $heroHtml);
         $this->assertStringNotContainsString('<iframe', $retailHtml);
     }
+
+    public function testHomepageSectionOrderNormalizesSavedMiddleSections(): void
+    {
+        $content = new SiteContentService();
+        $content->saveBlocks([
+            'homepage_order' => [
+                'items' => ['contact', 'booking', 'services', 'unknown-section', 'contact'],
+            ],
+        ]);
+
+        $snapshot = $content->getSiteSnapshot();
+        $items = $snapshot['sections']['homepage_order']['items'];
+
+        $this->assertSame(['contact', 'booking', 'services'], array_slice($items, 0, 3));
+        $this->assertFalse(in_array('unknown-section', $items, true));
+        $this->assertSame(10, count($items));
+        $this->assertSame(array_values(array_unique($items)), $items);
+        $this->assertTrue(in_array('policies', $items, true));
+    }
 }

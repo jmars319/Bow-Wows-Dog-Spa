@@ -105,6 +105,17 @@ describe('public app', () => {
     expect(screen.queryByText('Trusted neighborhood boutique grooming for Greater Winston-Salem and Triad families.')).not.toBeInTheDocument();
   });
 
+  it('starts the root page at the top when no section hash is present', async () => {
+    axiosGet.mockResolvedValueOnce({ data: createPayload() });
+
+    render(<App />);
+
+    expect(await screen.findByText('Boutique Products')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'auto' });
+    });
+  });
+
   it('renders the CompliAssure seal when the public footer is enabled', async () => {
     axiosGet.mockResolvedValueOnce({
       data: createPayload({

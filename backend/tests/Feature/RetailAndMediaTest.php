@@ -144,6 +144,37 @@ final class RetailAndMediaTest extends TestCase
         $this->assertTrue(in_array('missing_local_file', $asset['diagnostic_codes'], true));
     }
 
+    public function testMediaNeedsAttentionFilterFindsActionableDiagnostics(): void
+    {
+        $attentionId = $this->env->insertMediaAsset([
+            'category' => 'hero',
+            'alt_text' => '',
+            'intrinsic_width' => 900,
+            'intrinsic_height' => 200,
+            'optimized_srcset' => null,
+            'webp_srcset' => null,
+            'fallback_url' => null,
+        ]);
+        $this->env->insertMediaAsset([
+            'category' => 'gallery',
+            'alt_text' => 'Fresh groom portrait',
+            'intrinsic_width' => 1800,
+            'intrinsic_height' => 1200,
+            'optimized_srcset' => '/uploads/photo-w900.jpg 900w',
+            'webp_srcset' => '/uploads/photo-w900.webp 900w',
+            'fallback_url' => '/uploads/photo.jpg',
+            'storage_provider' => 'r2',
+            'storage_key' => 'gallery/photo.jpg',
+        ]);
+
+        $items = (new MediaService())->list(null, ['health' => 'needs_attention']);
+
+        $this->assertCount(1, $items);
+        $this->assertSame($attentionId, $items[0]['id']);
+        $this->assertTrue(in_array('small_hero', $items[0]['diagnostic_codes'], true));
+        $this->assertTrue(in_array('unusual_aspect', $items[0]['diagnostic_codes'], true));
+    }
+
     public function testGalleryDraftsCanBeCreatedFromBulkUploadedMedia(): void
     {
         $mediaId = $this->env->insertMediaAsset([

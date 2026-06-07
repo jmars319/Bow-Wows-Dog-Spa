@@ -13,8 +13,7 @@ final class MediaService
     public function __construct(
         private readonly StorageService $storage = new StorageService(),
         private readonly MediaUploadValidator $uploadValidator = new MediaUploadValidator(),
-    )
-    {
+    ) {
     }
 
     public function list(?string $category = null, array $filters = []): array
@@ -73,7 +72,9 @@ final class MediaService
         if ($health !== 'all' && $health !== '') {
             $items = array_values(array_filter(
                 $items,
-                static fn (array $item): bool => in_array($health, $item['diagnostic_codes'] ?? [], true)
+                static fn (array $item): bool => $health === 'needs_attention'
+                    ? !empty(array_diff($item['diagnostic_codes'] ?? [], ['archived']))
+                    : in_array($health, $item['diagnostic_codes'] ?? [], true)
             ));
         }
 
@@ -541,6 +542,17 @@ final class MediaService
         if ($assetType === 'image') {
             if (trim((string) ($row['alt_text'] ?? '')) === '') {
                 $diagnostics[] = ['code' => 'missing_alt', 'label' => 'Alt text needed'];
+            }
+            $width = (int) ($row['intrinsic_width'] ?? 0);
+            $height = (int) ($row['intrinsic_height'] ?? 0);
+            if (($row['category'] ?? '') === 'hero' && ($width > 0 && $width < 1600)) {
+                $diagnostics[] = ['code' => 'small_hero', 'label' => 'Hero image may be too small'];
+            }
+            if ($width > 0 && $height > 0) {
+                $ratio = $width / $height;
+                if ($ratio < 0.6 || $ratio > 2.8) {
+                    $diagnostics[] = ['code' => 'unusual_aspect', 'label' => 'Unusual crop shape'];
+                }
             }
             if (!$optimizedSrcset && !$webpSrcset) {
                 $diagnostics[] = ['code' => 'missing_variants', 'label' => 'Optimized versions missing'];

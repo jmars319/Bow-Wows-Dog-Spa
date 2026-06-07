@@ -27,7 +27,9 @@ export function ServicesPage() {
   const [items, setItems] = useState([]);
   const [form, setForm] = useState(defaultForm);
   const [feedback, setFeedback] = useState(null);
+  const [reviewSearch, setReviewSearch] = useState('');
   const [draggedService, setDraggedService] = useState(null);
+  const [serviceSearch, setServiceSearch] = useState('');
 
   const load = useCallback(async () => {
     const response = await api.get('/services');
@@ -66,6 +68,47 @@ export function ServicesPage() {
       price_label: item.price_label || '',
       breed_weight_note: item.breed_weight_note || '',
       sort_order: item.sort_order || 0,
+      is_active: Boolean(item.is_active),
+    });
+  };
+
+  const duplicateReview = (item) => {
+    setFeedback({ tone: 'success', message: 'Review copied into the editor. Review it, then save.' });
+    setForm({
+      id: null,
+      reviewer_name: `${item.reviewer_name} copy`,
+      review_text: item.review_text || '',
+      star_rating: item.star_rating || 5,
+      source_label: item.source_label || 'Google',
+      source_url: item.source_url || '',
+      display_order: Number(item.display_order || 0) + 10,
+      is_featured: Boolean(item.is_featured),
+    });
+  };
+
+  const filteredReviews = useMemo(() => {
+    const query = reviewSearch.trim().toLowerCase();
+    if (!query) {
+      return items;
+    }
+    return items.filter((item) => [item.reviewer_name, item.review_text, item.source_label]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(query));
+  }, [items, reviewSearch]);
+
+  const duplicateService = (item) => {
+    setFeedback({ tone: 'success', message: 'Service copied into the editor. Review it, then save.' });
+    setForm({
+      id: null,
+      name: `${item.name} copy`,
+      short_summary: item.short_summary || '',
+      description: item.description || '',
+      duration_minutes: item.duration_minutes || 60,
+      price_label: item.price_label || '',
+      breed_weight_note: item.breed_weight_note || '',
+      sort_order: Number(item.sort_order || 0) + 10,
       is_active: Boolean(item.is_active),
     });
   };
@@ -138,6 +181,18 @@ export function ServicesPage() {
     setDraggedService(null);
   };
 
+  const filteredServices = useMemo(() => {
+    const query = serviceSearch.trim().toLowerCase();
+    if (!query) {
+      return items;
+    }
+    return items.filter((item) => [item.name, item.short_summary, item.description, item.price_label, item.breed_weight_note]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(query));
+  }, [items, serviceSearch]);
+
   return (
     <div>
       <div className="page-header">
@@ -206,7 +261,7 @@ export function ServicesPage() {
             />
           </label>
           <label className="toggle">
-            <input type="checkbox" checked={form.is_active} onChange={(e) => setForm((prev) => ({ ...prev, is_active: e.target.checked }))} /> Active
+            <input type="checkbox" checked={form.is_active} onChange={(e) => setForm((prev) => ({ ...prev, is_active: e.target.checked }))} /> {form.is_active ? 'Visible on website' : 'Hidden from website'}
           </label>
         </div>
         <div className="form-actions">
@@ -220,21 +275,30 @@ export function ServicesPage() {
         </div>
       </form>
 
+      <div className="card section-search-card">
+        <label className="field-block">
+          <span className="field-label">Find a service</span>
+          <input value={serviceSearch} placeholder="Search by name, note, or price..." onChange={(event) => setServiceSearch(event.target.value)} />
+        </label>
+      </div>
+
       <div className="card-grid">
-        {items.map((item, index) => (
+        {filteredServices.map((item, index) => (
           <div key={item.id} className="card">
             <div className="booking-card__header">
               <strong>{item.name}</strong>
-              <PublishState isPublished={item.is_active} publishedLabel="Active" hiddenLabel="Hidden" />
+              <PublishState isPublished={item.is_active} publishedLabel="Visible on website" hiddenLabel="Hidden from website" />
             </div>
-            <SortOrderTools
-              item={item}
-              index={index}
-              total={items.length}
-              onMove={moveService}
-              onDragStart={setDraggedService}
-              onDrop={dropService}
-            />
+            {!serviceSearch.trim() && (
+              <SortOrderTools
+                item={item}
+                index={index}
+                total={items.length}
+                onMove={moveService}
+                onDragStart={setDraggedService}
+                onDrop={dropService}
+              />
+            )}
             <p className="muted">{item.short_summary}</p>
             <p className="small-text">
               {item.duration_minutes} min · {item.price_label || 'Pricing note not set'}
@@ -244,6 +308,9 @@ export function ServicesPage() {
             <div className="inline-actions">
               <button type="button" className="btn btn-tertiary" onClick={() => edit(item)}>
                 Edit service
+              </button>
+              <button type="button" className="btn btn-tertiary" onClick={() => duplicateService(item)}>
+                Duplicate
               </button>
               <button type="button" className="btn btn-tertiary" onClick={() => setServiceActive(item, !item.is_active)}>
                 {item.is_active ? 'Hide service' : 'Show service'}
@@ -255,6 +322,7 @@ export function ServicesPage() {
           </div>
         ))}
         {items.length === 0 && <div className="card">No services configured yet. Add a service here to make it available on the site and in booking requests.</div>}
+        {items.length > 0 && filteredServices.length === 0 && <div className="card">No services match that search.</div>}
       </div>
     </div>
   );
@@ -381,7 +449,7 @@ export function FeaturedReviewsPage() {
             />
           </label>
           <label className="toggle">
-            <input type="checkbox" checked={form.is_featured} onChange={(e) => setForm((prev) => ({ ...prev, is_featured: e.target.checked }))} /> Featured
+            <input type="checkbox" checked={form.is_featured} onChange={(e) => setForm((prev) => ({ ...prev, is_featured: e.target.checked }))} /> {form.is_featured ? 'Visible on website' : 'Hidden from website'}
           </label>
         </div>
         <div className="form-actions">
@@ -395,8 +463,15 @@ export function FeaturedReviewsPage() {
         </div>
       </form>
 
+      <div className="card section-search-card">
+        <label className="field-block">
+          <span className="field-label">Find a review</span>
+          <input value={reviewSearch} placeholder="Search by name, source, or text..." onChange={(event) => setReviewSearch(event.target.value)} />
+        </label>
+      </div>
+
       <div className="card-grid">
-        {items.map((item) => (
+        {filteredReviews.map((item) => (
           <div key={item.id} className="card">
             <div className="booking-card__header">
               <strong>{item.reviewer_name}</strong>
@@ -413,9 +488,13 @@ export function FeaturedReviewsPage() {
             <button type="button" className="btn btn-tertiary" onClick={() => edit(item)}>
               Edit review
             </button>
+            <button type="button" className="btn btn-tertiary" onClick={() => duplicateReview(item)}>
+              Duplicate
+            </button>
           </div>
         ))}
         {items.length === 0 && <div className="card">No featured reviews added yet. Add real review excerpts here when you are ready to feature them.</div>}
+        {items.length > 0 && filteredReviews.length === 0 && <div className="card">No reviews match that search.</div>}
       </div>
     </div>
   );
@@ -438,6 +517,7 @@ export function GalleryPage() {
   const [form, setForm] = useState(defaultForm);
   const [feedback, setFeedback] = useState(null);
   const [draggedGalleryItem, setDraggedGalleryItem] = useState(null);
+  const [gallerySearch, setGallerySearch] = useState('');
 
   const load = useCallback(async () => {
     const response = await api.get('/gallery-items');
@@ -483,6 +563,39 @@ export function GalleryPage() {
     });
   };
 
+  const duplicateGalleryItem = (item) => {
+    setFeedback({ tone: 'success', message: 'Gallery item copied into the editor. Review it, then save.' });
+    setForm({
+      id: null,
+      title: `${item.title} copy`,
+      caption: item.caption || '',
+      item_type: item.item_type || 'groomed_pet',
+      primary_media: item.primary_media || null,
+      secondary_media: item.secondary_media || null,
+      sort_order: Number(item.sort_order || 0) + 10,
+      is_published: Boolean(item.is_published),
+    });
+  };
+
+  const featureGalleryItem = async (item) => {
+    try {
+      await api.post('/gallery-items', {
+        id: item.id,
+        title: item.title,
+        caption: item.caption || '',
+        item_type: item.item_type || 'groomed_pet',
+        primary_media_id: item.primary_media_id,
+        secondary_media_id: item.secondary_media_id,
+        sort_order: Number(item.sort_order) || 0,
+        is_published: 1,
+      });
+      setFeedback({ tone: 'success', message: 'Gallery item is now visible on the website.' });
+      load();
+    } catch (err) {
+      setFeedback({ tone: 'error', message: err.response?.data?.error?.message ?? 'Unable to feature this gallery item.' });
+    }
+  };
+
   const reorderGalleryItems = async (nextItems) => {
     setItems(nextItems);
     try {
@@ -515,6 +628,18 @@ export function GalleryPage() {
     reorderGalleryItems(reorderedItems(items, draggedGalleryItem.id, { targetId: target.id }));
     setDraggedGalleryItem(null);
   };
+
+  const filteredGalleryItems = useMemo(() => {
+    const query = gallerySearch.trim().toLowerCase();
+    if (!query) {
+      return items;
+    }
+    return items.filter((item) => [item.title, item.caption, item.item_type]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(query));
+  }, [gallerySearch, items]);
 
   return (
     <div>
@@ -549,8 +674,8 @@ export function GalleryPage() {
           <span className="field-label">Caption</span>
           <textarea id="gallery-caption" placeholder="Optional supporting caption" value={form.caption} onChange={(e) => setForm((prev) => ({ ...prev, caption: e.target.value }))} />
         </label>
-        <MediaPicker label="Primary image" media={form.primary_media} onChange={(media) => setForm((prev) => ({ ...prev, primary_media: media }))} />
-        <MediaPicker label="Secondary image (optional)" media={form.secondary_media} onChange={(media) => setForm((prev) => ({ ...prev, secondary_media: media }))} />
+        <MediaPicker label="Primary image" media={form.primary_media} onChange={(media) => setForm((prev) => ({ ...prev, primary_media: media }))} libraryCategory="gallery" uploadCategory="gallery" />
+        <MediaPicker label="Secondary image (optional)" media={form.secondary_media} onChange={(media) => setForm((prev) => ({ ...prev, secondary_media: media }))} libraryCategory="gallery" uploadCategory="gallery" />
         <div className="grid two-col gap-sm">
           <label className="field-block">
             <span className="field-label">Display order</span>
@@ -563,7 +688,7 @@ export function GalleryPage() {
             />
           </label>
           <label className="toggle">
-            <input type="checkbox" checked={form.is_published} onChange={(e) => setForm((prev) => ({ ...prev, is_published: e.target.checked }))} /> Published
+            <input type="checkbox" checked={form.is_published} onChange={(e) => setForm((prev) => ({ ...prev, is_published: e.target.checked }))} /> {form.is_published ? 'Visible on website' : 'Hidden from website'}
           </label>
         </div>
         <div className="form-actions">
@@ -577,34 +702,66 @@ export function GalleryPage() {
         </div>
       </form>
 
+      <div className="card section-search-card">
+        <label className="field-block">
+          <span className="field-label">Find a gallery item</span>
+          <input value={gallerySearch} placeholder="Search by title, caption, or type..." onChange={(event) => setGallerySearch(event.target.value)} />
+        </label>
+      </div>
+
       <div className="card-grid">
-        {items.map((item, index) => (
+        {filteredGalleryItems.map((item, index) => (
           <div key={item.id} className="card">
             <div className="happy-preview">
-              {item.primary_media && <img src={item.primary_media.fallback_url || item.primary_media.original_url} alt={item.title} />}
-              {item.secondary_media && <img src={item.secondary_media.fallback_url || item.secondary_media.original_url} alt={item.title} />}
+              {item.primary_media && (
+                <img
+                  src={item.primary_media.fallback_url || item.primary_media.original_url}
+                  alt={item.primary_media.alt_text || item.title}
+                  style={item.primary_media.object_position ? { objectPosition: item.primary_media.object_position } : undefined}
+                />
+              )}
+              {item.secondary_media && (
+                <img
+                  src={item.secondary_media.fallback_url || item.secondary_media.original_url}
+                  alt={item.secondary_media.alt_text || item.title}
+                  style={item.secondary_media.object_position ? { objectPosition: item.secondary_media.object_position } : undefined}
+                />
+              )}
             </div>
             <strong>{item.title}</strong>
             <p className="muted">{item.caption}</p>
             <p className="small-text">
-              {item.item_type} · {item.is_published ? 'Published' : 'Hidden'}
+              {item.item_type} · {item.is_published ? 'Visible on website' : 'Hidden from website'}
             </p>
-            <PublishState isPublished={item.is_published} />
-            <SortOrderTools
-              item={item}
-              index={index}
-              total={items.length}
-              onMove={moveGalleryItem}
-              onDragStart={setDraggedGalleryItem}
-              onDrop={dropGalleryItem}
-            />
+            <PublishState isPublished={item.is_published} publishedLabel="Visible on website" hiddenLabel="Hidden from website" />
+            {!gallerySearch.trim() && (
+              <SortOrderTools
+                item={item}
+                index={index}
+                total={items.length}
+                onMove={moveGalleryItem}
+                onDragStart={setDraggedGalleryItem}
+                onDrop={dropGalleryItem}
+              />
+            )}
             <p className="small-text muted">Display order: {item.sort_order ?? 0}</p>
-            <button type="button" className="btn btn-tertiary" onClick={() => edit(item)}>
-              Edit item
-            </button>
+            <div className="inline-actions">
+              <button type="button" className="btn btn-tertiary" onClick={() => edit(item)}>
+                Edit item
+              </button>
+              <button type="button" className="btn btn-tertiary" onClick={() => duplicateGalleryItem(item)}>
+                Duplicate
+              </button>
+              {!item.is_published && (
+                <button type="button" className="btn btn-tertiary" onClick={() => featureGalleryItem(item)}>
+                  Feature this
+                </button>
+              )}
+            </div>
           </div>
         ))}
         {items.length === 0 && <div className="card">No gallery items yet. Add published media items to show photos on the public site.</div>}
+        {items.length > 0 && filteredGalleryItems.length === 0 && <div className="card">No gallery items match that search.</div>}
       </div>
     </div>
   );
@@ -613,6 +770,7 @@ export function GalleryPage() {
 
 export function ContactMessagesPage() {
   const [items, setItems] = useState([]);
+  const [messageSearch, setMessageSearch] = useState('');
 
   const load = useCallback(async () => {
     const response = await api.get('/contact-messages');
@@ -622,6 +780,18 @@ export function ContactMessagesPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const filteredMessages = useMemo(() => {
+    const query = messageSearch.trim().toLowerCase();
+    if (!query) {
+      return items;
+    }
+    return items.filter((item) => [item.name, item.email, item.phone, item.message]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(query));
+  }, [items, messageSearch]);
 
   return (
     <div>
@@ -637,8 +807,14 @@ export function ContactMessagesPage() {
           </button>
         </div>
       </div>
+      <div className="card section-search-card">
+        <label className="field-block">
+          <span className="field-label">Find a message</span>
+          <input value={messageSearch} placeholder="Search name, email, phone, or message..." onChange={(event) => setMessageSearch(event.target.value)} />
+        </label>
+      </div>
       <div className="booking-list">
-        {items.map((item) => (
+        {filteredMessages.map((item) => (
           <div key={item.id} className="card">
             <div className="booking-card__header">
               <strong>{item.name}</strong>
@@ -650,6 +826,7 @@ export function ContactMessagesPage() {
           </div>
         ))}
         {items.length === 0 && <div className="card">No contact messages yet. Messages from the public contact form will appear here.</div>}
+        {items.length > 0 && filteredMessages.length === 0 && <div className="card">No contact messages match that search.</div>}
       </div>
     </div>
   );

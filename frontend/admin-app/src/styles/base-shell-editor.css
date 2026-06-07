@@ -44,6 +44,11 @@ body {
   font-size: 1.25rem;
 }
 
+.admin-nav .muted,
+.admin-nav .small-text {
+  color: rgba(255, 255, 255, 0.74);
+}
+
 .admin-shell--collapsed .admin-nav__brand {
   text-align: center;
 }
@@ -79,6 +84,11 @@ body {
 .admin-nav__link:hover {
   color: #fbbf24;
   background: rgba(255, 255, 255, 0.08);
+}
+
+.admin-nav__link:focus-visible,
+.admin-nav__toggle:focus-visible {
+  outline-color: #fbbf24;
 }
 
 .admin-nav__footer {
@@ -155,6 +165,7 @@ body {
 .btn-tertiary {
   background: #f3f0e8;
   color: #1f1f1f;
+  border: 1px solid #d6cfc0;
 }
 
 .btn-warn {

@@ -6,6 +6,7 @@ namespace BowWowSpa\Tests\Feature;
 
 use BowWowSpa\Database\Database;
 use BowWowSpa\Services\AuditService;
+use BowWowSpa\Services\BookingRequestAdminService;
 use BowWowSpa\Services\BookingService;
 use BowWowSpa\Services\ScheduleService;
 use BowWowSpa\Services\ServiceCatalogService;
@@ -143,6 +144,80 @@ final class ScheduleAndBookingTest extends TestCase
         $this->assertSame(['skipped'], $statuses['upsert_booking'] ?? []);
         $this->assertSame(['pending'], $statuses['delete_booking'] ?? []);
         $this->assertGreaterThan(0, count((new AuditService())->recent(10)));
+    }
+
+    public function testVacationModeHidesAvailability(): void
+    {
+        $schedule = new ScheduleService();
+        $date = $this->nextDateForWeekday(2);
+        $schedule->saveTemplate([
+            'weekday' => (int) date('w', strtotime($date)),
+            'times' => ['09:00', '09:30', '10:00'],
+            'is_enabled' => 1,
+        ]);
+        $schedule->saveSettings([
+            'booking_pause_enabled' => 1,
+            'booking_pause_message' => 'We are closed for a short break.',
+        ]);
+
+        $this->assertSame([], $schedule->availabilityForDate($date, ['duration_minutes' => 30]));
+        $this->assertTrue($schedule->isOnlineBookingPaused());
+        $this->assertSame('We are closed for a short break.', $schedule->pauseStatus()['message']);
+    }
+
+    public function testInternalTestBookingsSuppressEmailsCalendarSyncAndExportCleanly(): void
+    {
+        $adminId = $this->env->seedAdminUser();
+        $this->env->insertCalendarIntegration();
+
+        $catalog = new ServiceCatalogService();
+        $service = $catalog->save([
+            'name' => 'Test Groom',
+            'duration_minutes' => 30,
+            'is_active' => 1,
+        ]);
+
+        $schedule = new ScheduleService();
+        $date = $this->nextDateForWeekday(5);
+        $schedule->saveTemplate([
+            'weekday' => (int) date('w', strtotime($date)),
+            'times' => ['09:00', '09:30', '10:00'],
+            'is_enabled' => 1,
+        ]);
+
+        $bookings = new BookingService();
+        $booking = $bookings->createBooking([
+            'date' => $date,
+            'time' => '09:00',
+            'owner_name' => 'Internal Tester',
+            'phone' => '(336) 555-0111',
+            'email' => 'test@example.com',
+            'selected_services' => [$service['id']],
+            'dogs' => [[
+                'pet_name' => 'QA Pup',
+                'approximate_weight' => '20 lbs',
+            ]],
+            'is_internal_test' => 1,
+            'source' => 'admin_test',
+        ]);
+
+        $confirmed = $bookings->transition((int) $booking['id'], 'confirm', 'QA only', $adminId, new AuditService());
+        $this->assertTrue((bool) $confirmed['is_internal_test']);
+        $this->assertSame('admin_test', $confirmed['source']);
+        $this->assertSame('confirmed', $confirmed['status']);
+
+        $jobs = Database::fetchAll('SELECT * FROM calendar_sync_jobs WHERE booking_request_id = :id', ['id' => $booking['id']]);
+        $this->assertSame([], $jobs);
+
+        $adminRequests = new BookingRequestAdminService($bookings);
+        $preview = $adminRequests->previewCustomerEmail((int) $booking['id'], 'confirm');
+        $this->assertStringContainsString('confirmed', strtolower((string) $preview['subject']));
+        $this->assertStringContainsString('Internal Tester', (string) $preview['html']);
+
+        $csv = $adminRequests->exportCsv(['test' => 'only']);
+        $this->assertStringContainsString('Internal Tester', $csv);
+        $this->assertStringContainsString('admin_test', $csv);
+        $this->assertStringContainsString(',Yes,', $csv);
     }
 
     public function testConfirmedBookingCanBeEditedAndQueuesUpdatedCalendarSync(): void

@@ -196,12 +196,15 @@ CREATE TABLE IF NOT EXISTS booking_requests (
     vet_phone VARCHAR(50) NULL,
     request_notes TEXT NULL,
     paperwork_notes TEXT NULL,
+    is_internal_test TINYINT(1) NOT NULL DEFAULT 0,
+    source VARCHAR(64) NOT NULL DEFAULT 'public',
     status ENUM('pending_confirmation', 'confirmed', 'declined', 'cancelled', 'expired', 'completed') NOT NULL DEFAULT 'pending_confirmation',
     admin_notes TEXT NULL,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
     INDEX idx_booking_date_time (date, time),
-    INDEX idx_booking_status_created (status, created_at)
+    INDEX idx_booking_status_created (status, created_at),
+    INDEX idx_booking_test_status_created (is_internal_test, status, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS booking_request_attachments (
@@ -643,6 +646,24 @@ DEALLOCATE PREPARE stmt;
 
 SET @exists := (
     SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'booking_requests' AND column_name = 'is_internal_test'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE booking_requests ADD COLUMN is_internal_test TINYINT(1) NOT NULL DEFAULT 0 AFTER paperwork_notes', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = @dbName AND table_name = 'booking_requests' AND column_name = 'source'
+);
+SET @ddl := IF(@exists = 0, 'ALTER TABLE booking_requests ADD COLUMN source VARCHAR(64) NOT NULL DEFAULT ''public'' AFTER is_internal_test', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @exists := (
+    SELECT COUNT(*) FROM information_schema.columns
     WHERE table_schema = @dbName AND table_name = 'booking_request_attachments' AND column_name = 'storage_provider'
 );
 SET @ddl := IF(@exists = 0, 'ALTER TABLE booking_request_attachments ADD COLUMN storage_provider VARCHAR(32) NOT NULL DEFAULT ''local'' AFTER file_size_bytes', 'SELECT 1');
@@ -815,6 +836,15 @@ SET @needs_booking_status_created_index := (
     WHERE table_schema = @dbName AND table_name = 'booking_requests' AND index_name = 'idx_booking_status_created'
 );
 SET @ddl := IF(@needs_booking_status_created_index = 0, 'ALTER TABLE booking_requests ADD INDEX idx_booking_status_created (status, created_at)', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @needs_booking_test_status_created_index := (
+    SELECT COUNT(*) FROM information_schema.statistics
+    WHERE table_schema = @dbName AND table_name = 'booking_requests' AND index_name = 'idx_booking_test_status_created'
+);
+SET @ddl := IF(@needs_booking_test_status_created_index = 0, 'ALTER TABLE booking_requests ADD INDEX idx_booking_test_status_created (is_internal_test, status, created_at)', 'SELECT 1');
 PREPARE stmt FROM @ddl;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;

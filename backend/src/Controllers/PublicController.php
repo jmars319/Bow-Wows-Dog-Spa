@@ -38,6 +38,19 @@ final class PublicController
             Response::error('validation_error', 'Date is required', 422);
         }
 
+        $pause = $this->schedule->pauseStatus();
+        if ($pause['paused']) {
+            Response::success([
+                'date' => $date,
+                'duration_minutes' => null,
+                'duration_blocks' => null,
+                'availability' => [],
+                'next_available' => null,
+                'availability_status' => 'contact_required',
+                'message' => $pause['message'],
+            ]);
+        }
+
         $serviceIds = $this->decodeArrayField($request->query['service_ids'] ?? []);
         $rawPetCount = (int) ($request->query['pet_count'] ?? 1);
         if ($rawPetCount < 1 || $rawPetCount > 10) {
@@ -85,6 +98,11 @@ final class PublicController
 
     public function bookingHold(Request $request): void
     {
+        $pause = $this->schedule->pauseStatus();
+        if ($pause['paused']) {
+            Response::error('booking_paused', $pause['message'], 409);
+        }
+
         $date = trim((string) ($request->body['date'] ?? ''));
         $time = trim((string) ($request->body['time'] ?? ''));
         if ($date === '' || $time === '') {
@@ -129,6 +147,11 @@ final class PublicController
 
     public function bookingRequest(Request $request): void
     {
+        $pause = $this->schedule->pauseStatus();
+        if ($pause['paused']) {
+            Response::error('booking_paused', $pause['message'], 409);
+        }
+
         $payload = $request->body;
         if ($this->honeypotTripped($payload)) {
             error_log('[BowWow][booking_honeypot_tripped]');

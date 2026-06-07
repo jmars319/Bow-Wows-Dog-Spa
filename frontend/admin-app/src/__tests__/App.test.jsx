@@ -252,21 +252,22 @@ describe('admin app', () => {
     expect(screen.getByLabelText('Search')).toBeInTheDocument();
     expect(await screen.findByText('Happy customer')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Used by: 1 gallery item' })).toHaveAttribute('href', '/admin/gallery');
-    expect(screen.getAllByText('Alt text needed').length).toBeGreaterThan(1);
+    expect(screen.getByText('Alt text is needed for this public image.')).toBeInTheDocument();
 
     const card = screen.getByText('Happy customer').closest('.card');
     fireEvent.click(within(card).getByRole('button', { name: 'Edit details' }));
     fireEvent.change(screen.getAllByLabelText('Alt text')[1], { target: { value: 'Dog after grooming' } });
-    fireEvent.change(screen.getByLabelText('Crop focus X'), { target: { value: '42' } });
-    fireEvent.change(screen.getByLabelText('Crop focus Y'), { target: { value: '38' } });
+    expect(screen.queryByLabelText('Crop focus X')).not.toBeInTheDocument();
+    expect(screen.getByText('Image focus')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Center focus' }));
     fireEvent.click(screen.getByLabelText('Archived'));
     fireEvent.click(screen.getByRole('button', { name: 'Save details' }));
 
     await waitFor(() => {
       expect(apiPut).toHaveBeenCalledWith('/media/7', expect.objectContaining({
         alt_text: 'Dog after grooming',
-        focal_x: '42',
-        focal_y: '38',
+        focal_x: 50,
+        focal_y: 50,
         is_archived: true,
       }));
     });
@@ -311,7 +312,7 @@ describe('admin app', () => {
 
     render(<App />);
 
-    expect(await screen.findByText('Task List')).toBeInTheDocument();
+    expect(await screen.findByText('Launch setup checklist')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /2 images need alt text/i })).toHaveAttribute('href', '/admin/media');
   });
 });

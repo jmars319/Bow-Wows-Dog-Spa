@@ -8,6 +8,19 @@ use BowWowSpa\Support\Config;
 
 final class EmailService
 {
+    public function preview(string $subject, string $html, array $options = []): array
+    {
+        return [
+            'subject' => $subject,
+            'headline' => (string) ($options['headline'] ?? $subject),
+            'html' => $this->renderTemplate(
+                $options['headline'] ?? $subject,
+                $html,
+                $options['variant'] ?? 'generic'
+            ),
+        ];
+    }
+
     public function send(string $toEmail, string $toName, string $subject, string $html, array $options = []): void
     {
         if (!Config::get('sendgrid.enabled', true)) {

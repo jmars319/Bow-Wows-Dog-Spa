@@ -152,6 +152,7 @@ function applyRequiredMigrations(): void
     foreach ([
         '010_google_calendar_and_r2_launch.sql',
         '011_media_library_convenience.sql',
+        '012_admin_booking_convenience.sql',
     ] as $migrationFile) {
         $migrationPath = $migrationDir . '/' . $migrationFile;
         $sql = file_get_contents($migrationPath);

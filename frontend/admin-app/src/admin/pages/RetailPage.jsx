@@ -43,6 +43,7 @@ export function RetailPage() {
   const [savingProduct, setSavingProduct] = useState(false);
   const [draggedCategory, setDraggedCategory] = useState(null);
   const [draggedProduct, setDraggedProduct] = useState(null);
+  const [retailSearch, setRetailSearch] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -186,6 +187,34 @@ export function RetailPage() {
     });
   };
 
+  const duplicateCategory = (category) => {
+    setCategoryFeedback({ tone: 'success', message: 'Category copied into the editor. Review it, then save.' });
+    setCategoryForm({
+      id: null,
+      name: `${category.name} copy`,
+      is_published: Boolean(category.is_published),
+      sort_order: Number(category.sort_order || 0) + 10,
+    });
+  };
+
+  const duplicateProduct = (item) => {
+    setProductFeedback({ tone: 'success', message: 'Product copied into the editor. Review it, then save.' });
+    setProductForm({
+      id: null,
+      category_id: item.category_id ? String(item.category_id) : '',
+      name: `${item.name} copy`,
+      sku: '',
+      description: item.description ?? '',
+      price: item.price_cents ? (item.price_cents / 100).toFixed(2) : '',
+      media: item.media ?? null,
+      online_sale_status: item.online_sale_status || 'catalog_only',
+      inventory_status: item.inventory_status || 'untracked',
+      fulfillment_mode: item.fulfillment_mode || 'undecided',
+      is_published: Boolean(item.is_published),
+      sort_order: Number(item.sort_order || 0) + 10,
+    });
+  };
+
   const startProductForCategory = (categoryId) => {
     setProductFeedback(null);
     setProductForm(createRetailProductForm(String(categoryId)));
@@ -242,6 +271,23 @@ export function RetailPage() {
   };
 
   const totalProducts = categories.reduce((sum, category) => sum + (category.items?.length || 0), 0);
+  const filteredCategories = useMemo(() => {
+    const query = retailSearch.trim().toLowerCase();
+    if (!query) {
+      return categories;
+    }
+    return categories
+      .map((category) => {
+        const categoryMatches = [category.name].filter(Boolean).join(' ').toLowerCase().includes(query);
+        const matchingItems = (category.items || []).filter((item) => [item.name, item.description, item.sku, item.price_label]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(query));
+        return categoryMatches ? category : { ...category, items: matchingItems };
+      })
+      .filter((category) => category.name.toLowerCase().includes(query) || (category.items || []).length > 0);
+  }, [categories, retailSearch]);
 
   const saveCategoryOrder = async (nextCategories) => {
     setCategories(nextCategories);
@@ -323,7 +369,7 @@ export function RetailPage() {
               checked={categoryForm.is_published}
               onChange={(event) => setCategoryForm((current) => ({ ...current, is_published: event.target.checked }))}
             />
-            Show this category on the site
+            {categoryForm.is_published ? 'Visible on website' : 'Hidden from website'}
           </label>
           <label className="field-block">
             <span className="field-label">Display order</span>
@@ -413,7 +459,7 @@ export function RetailPage() {
                     checked={productForm.is_published}
                     onChange={(event) => setProductForm((current) => ({ ...current, is_published: event.target.checked }))}
                   />
-                  Show this product on the site
+                  {productForm.is_published ? 'Visible on website' : 'Hidden from website'}
                 </label>
               </div>
               <label className="field-block">
@@ -510,13 +556,20 @@ export function RetailPage() {
         </div>
       </div>
 
+      <div className="card section-search-card">
+        <label className="field-block">
+          <span className="field-label">Find a category or product</span>
+          <input value={retailSearch} placeholder="Search products, SKUs, notes..." onChange={(event) => setRetailSearch(event.target.value)} />
+        </label>
+      </div>
+
       {loading ? (
         <div className="card">Loading products…</div>
       ) : categories.length === 0 ? (
         <div className="card">No categories yet. Add the first category to start building the product section.</div>
       ) : (
         <div className="retail-category-stack">
-          {categories.map((category) => (
+          {filteredCategories.map((category) => (
             <article key={category.id} className="card retail-category-card">
               <div className="retail-category-card__header">
                 <div>
@@ -525,7 +578,7 @@ export function RetailPage() {
                     {category.is_published ? 'Visible on the site' : 'Hidden from the site'} · {category.items?.length || 0} product
                     {(category.items?.length || 0) === 1 ? '' : 's'}
                   </p>
-                  <PublishState isPublished={category.is_published} />
+                  <PublishState isPublished={category.is_published} publishedLabel="Visible on website" hiddenLabel="Hidden from website" />
                 </div>
                 <div className="retail-inline-actions">
                   <button type="button" className="btn btn-tertiary" onClick={() => startProductForCategory(category.id)}>
@@ -534,24 +587,29 @@ export function RetailPage() {
                   <button type="button" className="btn btn-link" onClick={() => editCategory(category)}>
                     Edit
                   </button>
+                  <button type="button" className="btn btn-link" onClick={() => duplicateCategory(category)}>
+                    Duplicate
+                  </button>
                   <button type="button" className="btn btn-link danger" onClick={() => deleteCategory(category)}>
                     Delete
                   </button>
                 </div>
               </div>
-              <SortOrderTools
-                item={category}
-                index={categories.findIndex((entry) => entry.id === category.id)}
-                total={categories.length}
-                onMove={(item, offset) => saveCategoryOrder(reorderedItems(categories, item.id, { offset }))}
-                onDragStart={setDraggedCategory}
-                onDrop={(target) => {
-                  if (draggedCategory && draggedCategory.id !== target.id) {
-                    saveCategoryOrder(reorderedItems(categories, draggedCategory.id, { targetId: target.id }));
-                  }
-                  setDraggedCategory(null);
-                }}
-              />
+              {!retailSearch.trim() && (
+                <SortOrderTools
+                  item={category}
+                  index={categories.findIndex((entry) => entry.id === category.id)}
+                  total={categories.length}
+                  onMove={(item, offset) => saveCategoryOrder(reorderedItems(categories, item.id, { offset }))}
+                  onDragStart={setDraggedCategory}
+                  onDrop={(target) => {
+                    if (draggedCategory && draggedCategory.id !== target.id) {
+                      saveCategoryOrder(reorderedItems(categories, draggedCategory.id, { targetId: target.id }));
+                    }
+                    setDraggedCategory(null);
+                  }}
+                />
+              )}
 
               {category.items?.length ? (
                 <div className="retail-product-list">
@@ -562,6 +620,7 @@ export function RetailPage() {
                           className="retail-product-row__image"
                           src={item.media.fallback_url || item.media.original_url}
                           alt={item.media.alt_text || item.name}
+                          style={item.media.object_position ? { objectPosition: item.media.object_position } : undefined}
                         />
                       ) : (
                         <div className="retail-product-row__placeholder" aria-hidden="true">
@@ -575,23 +634,28 @@ export function RetailPage() {
                         </div>
                         {item.description ? <p className="muted small-text">{item.description}</p> : <p className="muted small-text">No extra notes.</p>}
                         <p className="small-text muted">{item.is_published ? 'Visible on the site' : 'Hidden from the site'}</p>
-                        <SortOrderTools
-                          item={item}
-                          index={index}
-                          total={category.items.length}
-                          onMove={(entry, offset) => saveProductOrder(category, reorderedItems(category.items, entry.id, { offset }))}
-                          onDragStart={setDraggedProduct}
-                          onDrop={(target) => {
-                            if (draggedProduct && draggedProduct.id !== target.id) {
-                              saveProductOrder(category, reorderedItems(category.items, draggedProduct.id, { targetId: target.id }));
-                            }
-                            setDraggedProduct(null);
-                          }}
-                        />
+                        {!retailSearch.trim() && (
+                          <SortOrderTools
+                            item={item}
+                            index={index}
+                            total={category.items.length}
+                            onMove={(entry, offset) => saveProductOrder(category, reorderedItems(category.items, entry.id, { offset }))}
+                            onDragStart={setDraggedProduct}
+                            onDrop={(target) => {
+                              if (draggedProduct && draggedProduct.id !== target.id) {
+                                saveProductOrder(category, reorderedItems(category.items, draggedProduct.id, { targetId: target.id }));
+                              }
+                              setDraggedProduct(null);
+                            }}
+                          />
+                        )}
                       </div>
                       <div className="retail-inline-actions">
                         <button type="button" className="btn btn-link" onClick={() => editProduct(item)}>
                           Edit
+                        </button>
+                        <button type="button" className="btn btn-link" onClick={() => duplicateProduct(item)}>
+                          Duplicate
                         </button>
                         <button type="button" className="btn btn-link danger" onClick={() => deleteProduct(item)}>
                           Delete
@@ -605,6 +669,7 @@ export function RetailPage() {
               )}
             </article>
           ))}
+          {categories.length > 0 && filteredCategories.length === 0 && <div className="card">No categories or products match that search.</div>}
         </div>
       )}
     </div>

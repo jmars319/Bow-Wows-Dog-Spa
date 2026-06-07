@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { BookingSteps, canIntakeContinue, createDog, formatDateLong, formatDuration, formatHoldRemaining, requiresNewSlot, toPhoneHref, todayString } from '../bookingUtils';
+import { BookingSteps, canIntakeContinue, createDog, formatDateLong, formatDuration, formatHoldRemaining, requiresNewSlot, richHtml, toPhoneHref, todayString } from '../bookingUtils';
+import { keepBookingStageInView } from '../bookingScroll';
 import { publicApi } from '../publicApi';
 import { textHasContent } from '../siteConfig';
 
 export function BookingSection({ settings, content, services }) {
   const bookingStageRef = useRef(null);
   const activeStepHeaderRef = useRef(null);
-  const hasMountedStepRef = useRef(false);
+  const previousStepRef = useRef(1);
   const [step, setStep] = useState(1);
   const [selectedServiceIds, setSelectedServiceIds] = useState([]);
   const [dogCount, setDogCount] = useState(1);
   const [bookingDate, setBookingDate] = useState(todayString());
   const [availability, setAvailability] = useState([]);
-  const [availabilityMeta, setAvailabilityMeta] = useState({ duration_minutes: 0 });
+  const [availabilityMeta, setAvailabilityMeta] = useState({ duration_minutes: 0, availability_status: 'ready', message: '' });
   const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [holdToken, setHoldToken] = useState(null);
@@ -77,32 +78,6 @@ export function BookingSection({ settings, content, services }) {
     return nextAvailable ? `${message} Nearest available: ${formatSuggestionSummary(nextAvailable)}.` : message;
   };
 
-  const keepActiveStageInView = () => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const target = activeStepHeaderRef.current || bookingStageRef.current;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-
-    const siteHeader = document.querySelector('.site-header');
-    const headerHeight = siteHeader instanceof HTMLElement ? siteHeader.getBoundingClientRect().height : 0;
-    const topOffset = headerHeight + 18;
-    const rect = target.getBoundingClientRect();
-    const topIsVisible = rect.top >= topOffset && rect.top <= window.innerHeight - 48;
-
-    if (topIsVisible) {
-      return;
-    }
-
-    window.scrollTo({
-      top: Math.max(0, window.scrollY + rect.top - topOffset),
-      behavior: 'smooth',
-    });
-  };
-
   useEffect(() => {
     setForm((current) => {
       const nextDogs = [...current.dogs];
@@ -119,7 +94,7 @@ export function BookingSection({ settings, content, services }) {
   useEffect(() => {
     if (selectedServiceIds.length === 0) {
       setAvailability([]);
-      setAvailabilityMeta({ duration_minutes: 0 });
+      setAvailabilityMeta({ duration_minutes: 0, availability_status: 'ready', message: '' });
       clearSelectedTime();
       setNextAvailableSuggestion(null);
       setSlotError(null);
@@ -145,6 +120,8 @@ export function BookingSection({ settings, content, services }) {
           setAvailability(response.data.data.availability || []);
           setAvailabilityMeta({
             duration_minutes: response.data.data.duration_minutes || durationSummary || 0,
+            availability_status: response.data.data.availability_status || 'ready',
+            message: response.data.data.message || '',
           });
           setNextAvailableSuggestion(response.data.data.next_available || null);
           if (response.data.data.availability_status === 'contact_required') {
@@ -209,13 +186,13 @@ export function BookingSection({ settings, content, services }) {
   }, [holdExpiresAt, holdRemainingMs, holdToken, step]);
 
   useEffect(() => {
-    if (!hasMountedStepRef.current) {
-      hasMountedStepRef.current = true;
+    if (previousStepRef.current === step) {
       return undefined;
     }
 
+    previousStepRef.current = step;
     const timeoutId = window.setTimeout(() => {
-      keepActiveStageInView();
+      keepBookingStageInView(activeStepHeaderRef.current || bookingStageRef.current);
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
@@ -449,13 +426,14 @@ export function BookingSection({ settings, content, services }) {
   };
 
   const canContinueToSlots = selectedServiceIds.length > 0;
+  const bookingContactRequired = availabilityMeta.availability_status === 'contact_required';
   return (
     <section id="booking" className="section section--booking">
       <div className="container">
         <div className="section-heading">
           <p className="eyebrow">Request appointment</p>
           <h2>{content.title || 'Simple, service-aware booking built for phones'}</h2>
-          {textHasContent(content.intro) && <div className="section-intro" dangerouslySetInnerHTML={{ __html: content.intro }} />}
+          {textHasContent(content.intro) && <div className="section-intro" dangerouslySetInnerHTML={richHtml(content.intro)} />}
         </div>
 
         <div className="booking-layout">
@@ -582,7 +560,22 @@ export function BookingSection({ settings, content, services }) {
                     {selectedServicesLabel && <span className="summary-inline-copy"> · {selectedServicesLabel}</span>}
                   </div>
 
-                  {loadingAvailability ? (
+                  {bookingContactRequired ? (
+                    <div className="empty-state booking-contact-required">
+                      <strong>Contact us to choose a time</strong>
+                      <p>{availabilityMeta.message || slotError || 'Online appointment times are paused right now. Please call or send a message and we will help find a safe appointment time.'}</p>
+                      <div className="section-cta__actions">
+                        {settings.phone && (
+                          <a className="btn btn-primary" href={toPhoneHref(settings.phone)}>
+                            Call {settings.phone}
+                          </a>
+                        )}
+                        <a className="btn btn-outline" href="#contact">
+                          Send a message
+                        </a>
+                      </div>
+                    </div>
+                  ) : loadingAvailability ? (
                     <p className="muted-text" role="status" aria-live="polite">
                       Loading available times…
                     </p>
@@ -604,7 +597,7 @@ export function BookingSection({ settings, content, services }) {
                     </div>
                   )}
 
-                  {!loadingAvailability && availability.length === 0 && (
+                  {!bookingContactRequired && !loadingAvailability && availability.length === 0 && (
                     <div className="empty-state">
                       <p>No appointment times are currently open for those services on that date.</p>
                       {nextAvailableSuggestion && (
@@ -624,7 +617,7 @@ export function BookingSection({ settings, content, services }) {
                     </div>
                   )}
 
-                  {slotError && (
+                  {!bookingContactRequired && slotError && (
                     <p role="alert" aria-live="assertive" aria-atomic="true" className="status-text status-text--error">
                       {slotError}
                     </p>

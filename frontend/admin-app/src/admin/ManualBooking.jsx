@@ -11,6 +11,7 @@ export function ManualBookingLauncher({ children, onCreated, scheduleSettings })
     setDefaults({
       date: options.date || todayString(),
       time: options.time || '',
+      is_internal_test: Boolean(options.isInternalTest || options.is_internal_test),
     });
     setIsOpen(true);
   };
@@ -48,6 +49,7 @@ function ManualBookingModal({ defaults, onClose, onCreated, scheduleSettings }) 
     services_input: '',
     admin_notes: '',
     auto_confirm: false,
+    is_internal_test: Boolean(defaults?.is_internal_test),
   });
 
   const [form, setForm] = useState(createInitialForm);
@@ -122,6 +124,8 @@ function ManualBookingModal({ defaults, onClose, onCreated, scheduleSettings }) 
         services: buildServiceList(form.services_input),
         admin_notes: form.admin_notes || undefined,
         auto_confirm: form.auto_confirm ? 1 : 0,
+        is_internal_test: form.is_internal_test ? 1 : 0,
+        source: form.is_internal_test ? 'admin_test' : 'admin_manual',
       });
       onCreated?.();
     } catch (err) {
@@ -137,8 +141,12 @@ function ManualBookingModal({ defaults, onClose, onCreated, scheduleSettings }) 
       <div className="modal__content manual-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={dialogTitleId}>
         <div className="modal__header">
           <div>
-            <h3 id={dialogTitleId}>Create Manual Reservation</h3>
-            <p className="muted small-text">Holds the selected slot for {holdWindowLabel} while you follow up.</p>
+            <h3 id={dialogTitleId}>{form.is_internal_test ? 'Create Test Booking Request' : 'Create Manual Reservation'}</h3>
+            <p className="muted small-text">
+              {form.is_internal_test
+                ? 'Creates a real internal test record without customer emails or Google Calendar sync.'
+                : `Holds the selected slot for ${holdWindowLabel} while you follow up.`}
+            </p>
           </div>
           <button type="button" className="btn btn-link" onClick={onClose}>
             Close
@@ -221,10 +229,18 @@ function ManualBookingModal({ defaults, onClose, onCreated, scheduleSettings }) 
           <label className="toggle" style={{ marginTop: '0.5rem' }}>
             <input type="checkbox" checked={form.auto_confirm} onChange={(e) => updateForm('auto_confirm', e.target.checked)} /> Auto-confirm immediately
           </label>
+          <label className="toggle" style={{ marginTop: '0.5rem' }}>
+            <input type="checkbox" checked={form.is_internal_test} onChange={(e) => updateForm('is_internal_test', e.target.checked)} /> Internal test request
+          </label>
+          {form.is_internal_test && (
+            <p className="inline-note small-text">
+              Test requests are stored in the queue, hidden by default, and will not send customer emails.
+            </p>
+          )}
 
           <div className="form-actions">
             <button className="btn" disabled={submitting}>
-              {submitting ? 'Saving…' : 'Save reservation'}
+              {submitting ? 'Saving…' : form.is_internal_test ? 'Save test request' : 'Save reservation'}
             </button>
             <button type="button" className="btn btn-link" onClick={onClose}>
               Cancel

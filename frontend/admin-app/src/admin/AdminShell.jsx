@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, Outlet, useNavigate } from 'react-router-dom';
+import { QuickActionSearch } from '@jamarq/cpanel-admin-kit/convenience';
 import { useAdminConfirm } from './ConfirmProvider';
 import { api } from './adminApi';
 export { api } from './adminApi';
@@ -170,6 +171,33 @@ export function AdminLayout() {
       }),
     [allowedSections, user],
   );
+  const quickActions = useMemo(
+    () => [
+      ...visibleNav.map((item) => ({
+        id: item.path,
+        label: item.label,
+        description: `Open ${item.label}`,
+        keywords: [item.section || '', item.label],
+        onSelect: async () => {
+          if (await confirmNavigation()) {
+            navigate(item.path);
+          }
+        },
+      })),
+      {
+        id: 'public-site',
+        label: 'Back to public site',
+        description: 'Open the customer-facing website',
+        keywords: ['site', 'home', 'public'],
+        onSelect: async () => {
+          if (await confirmNavigation()) {
+            window.location.assign('/');
+          }
+        },
+      },
+    ],
+    [confirmNavigation, navigate, visibleNav],
+  );
 
   const handleLogout = async () => {
     if (!(await confirmNavigation())) {
@@ -201,6 +229,7 @@ export function AdminLayout() {
           {navCollapsed ? '>' : '< Collapse'}
         </button>
         <nav className="admin-nav__links">
+          {!navCollapsed && <QuickActionSearch actions={quickActions} placeholder="Find page or action..." />}
           {visibleNav.map((item) => (
             <Link
               key={item.path}

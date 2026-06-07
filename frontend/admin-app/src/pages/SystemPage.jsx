@@ -8,7 +8,7 @@ export function SystemPage() {
 
   useEffect(() => {
     api
-      .get('/system')
+      .get('/system-checks')
       .then((response) => setData(response.data.data))
       .catch((err) => setError(err.response?.data?.error?.message ?? err.message));
   }, []);

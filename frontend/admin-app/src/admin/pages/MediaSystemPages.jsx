@@ -1,8 +1,43 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  MediaCategoryHelp,
+  MediaQualityWarnings,
+  UsageShortcuts,
+  VisualFocusPicker,
+  mediaCategoryInfo,
+} from '@jamarq/cpanel-admin-kit/convenience';
 import { useAdminConfirm } from '../ConfirmProvider';
 import { api, useAuth } from '../AdminShell';
 import { MediaPicture } from '../MediaPicker';
 import { formatDateTime, formatMetadata } from '../formatters';
+
+const MEDIA_CATEGORY_OPTIONS = [
+  { value: 'hero', label: mediaCategoryInfo('hero').label },
+  { value: 'gallery', label: mediaCategoryInfo('gallery').label },
+  { value: 'retail', label: mediaCategoryInfo('retail').label },
+  { value: 'default', label: mediaCategoryInfo('default').label },
+  { value: 'attachments', label: mediaCategoryInfo('attachments').label },
+];
+
+function formatAuditActionLabel(action) {
+  const known = {
+    login: 'Admin signed in',
+    logout: 'Admin signed out',
+    create: 'Created record',
+    update: 'Updated record',
+    delete: 'Deleted record',
+  };
+  const key = String(action || '').toLowerCase();
+  if (known[key]) {
+    return known[key];
+  }
+
+  return key
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ') || 'Admin action';
+}
 
 export function MediaPage() {
   const confirm = useAdminConfirm();
@@ -212,7 +247,7 @@ export function MediaPage() {
   };
 
   const categories = useMemo(() => {
-    const standard = ['default', 'gallery', 'retail', 'attachments'];
+    const standard = MEDIA_CATEGORY_OPTIONS.map((option) => option.value);
     const uniq = new Set([...standard, ...items.map((item) => item.category || 'default')]);
     return ['all', ...uniq];
   }, [items]);
@@ -258,11 +293,11 @@ export function MediaPage() {
         <label className="field-block">
           <span className="field-label">Library category</span>
           <select value={metadata.category} onChange={(e) => setMetadata((prev) => ({ ...prev, category: e.target.value }))}>
-            <option value="default">Default</option>
-            <option value="gallery">Gallery</option>
-            <option value="retail">Retail</option>
-            <option value="attachments">Documents</option>
+            {MEDIA_CATEGORY_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </select>
+          <MediaCategoryHelp category={metadata.category} />
         </label>
         {files.length > 1 && metadata.category === 'gallery' && (
           <label className="toggle gallery-draft-option">
@@ -296,7 +331,7 @@ export function MediaPage() {
             <span className="field-label">Category</span>
             <select value={filters.category} onChange={(event) => updateFilter('category', event.target.value)}>
               {categories.map((category) => (
-                <option key={category} value={category}>{category === 'all' ? 'All' : category}</option>
+                <option key={category} value={category}>{category === 'all' ? 'All' : mediaCategoryInfo(category).label}</option>
               ))}
             </select>
           </label>
@@ -330,7 +365,10 @@ export function MediaPage() {
             <span className="field-label">Needs attention</span>
             <select value={filters.health} onChange={(event) => updateFilter('health', event.target.value)}>
               <option value="all">Any status</option>
+              <option value="needs_attention">Needs attention</option>
               <option value="missing_alt">Alt text needed</option>
+              <option value="small_hero">Hero image may be too small</option>
+              <option value="unusual_aspect">Unusual crop shape</option>
               <option value="missing_variants">Optimized versions missing</option>
               <option value="missing_local_file">Local fallback missing</option>
             </select>
@@ -352,30 +390,16 @@ export function MediaPage() {
               <strong>{item.title || item.alt_text || `Media #${item.id}`}</strong>
             </p>
             <p>
-              #{item.id} · {item.category} · {item.is_archived ? 'Archived' : 'Active'}
+              #{item.id} · {mediaCategoryInfo(item.category || 'default').label} · {item.is_archived ? 'Archived' : 'Active'}
             </p>
             <small>{mediaKindLabel(item)} · {item.mime_type}</small>
-            {item.usages?.length > 0 ? (
-              <div className="usage-link-row" aria-label="Media usage shortcuts">
-                {item.usages.map((usage) => (
-                  usage.admin_path ? (
-                    <a key={`${usage.type}-${usage.label}`} href={usage.admin_path}>
-                      Used by: {usage.label}
-                    </a>
-                  ) : (
-                    <span key={`${usage.type}-${usage.label}`}>Used by: {usage.label}</span>
-                  )
-                ))}
-              </div>
-            ) : (
-              <p className="small-text muted">Not currently used.</p>
-            )}
-            {item.diagnostics?.length > 0 && (
-              <div className="chip-row media-diagnostics">
-                {item.diagnostics.map((diagnostic) => (
-                  <span key={diagnostic.code} className="chip is-warning">{diagnostic.label}</span>
-                ))}
-              </div>
+            <UsageShortcuts usages={(item.usages || []).map((usage) => ({
+              id: `${usage.type}-${usage.label}`,
+              label: usage.label,
+              href: usage.admin_path,
+            }))} />
+            {isImageAsset(item) && (
+              <MediaQualityWarnings asset={item} context={item.category === 'hero' ? 'hero' : 'image'} />
             )}
             {editingId === item.id ? (
               <div className="media-edit-panel">
@@ -404,27 +428,23 @@ export function MediaPage() {
                   <label className="field-block">
                     <span className="field-label">Category</span>
                     <select value={editDraft.category || 'default'} onChange={(event) => updateDraft('category', event.target.value)}>
-                      <option value="default">Default</option>
-                      <option value="gallery">Gallery</option>
-                      <option value="retail">Retail</option>
-                      <option value="attachments">Documents</option>
+                      {MEDIA_CATEGORY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
                     </select>
+                    <MediaCategoryHelp category={editDraft.category || 'default'} />
                   </label>
                   <label className="toggle">
                     <input type="checkbox" checked={Boolean(editDraft.is_archived)} onChange={(event) => updateDraft('is_archived', event.target.checked)} /> Archived
                   </label>
                 </div>
                 {isImageAsset(item) && (
-                  <div className="grid two-col gap-sm">
-                    <label className="field-block">
-                      <span className="field-label">Crop focus X</span>
-                      <input type="number" min="0" max="100" step="1" value={editDraft.focal_x} onChange={(event) => updateDraft('focal_x', event.target.value)} />
-                    </label>
-                    <label className="field-block">
-                      <span className="field-label">Crop focus Y</span>
-                      <input type="number" min="0" max="100" step="1" value={editDraft.focal_y} onChange={(event) => updateDraft('focal_y', event.target.value)} />
-                    </label>
-                  </div>
+                  <VisualFocusPicker
+                    imageUrl={item.fallback_url || item.original_url}
+                    focalX={editDraft.focal_x}
+                    focalY={editDraft.focal_y}
+                    onChange={(focus) => setEditDraft((current) => ({ ...current, ...focus }))}
+                  />
                 )}
                 <div className="form-actions">
                   <button type="button" className="btn" onClick={() => saveEdit(item.id)}>Save details</button>
@@ -498,7 +518,7 @@ export function AuditLogPage() {
           <tbody>
             {items.map((item) => (
               <tr key={item.id}>
-                <td>{item.action}</td>
+                <td>{formatAuditActionLabel(item.action)}</td>
                 <td>{item.email ?? 'system'}</td>
                 <td>
                   {item.entity_type} #{item.entity_id ?? '—'}

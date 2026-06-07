@@ -64,6 +64,12 @@ export function ListEditor({ items, onChange, fields }) {
     onChange(next);
   };
 
+  const duplicateItem = (index) => {
+    const next = [...items];
+    next.splice(index + 1, 0, { ...items[index] });
+    onChange(next);
+  };
+
   const moveItem = (index, offset) => {
     const nextIndex = Math.max(0, Math.min((items || []).length - 1, index + offset));
     if (nextIndex === index) {
@@ -126,6 +132,9 @@ export function ListEditor({ items, onChange, fields }) {
           )}
           <button type="button" className="btn btn-link danger" onClick={() => removeItem(index)}>
             Remove
+          </button>
+          <button type="button" className="btn btn-link" onClick={() => duplicateItem(index)}>
+            Duplicate
           </button>
         </div>
       ))}

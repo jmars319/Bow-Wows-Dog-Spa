@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import { MediaCategoryHelp, MediaQualityWarnings, mediaCategoryInfo } from '@jamarq/cpanel-admin-kit/convenience';
 import { api } from './AdminShell';
 
 export function MediaPicker({ label, media, onChange, libraryCategory = '', uploadCategory = '' }) {
@@ -11,6 +12,9 @@ export function MediaPicker({ label, media, onChange, libraryCategory = '', uplo
   const dialogId = useId();
   const dialogTitleId = useId();
   const fileInputRef = useRef(null);
+  const categoryForHelp = uploadCategory || libraryCategory || media?.category || 'default';
+  const categoryInfo = mediaCategoryInfo(categoryForHelp);
+  const isHeroPicker = categoryForHelp === 'hero';
 
   useEffect(() => {
     if (!open) {
@@ -110,6 +114,8 @@ export function MediaPicker({ label, media, onChange, libraryCategory = '', uplo
           Alt text is still needed. Add it in the Media Library when this image is public-facing.
         </p>
       )}
+      {media && <MediaQualityWarnings asset={media} context={isHeroPicker ? 'hero' : 'image'} title="Image notes" />}
+      <MediaCategoryHelp category={categoryForHelp} />
       <div className="media-picker__actions">
         <button
           type="button"
@@ -119,10 +125,10 @@ export function MediaPicker({ label, media, onChange, libraryCategory = '', uplo
           aria-expanded={open}
           aria-controls={dialogId}
         >
-          Choose image
+          Choose existing image
         </button>
         <button type="button" className="btn btn-tertiary" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-          {uploading ? 'Uploading…' : 'Upload image'}
+          {uploading ? 'Uploading…' : `Upload ${categoryInfo.label.toLowerCase()}`}
         </button>
         {media && (
           <button type="button" className="btn btn-link" onClick={() => onChange(null)}>
@@ -138,17 +144,18 @@ export function MediaPicker({ label, media, onChange, libraryCategory = '', uplo
           <div className="media-modal__backdrop" onClick={() => setOpen(false)} />
           <div className="media-modal__content" id={dialogId} role="dialog" aria-modal="true" aria-labelledby={dialogTitleId}>
             <div className="media-modal__header">
-              <h3 id={dialogTitleId}>Select media</h3>
+              <h3 id={dialogTitleId}>Choose existing image</h3>
               <button type="button" className="btn btn-link" onClick={() => setOpen(false)} aria-label={`Close ${label.toLowerCase()} picker`}>
                 Close
               </button>
             </div>
+            <MediaCategoryHelp category={categoryForHelp} />
             <div className="media-modal__toolbar">
               <button type="button" className="btn btn-tertiary" onClick={loadMedia} disabled={loading}>
                 Refresh
               </button>
               <button type="button" className="btn btn-tertiary" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-                {uploading ? 'Uploading…' : 'Upload image'}
+                {uploading ? 'Uploading…' : 'Upload new image'}
               </button>
             </div>
             {loading ? (
@@ -176,6 +183,7 @@ export function MediaPicker({ label, media, onChange, libraryCategory = '', uplo
                       style={item.object_position ? { objectPosition: item.object_position } : undefined}
                     />
                     <span className="small-text">{item.title || item.alt_text || `Media #${item.id}`}</span>
+                    <span className="small-text muted">{mediaCategoryInfo(item.category || 'default').label}</span>
                     {!item.alt_text && <span className="small-text muted">Alt text needed</span>}
                   </button>
                 ))}

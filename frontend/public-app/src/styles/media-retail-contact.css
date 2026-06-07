@@ -27,7 +27,8 @@
 .contact-card,
 .contact-form-card,
 .retail-card {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .before-after-grid {
@@ -134,7 +135,8 @@
 
 .retail-card__meta h4 {
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .retail-card__meta strong {
@@ -252,7 +254,8 @@ button.contact-card {
 
 .contact-card strong {
   font-size: 1.1rem;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .contact-form-card {

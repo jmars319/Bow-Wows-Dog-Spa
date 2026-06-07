@@ -14,6 +14,39 @@ final class BookingCustomerEmailService
 
     public function sendConfirmed(array $booking): void
     {
+        $message = $this->confirmedMessage($booking);
+        $this->emails->send(
+            $booking['email'],
+            $booking['customer_name'],
+            $message['subject'],
+            $message['body'],
+            $message['options']
+        );
+    }
+
+    public function sendDeclined(array $booking, ?string $notes): void
+    {
+        $message = $this->declinedMessage($booking, $notes);
+        $this->emails->send(
+            $booking['email'],
+            $booking['customer_name'],
+            $message['subject'],
+            $message['body'],
+            $message['options']
+        );
+    }
+
+    public function preview(string $template, array $booking, ?string $notes = null): array
+    {
+        $message = $template === 'declined'
+            ? $this->declinedMessage($booking, $notes)
+            : $this->confirmedMessage($booking);
+
+        return $this->emails->preview($message['subject'], $message['body'], $message['options']);
+    }
+
+    private function confirmedMessage(array $booking): array
+    {
         $detailsTable = EmailContentFormatter::detailsTable([
             'Appointment Date' => $booking['date'],
             'Appointment Time' => $booking['time'],
@@ -24,22 +57,20 @@ final class BookingCustomerEmailService
             'Notes' => $booking['request_notes'],
         ]);
 
-        $this->emails->send(
-            $booking['email'],
-            $booking['customer_name'],
-            'Appointment request confirmed',
-            '<p>Hi ' . htmlspecialchars((string) $booking['customer_name'], ENT_QUOTES, 'UTF-8') . ',</p>'
-            . '<p>Your appointment request has been confirmed. We look forward to seeing you and your dog.</p>'
-            . $detailsTable
-            . '<p style="margin-top:16px;">Need to make a change? Give us a call and we’ll help.</p>',
-            [
+        return [
+            'subject' => 'Appointment request confirmed',
+            'body' => '<p>Hi ' . htmlspecialchars((string) $booking['customer_name'], ENT_QUOTES, 'UTF-8') . ',</p>'
+                . '<p>Your appointment request has been confirmed. We look forward to seeing you and your dog.</p>'
+                . $detailsTable
+                . '<p style="margin-top:16px;">Need to make a change? Give us a call and we’ll help.</p>',
+            'options' => [
                 'variant' => 'customer',
                 'headline' => 'Your appointment is confirmed',
-            ]
-        );
+            ],
+        ];
     }
 
-    public function sendDeclined(array $booking, ?string $notes): void
+    private function declinedMessage(array $booking, ?string $notes): array
     {
         $detailsTable = EmailContentFormatter::detailsTable([
             'Requested Date' => $booking['date'],
@@ -49,19 +80,17 @@ final class BookingCustomerEmailService
             'Team Notes' => $notes,
         ]);
 
-        $this->emails->send(
-            $booking['email'],
-            $booking['customer_name'],
-            'Appointment request update',
-            '<p>Hi ' . htmlspecialchars((string) $booking['customer_name'], ENT_QUOTES, 'UTF-8') . ',</p>'
-            . '<p>We could not confirm the requested appointment as submitted.</p>'
-            . $detailsTable
-            . '<p style="margin-top:16px;">Please reply to this email or call us so we can help you choose another option.</p>',
-            [
+        return [
+            'subject' => 'Appointment request update',
+            'body' => '<p>Hi ' . htmlspecialchars((string) $booking['customer_name'], ENT_QUOTES, 'UTF-8') . ',</p>'
+                . '<p>We could not confirm the requested appointment as submitted.</p>'
+                . $detailsTable
+                . '<p style="margin-top:16px;">Please reply to this email or call us so we can help you choose another option.</p>',
+            'options' => [
                 'variant' => 'customer',
                 'headline' => 'Update on your appointment request',
-            ]
-        );
+            ],
+        ];
     }
 
     private function formatPets(array $pets): ?string
