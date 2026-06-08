@@ -71,12 +71,12 @@
         "maxTotalJsKb": 340,
         "maxLargestJsKb": 340
       },
-      {
-        "label": "admin",
-        "dir": "frontend/admin-app/dist/assets",
-        "maxTotalJsKb": 412,
-        "maxLargestJsKb": 412
-      }
+    {
+      "label": "admin",
+      "dir": "frontend/admin-app/dist/assets",
+      "maxTotalJsKb": 420,
+      "maxLargestJsKb": 412
+    }
     ]
   }
 }

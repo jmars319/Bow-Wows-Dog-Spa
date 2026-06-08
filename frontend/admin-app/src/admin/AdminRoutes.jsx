@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { Component, lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { ADMIN_BASE, AdminLayout, RequireAuth } from './AdminShell';
 import { CalendarSyncPage } from '../pages/CalendarSyncPage';
@@ -21,10 +21,47 @@ const AuditLogPage = lazyNamed(() => import('./pages/MediaSystemPages'), 'AuditL
 const AdminUsersPage = lazyNamed(() => import('./pages/MediaSystemPages'), 'AdminUsersPage');
 const ChangePasswordPage = lazyNamed(() => import('./pages/MediaSystemPages'), 'ChangePasswordPage');
 
+class AdminRouteErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error, info) {
+    console.error('Admin route failed to render', error, info);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="card">
+          <h2>This admin section failed to load.</h2>
+          <p>Open another section or reload the admin app. If this keeps happening, check System Checks.</p>
+          <pre className="muted small-text">{this.state.error?.message || 'Unknown admin route error'}</pre>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+const safeRoute = (element) => (
+  <AdminRouteErrorBoundary>
+    {element}
+  </AdminRouteErrorBoundary>
+);
+
 const lazyRoute = (Component) => (
-  <Suspense fallback={<div className="card">Loading admin section...</div>}>
-    <Component />
-  </Suspense>
+  safeRoute(
+    <Suspense fallback={<div className="card">Loading admin section...</div>}>
+      <Component />
+    </Suspense>
+  )
 );
 
 export function AdminRoutes() {
@@ -35,7 +72,7 @@ export function AdminRoutes() {
       <Route element={<RequireAuth />}>
         <Route element={<AdminLayout />}>
           <Route path={ADMIN_BASE} element={<Navigate to={`${ADMIN_BASE}/dashboard`} replace />} />
-          <Route path={`${ADMIN_BASE}/dashboard`} element={<DashboardPage />} />
+          <Route path={`${ADMIN_BASE}/dashboard`} element={safeRoute(<DashboardPage />)} />
           <Route path={`${ADMIN_BASE}/booking`} element={lazyRoute(BookingRequestsPage)} />
           <Route path={`${ADMIN_BASE}/schedule`} element={lazyRoute(SchedulePage)} />
           <Route path={`${ADMIN_BASE}/services`} element={lazyRoute(ServicesPage)} />
@@ -49,8 +86,8 @@ export function AdminRoutes() {
           <Route path={`${ADMIN_BASE}/audit`} element={lazyRoute(AuditLogPage)} />
           <Route path={`${ADMIN_BASE}/users`} element={lazyRoute(AdminUsersPage)} />
           <Route path={`${ADMIN_BASE}/change-password`} element={lazyRoute(ChangePasswordPage)} />
-          <Route path={`${ADMIN_BASE}/calendar-sync`} element={<CalendarSyncPage />} />
-          <Route path={`${ADMIN_BASE}/system`} element={<SystemPage />} />
+          <Route path={`${ADMIN_BASE}/calendar-sync`} element={safeRoute(<CalendarSyncPage />)} />
+          <Route path={`${ADMIN_BASE}/system`} element={safeRoute(<SystemPage />)} />
         </Route>
       </Route>
       <Route path={`${ADMIN_BASE}/login`} element={<LoginPage />} />
