@@ -50,6 +50,7 @@ INCLUDE_CLI_TOOLS_IN_DEPLOY=true bash scripts/check-deploy-zips.sh
    - Database: `DB_HOST` (GoDaddy uses `localhost`), `DB_NAME`, `DB_USER`, `DB_PASS`
    - SendGrid: `SENDGRID_ENABLED`, `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`, `SENDGRID_FROM_NAME`, `SENDGRID_STAFF_NOTIFICATIONS`, plus booleans for customer emails (`SENDGRID_SEND_CUSTOMER_RECEIPTS` / `SENDGRID_SEND_CUSTOMER_CONFIRMATIONS`)
    - Sessions: `SESSION_*` flags (`SESSION_SECURE=true` when HTTPS is forced)
+4. Prefer uploading deploy archives outside the public web root. If cPanel requires web-root upload, delete the archive immediately after extraction and confirm common deploy archive URLs return `403` or `404`.
    - Media pipeline settings (leave defaults unless storage differs)
 4. Ensure the uploads tree defined by `UPLOAD_DIR` is writable by PHP. The default in the deployed layout is `api/uploads/` which must contain writable subdirectories:
    - `originals/`

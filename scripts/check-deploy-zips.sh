@@ -157,6 +157,11 @@ root_htaccess="$(unzip -p "$SITE_ZIP" .htaccess 2>/dev/null || true)"
 if ! grep -Eq 'api/index[.]php|api/[$]1' <<< "$root_htaccess"; then
   fail "root .htaccess must route /api to api/"
 fi
+for archive_guard_token in "site-deploy" "backend-deploy" "frontend-deploy" "deploy-[^/]+" "zip" "tar" "tgz"; do
+  if ! grep -Fq "$archive_guard_token" <<< "$root_htaccess"; then
+    fail "root .htaccess must block common deploy archives before real-file passthrough"
+  fi
+done
 if grep -Eq 'backend/public|api/public' <<< "$root_htaccess"; then
   fail "root .htaccess still references old backend/public routing"
 fi

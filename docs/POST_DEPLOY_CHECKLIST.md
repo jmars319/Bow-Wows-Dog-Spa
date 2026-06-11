@@ -8,6 +8,7 @@ Use this after any Bow Wow placeholder deploy, and again before any future full-
 - Confirm `/privacy` and `/terms` load from the deployed root.
 - Confirm unknown URLs return the branded not-found page.
 - Confirm the deploy zip did not include full-app backend files, uploads, logs, caches, source maps, or local env files.
+- Confirm `site-deploy.zip`, `backend-deploy.zip`, `frontend-deploy.zip`, and `server-config-deploy.zip` are absent from the web root or return `403`/`404`.
 - Confirm the placeholder remains `noindex` until the full app is approved for launch.
 
 ## Full-App Pre-Launch Checks

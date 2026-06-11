@@ -18,6 +18,9 @@ RewriteCond %{HTTPS} !=on
 RewriteCond %{HTTP:X-Forwarded-Proto} !https [NC]
 RewriteRule ^ https://bowwowsdogspa.com%{REQUEST_URI} [R=301,L,NE]
 
+# Block secret-bearing deploy archives before the real-file passthrough below.
+RewriteRule ^(?:site-deploy|backend-deploy|frontend-deploy|server-config-deploy|deploy-[^/]+).*\.(?:zip|tar|tgz|tar\.gz)$ - [F,L,NC]
+
 # serve existing static files/directories
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d

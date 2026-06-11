@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   MediaCategoryHelp,
   MediaQualityWarnings,
+  SearchableSelect,
   UsageShortcuts,
   VisualFocusPicker,
   mediaCategoryInfo,
@@ -256,6 +257,23 @@ export function MediaPage() {
     () => items.filter((item) => isImageAsset(item) && !item.is_archived),
     [items]
   );
+  const replacementSelectOptions = useMemo(
+    () => replacementOptions.map((option) => ({
+      value: option.id,
+      label: option.title || option.alt_text || `Media #${option.id}`,
+      meta: [option.category, option.file_name || option.original_filename].filter(Boolean).join(' · '),
+      searchText: [
+        option.title,
+        option.alt_text,
+        option.caption,
+        option.category,
+        option.file_name,
+        option.original_filename,
+        option.id,
+      ].filter(Boolean).join(' '),
+    })),
+    [replacementOptions]
+  );
 
   const updateFilter = (key, value) => {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -463,12 +481,18 @@ export function MediaPage() {
               <div className="replace-panel">
                 <label className="field-block">
                   <span className="field-label">Replace everywhere with</span>
-                  <select value={replacementIds[item.id] || ''} onChange={(event) => setReplacementIds((current) => ({ ...current, [item.id]: event.target.value }))}>
-                    <option value="">Choose image</option>
-                    {replacementOptions.filter((option) => option.id !== item.id).map((option) => (
-                      <option key={option.id} value={option.id}>{option.title || option.alt_text || `Media #${option.id}`}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    label={`Replacement image for ${item.title || item.alt_text || `Media #${item.id}`}`}
+                    value={replacementIds[item.id] || ''}
+                    options={[
+                      { value: '', label: 'Choose image' },
+                      ...replacementSelectOptions.filter((option) => String(option.value) !== String(item.id)),
+                    ]}
+                    onChange={(nextValue) => setReplacementIds((current) => ({ ...current, [item.id]: nextValue }))}
+                    searchPlaceholder="Search existing images..."
+                    emptyMessage="No matching images"
+                    clearLabel="Clear replacement image"
+                  />
                 </label>
                 <button type="button" className="btn btn-warn" onClick={() => replaceEverywhere(item)}>Replace everywhere</button>
               </div>
