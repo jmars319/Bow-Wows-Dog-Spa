@@ -109,7 +109,11 @@ Database::run(
 
 Database::run(
     'INSERT INTO site_settings (`key`, `value`)
-     VALUES ("booking_hold_minutes", "30"), ("booking_pending_expire_hours", "24")
+     VALUES
+        ("booking_hold_minutes", "30"),
+        ("booking_pending_expire_hours", "24"),
+        ("booking_pause_enabled", "0"),
+        ("booking_pause_message", "Online appointment times are paused right now. Please call or send a message and we will help find a safe appointment time.")
      ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)'
 );
 
