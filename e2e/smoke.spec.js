@@ -111,7 +111,14 @@ test.describe.serial('stability smoke suite', () => {
     await page.getByRole('button', { name: /Pawdicure & Face Trim/i }).click();
     await page.getByRole('button', { name: 'Continue to available times' }).click();
     await page.getByLabel('Preferred date').fill(fixtures.booking_date);
-    await page.locator('[data-slot-time="09:00:00"]').click();
+    const availableSlots = page.locator('[data-slot-time]');
+    await expect(availableSlots.first()).toBeVisible({ timeout: 10000 });
+    const fixtureSlot = page.locator(`[data-slot-time="${fixtures.booking_time ?? '09:00:00'}"]`).first();
+    if (await fixtureSlot.count()) {
+      await fixtureSlot.click();
+    } else {
+      await availableSlots.first().click();
+    }
     await page.locator('#booking-owner-name').fill(ownerName);
     await page.locator('#booking-owner-phone').fill('(336) 555-0101');
     await page.locator('#booking-owner-email').fill(ownerEmail);

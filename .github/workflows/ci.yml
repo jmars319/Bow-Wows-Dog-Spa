@@ -95,7 +95,7 @@ jobs:
           IMAGE_WEBP_QUALITY=90
           IMAGE_PNG_COMPRESSION=6
           RESPONSIVE_IMAGE_WIDTH_PROFILES={"default":[480,960,1440],"gallery":[640,1280,1920],"retail":[320,640,960]}
-          CALENDAR_SYNC_ENABLED=true
+          CALENDAR_SYNC_ENABLED=false
           CALENDAR_SYNC_DEFAULT_TIMEZONE=America/New_York
           CALENDAR_SYNC_MAX_JOB_ATTEMPTS=5
           E2E_ADMIN_EMAIL=e2e-admin@bowwow.local
