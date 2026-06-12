@@ -17,6 +17,10 @@ final class CalendarAvailabilityService
 
     public function hasBlockingCalendars(): bool
     {
+        if (!(bool) Config::get('calendar_sync.enabled', true)) {
+            return false;
+        }
+
         return Database::fetch(
             'SELECT id
              FROM calendar_integrations
@@ -35,6 +39,10 @@ final class CalendarAvailabilityService
      */
     public function busyLookupForDate(string $date, array $publishedTimes): array
     {
+        if (!(bool) Config::get('calendar_sync.enabled', true)) {
+            return [];
+        }
+
         $integrations = $this->blockingIntegrations();
         if ($integrations === [] || $publishedTimes === []) {
             return [];
