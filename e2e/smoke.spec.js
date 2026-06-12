@@ -23,6 +23,10 @@ async function login(page) {
   await expect(page).toHaveURL(/\/admin\/dashboard$/);
 }
 
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 test.describe.serial('stability smoke suite', () => {
   test('content edits publish to the public site', async ({ page }) => {
     const heroHeadline = uniqueLabel('E2E Hero Headline');
@@ -108,7 +112,8 @@ test.describe.serial('stability smoke suite', () => {
 
     await acceptDialogs(page);
     await page.goto('/#booking');
-    await page.getByRole('button', { name: /Pawdicure & Face Trim/i }).click();
+    const bookingServicePattern = new RegExp(escapeRegExp(fixtures.booking_service_name ?? 'Pawdicure & Face Trim'), 'i');
+    await page.getByRole('button', { name: bookingServicePattern }).click();
     await page.getByRole('button', { name: 'Continue to available times' }).click();
     await page.getByLabel('Preferred date').fill(fixtures.booking_date);
     const availableSlots = page.locator('[data-slot-time]');

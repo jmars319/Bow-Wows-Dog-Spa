@@ -18,6 +18,7 @@ $username = trim((string) (getenv('E2E_ADMIN_USERNAME') ?: 'e2e-admin'));
 $password = getenv('E2E_ADMIN_PASSWORD') ?: 'BowWow123!';
 $bookingDate = getenv('E2E_BOOKING_DATE') ?: (new DateTimeImmutable('today'))->modify('+14 days')->format('Y-m-d');
 $timeSlots = ['09:00:00', '09:30:00', '10:00:00', '10:30:00', '11:00:00'];
+$bookingServiceName = getenv('E2E_BOOKING_SERVICE_NAME') ?: 'E2E Pawdicure & Face Trim';
 
 applyRequiredMigrations();
 
@@ -96,6 +97,8 @@ Database::run(
     ]
 );
 
+$bookingServiceId = ensureBookingService($bookingServiceName);
+
 Database::run('DELETE FROM booking_holds WHERE date = :date', ['date' => $bookingDate]);
 Database::run(
     'DELETE FROM booking_requests
@@ -123,6 +126,8 @@ $payload = [
     'admin_password' => $password,
     'booking_date' => $bookingDate,
     'booking_time' => $timeSlots[0],
+    'booking_service_id' => $bookingServiceId,
+    'booking_service_name' => $bookingServiceName,
     'generated_at' => date(DATE_ATOM),
 ];
 
@@ -162,4 +167,44 @@ function applyRequiredMigrations(): void
 
         Connection::pdo()->exec($sql);
     }
+}
+
+function ensureBookingService(string $serviceName): int
+{
+    $existing = Database::fetch('SELECT id FROM services WHERE name = :name LIMIT 1', ['name' => $serviceName]);
+    $fields = [
+        'name' => $serviceName,
+        'short_summary' => 'E2E service used by browser smoke tests.',
+        'description' => 'Short appointment option created by the e2e fixture setup.',
+        'duration_minutes' => 45,
+        'price_label' => 'Starts at $25',
+        'breed_weight_note' => 'Fixture service for automated booking flow checks.',
+        'is_active' => 1,
+        'sort_order' => 1,
+    ];
+
+    if ($existing) {
+        $fields['id'] = (int) $existing['id'];
+        Database::run(
+            'UPDATE services
+             SET short_summary = :short_summary,
+                 description = :description,
+                 duration_minutes = :duration_minutes,
+                 price_label = :price_label,
+                 breed_weight_note = :breed_weight_note,
+                 is_active = :is_active,
+                 sort_order = :sort_order,
+                 updated_at = NOW()
+             WHERE id = :id',
+            $fields
+        );
+
+        return (int) $existing['id'];
+    }
+
+    return Database::insert(
+        'INSERT INTO services (name, short_summary, description, duration_minutes, price_label, breed_weight_note, is_active, sort_order, created_at, updated_at)
+         VALUES (:name, :short_summary, :description, :duration_minutes, :price_label, :breed_weight_note, :is_active, :sort_order, NOW(), NOW())',
+        $fields
+    );
 }
