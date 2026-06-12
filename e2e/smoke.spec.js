@@ -1,7 +1,19 @@
 import { test, expect } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
 import { loadFixtures, rootAssetPath, uniqueLabel } from './helpers/fixtures.js';
 
 const fixtures = loadFixtures();
+
+function resetE2eFixtures() {
+  execFileSync('php', ['backend/scripts/cleanup_e2e_fixtures.php'], {
+    cwd: rootAssetPath('.'),
+    stdio: 'inherit',
+  });
+  execFileSync('php', ['backend/scripts/seed_e2e_fixtures.php'], {
+    cwd: rootAssetPath('.'),
+    stdio: 'inherit',
+  });
+}
 
 async function acceptDialogs(page) {
   page.on('dialog', async (dialog) => {
@@ -28,6 +40,10 @@ function escapeRegExp(value) {
 }
 
 test.describe.serial('stability smoke suite', () => {
+  test.afterEach(() => {
+    resetE2eFixtures();
+  });
+
   test('content edits publish to the public site', async ({ page }) => {
     const heroHeadline = uniqueLabel('E2E Hero Headline');
 

@@ -110,7 +110,7 @@ jobs:
         run: find backend/src backend/bootstrap backend/scripts backend/tests -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Run backend tests
-        run: BOWWOW_TEST_REUSE_CONFIGURED_DB=1 BOWWOW_TEST_SKIP_BACKUP_RESTORE=1 DB_TEST_NAME=bowwow_ci php backend/tests/run.php
+        run: BOWWOW_TEST_REUSE_CONFIGURED_DB=0 DB_TEST_NAME=bowwow_ci_backend php backend/tests/run.php
 
       - name: Run frontend tests and builds
         run: |
