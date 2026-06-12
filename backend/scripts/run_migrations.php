@@ -21,6 +21,13 @@ if (!$migrationsPath) {
 $files = glob($migrationsPath . '/*.sql');
 sort($files);
 
+$pdo->exec(
+    "CREATE TABLE IF NOT EXISTS schema_migrations (
+        version VARCHAR(191) PRIMARY KEY,
+        applied_at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+);
+
 foreach ($files as $file) {
     $sql = file_get_contents($file);
     echo "Running migration: {$file}" . PHP_EOL;
