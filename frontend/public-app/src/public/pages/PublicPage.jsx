@@ -8,7 +8,7 @@ import { Header, Footer, MobileActionBar } from '../components/SiteLayout';
 import { BookingSection } from '../components/BookingSection';
 import { AboutSection, ContactSection, FaqSection, GallerySection, HeroSection, PoliciesSection, RetailSection, ReviewsSection, ServicesSection, TrustStrip } from '../components/HomeSections';
 
-export function PublicPage() {
+export function PublicPage({ routeSectionId = '' }) {
   const { data, loading, error } = useSiteContent();
   const location = useLocation();
   const [showNav, setShowNav] = useState(false);
@@ -48,11 +48,11 @@ export function PublicPage() {
   }, [data, loading, error]);
 
   useEffect(() => {
-    if (loading || error || !data || !location.hash) {
+    if (loading || error || !data || (!location.hash && !routeSectionId)) {
       return;
     }
 
-    const targetId = decodeURIComponent(location.hash.slice(1));
+    const targetId = location.hash ? decodeURIComponent(location.hash.slice(1)) : routeSectionId;
     const target = document.getElementById(targetId);
     if (!target) {
       return;
@@ -63,10 +63,10 @@ export function PublicPage() {
     });
 
     return () => window.cancelAnimationFrame(frameId);
-  }, [data, loading, error, location.hash]);
+  }, [data, loading, error, location.hash, routeSectionId]);
 
   useEffect(() => {
-    if (loading || error || !data || location.hash) {
+    if (loading || error || !data || location.hash || routeSectionId) {
       return;
     }
 
@@ -75,7 +75,7 @@ export function PublicPage() {
     });
 
     return () => window.cancelAnimationFrame(frameId);
-  }, [data, loading, error, location.hash, location.pathname]);
+  }, [data, loading, error, location.hash, location.pathname, routeSectionId]);
 
   if (loading) {
     return (

@@ -92,6 +92,7 @@ describe('public app', () => {
     document.head.innerHTML = '';
     document.body.className = '';
     window.scrollTo = vi.fn();
+    HTMLElement.prototype.scrollIntoView = vi.fn();
   });
 
   it('renders the live products section and hides the footer when disabled', async () => {
@@ -114,6 +115,19 @@ describe('public app', () => {
     await waitFor(() => {
       expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'auto' });
     });
+  });
+
+  it('renders the homepage for a shareable section route', async () => {
+    window.history.pushState({}, '', '/products');
+    axiosGet.mockResolvedValueOnce({ data: createPayload() });
+
+    render(<App />);
+
+    expect(await screen.findAllByText('Boutique Products')).not.toHaveLength(0);
+    await waitFor(() => {
+      expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalled();
+    });
+    expect(screen.queryByText('We could not find that page.')).not.toBeInTheDocument();
   });
 
   it('renders the CompliAssure seal when the public footer is enabled', async () => {
