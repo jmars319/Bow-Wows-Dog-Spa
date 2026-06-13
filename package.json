@@ -37,6 +37,8 @@
     "check:rough-edges": "bash ./scripts/verify-admin-rough-edges.sh",
     "audit:maintainability": "node scripts/audit-maintainability.mjs",
     "budget:bundle": "node scripts/analyze-build.mjs",
+    "test:selectors": "node scripts/verify-playwright-selectors.mjs",
+    "security:local": "just security",
     "test:static": "bash ./scripts/test-static.sh",
     "test:unit": "bash ./scripts/test-unit.sh",
     "test:public": "npm --prefix frontend/public-app run test",

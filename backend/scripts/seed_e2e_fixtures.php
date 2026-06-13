@@ -16,7 +16,7 @@ use BowWowSpa\Database\Connection;
 $email = getenv('E2E_ADMIN_EMAIL') ?: 'e2e-admin@bowwow.local';
 $username = trim((string) (getenv('E2E_ADMIN_USERNAME') ?: 'e2e-admin'));
 $password = getenv('E2E_ADMIN_PASSWORD') ?: 'BowWow123!';
-$bookingDate = getenv('E2E_BOOKING_DATE') ?: (new DateTimeImmutable('today'))->modify('+14 days')->format('Y-m-d');
+$bookingDate = getenv('E2E_BOOKING_DATE') ?: futureLocalDate(14);
 $timeSlots = ['09:00:00', '09:30:00', '10:00:00', '10:30:00', '11:00:00'];
 $bookingServiceName = getenv('E2E_BOOKING_SERVICE_NAME') ?: 'E2E Pawdicure & Face Trim';
 
@@ -139,6 +139,13 @@ $fixturePath = $devDir . '/e2e-fixtures.json';
 file_put_contents($fixturePath, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL, LOCK_EX);
 
 echo json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+
+function futureLocalDate(int $daysAhead): string
+{
+    return (new DateTimeImmutable('today', new DateTimeZone('America/New_York')))
+        ->modify('+' . $daysAhead . ' days')
+        ->format('Y-m-d');
+}
 
 function columnExists(string $table, string $column): bool
 {

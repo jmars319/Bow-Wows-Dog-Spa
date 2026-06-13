@@ -81,7 +81,7 @@ test.describe.serial('stability smoke suite', () => {
     await categoryForm.getByRole('button', { name: 'Save category' }).click();
     await expect(page.getByText('Category created.')).toBeVisible();
 
-    const categoryCard = page.locator('.retail-category-card').filter({ hasText: categoryName }).first();
+    const categoryCard = page.locator('.retail-category-card').filter({ hasText: categoryName }).first(); // selector-intentional-first: e2e category names are unique per run.
     await categoryCard.getByRole('button', { name: 'Edit' }).click();
     await categoryForm.getByLabel('Category name').fill(categoryNameUpdated);
     await categoryForm.getByRole('button', { name: 'Update category' }).click();
@@ -99,8 +99,8 @@ test.describe.serial('stability smoke suite', () => {
     await expect(page.getByText(productName)).toBeVisible();
 
     await page.goto('/admin/retail');
-    const updatedCategoryCard = page.locator('.retail-category-card').filter({ hasText: categoryNameUpdated }).first();
-    const productRow = updatedCategoryCard.locator('.retail-product-row').filter({ hasText: productName }).first();
+    const updatedCategoryCard = page.locator('.retail-category-card').filter({ hasText: categoryNameUpdated }).first(); // selector-intentional-first: updated e2e category names are unique per run.
+    const productRow = updatedCategoryCard.locator('.retail-product-row').filter({ hasText: productName }).first(); // selector-intentional-first: product names are unique inside the generated category.
     await productRow.getByRole('button', { name: 'Edit' }).click();
     await productForm.getByLabel('Product name').fill(productNameUpdated);
     await productForm.getByRole('button', { name: 'Update product' }).click();
@@ -110,7 +110,7 @@ test.describe.serial('stability smoke suite', () => {
     await expect(page.getByText(productNameUpdated)).toBeVisible();
 
     await page.goto('/admin/retail');
-    const categoryCardForDelete = page.locator('.retail-category-card').filter({ hasText: categoryNameUpdated }).first();
+    const categoryCardForDelete = page.locator('.retail-category-card').filter({ hasText: categoryNameUpdated }).first(); // selector-intentional-first: deleting the single generated category row.
     await categoryCardForDelete.locator('.retail-product-row').filter({ hasText: productNameUpdated }).getByRole('button', { name: 'Delete' }).click();
     await confirmAdminAction(page, 'Delete product');
     await expect(page.getByText('Product deleted.')).toBeVisible();
@@ -133,12 +133,12 @@ test.describe.serial('stability smoke suite', () => {
     await page.getByRole('button', { name: 'Continue to available times' }).click();
     await page.getByLabel('Preferred date').fill(fixtures.booking_date);
     const availableSlots = page.locator('[data-slot-time]');
-    await expect(availableSlots.first()).toBeVisible({ timeout: 10000 });
-    const fixtureSlot = page.locator(`[data-slot-time="${fixtures.booking_time ?? '09:00:00'}"]`).first();
+    await expect(availableSlots.first()).toBeVisible({ timeout: 10000 }); // selector-intentional-first: the fallback booking test may use the first available slot.
+    const fixtureSlot = page.locator(`[data-slot-time="${fixtures.booking_time ?? '09:00:00'}"]`).first(); // selector-intentional-first: duplicate slot times can appear across responsive views.
     if (await fixtureSlot.count()) {
       await fixtureSlot.click();
     } else {
-      await availableSlots.first().click();
+      await availableSlots.first().click(); // selector-intentional-first: fallback chooses the first available slot when the seeded slot is unavailable.
     }
     await page.locator('#booking-owner-name').fill(ownerName);
     await page.locator('#booking-owner-phone').fill('(336) 555-0101');
@@ -151,7 +151,7 @@ test.describe.serial('stability smoke suite', () => {
 
     await login(page);
     await page.goto('/admin/booking');
-    const requestCard = page.locator('.booking-card').filter({ hasText: ownerName }).first();
+    const requestCard = page.locator('.booking-card').filter({ hasText: ownerName }).first(); // selector-intentional-first: owner name is unique for this created request.
     await requestCard.click();
     const detailDialog = page.getByRole('dialog', { name: 'Booking Request' });
     await detailDialog.getByRole('button', { name: 'Confirm' }).click();
@@ -198,15 +198,15 @@ test.describe.serial('stability smoke suite', () => {
     await expect(page.getByText('Product saved.')).toBeVisible();
 
     await page.goto('/admin/media');
-    await page.locator('.media-filter select').first().selectOption('retail');
-    const mediaCard = page.locator('[data-media-id]').filter({ hasText: mediaTitle }).first();
+    await page.locator('.media-filter select').first().selectOption('retail'); // selector-intentional-first: first media filter select is the category filter.
+    const mediaCard = page.locator('[data-media-id]').filter({ hasText: mediaTitle }).first(); // selector-intentional-first: uploaded media title is unique per run.
     await expect(mediaCard).toBeVisible();
     await expect(mediaCard).toContainText('1 product');
     await mediaCard.getByRole('button', { name: 'Archive' }).click();
     await confirmAdminAction(page, 'Archive media');
     await expect(page.getByText('Media archived.')).toBeVisible();
     await page.locator('.media-filter select').nth(2).selectOption('archived');
-    const archivedCard = page.locator('[data-media-id]').filter({ hasText: mediaTitle }).first();
+    const archivedCard = page.locator('[data-media-id]').filter({ hasText: mediaTitle }).first(); // selector-intentional-first: archived uploaded media title is unique per run.
     await expect(archivedCard).toBeVisible();
     await expect(archivedCard.getByRole('button', { name: 'Delete archived media' })).toHaveCount(0);
   });

@@ -5,6 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 npm run test:static
+npm run test:selectors
+npm run security:local
 npm run test:unit
 npm run build
 npm run audit:maintainability -- --strict

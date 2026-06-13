@@ -24,3 +24,4 @@ server-config*.zip
 .dev/
 playwright-report/
 test-results/
+blob-report/
