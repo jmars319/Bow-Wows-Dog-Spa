@@ -17,7 +17,9 @@
   },
   "dependencyDrift": {
     "command": "node $JAMARQ_ROOT/Agents/agentic-instructions/scripts/dependency-drift-summary.mjs --site-only",
-    "lockfiles": ["package-lock.json"]
+    "lockfiles": [
+      "package-lock.json"
+    ]
   },
   "githubMetadata": {
     "descriptionRequired": true,
@@ -29,17 +31,143 @@
   },
   "skippedTests": {
     "auditCommand": "node $JAMARQ_ROOT/Agents/agentic-instructions/scripts/skipped-test-audit.mjs --allow-missing",
-    "allowedMarkers": ["optional-admin-env", "skip-intentional", "mobile-scope-intentional", "desktop-scope-intentional"]
+    "allowedMarkers": [
+      "optional-admin-env",
+      "skip-intentional",
+      "mobile-scope-intentional",
+      "desktop-scope-intentional"
+    ]
   },
   "selectorAudit": {
     "command": "node $JAMARQ_ROOT/Agents/agentic-instructions/scripts/broad-selector-audit.mjs --allow-missing",
-    "broadPatterns": [".first(", ".nth("],
-    "allowedMarkers": ["selector-intentional-first", "selector-intentional-nth"]
+    "broadPatterns": [
+      ".first(",
+      ".nth("
+    ],
+    "allowedMarkers": [
+      "selector-intentional-first",
+      "selector-intentional-nth"
+    ]
   },
   "accessibilitySmoke": {
-    "adminShellRoutes": ["/admin", "/admin/system-checks"]
+    "adminShellRoutes": [
+      "/admin",
+      "/admin/system-checks"
+    ]
   },
   "keyboardSmoke": {
-    "surfaces": ["admin-sidebar", "modal", "media-picker", "combobox", "content-editor"]
+    "surfaces": [
+      "admin-sidebar",
+      "modal",
+      "media-picker",
+      "combobox",
+      "content-editor"
+    ]
+  },
+  "responsiveAdminSmoke": {
+    "command": "npm run test:e2e",
+    "breakpoints": [
+      "mobile",
+      "tablet",
+      "desktop"
+    ],
+    "surfaces": [
+      "dashboard",
+      "settings",
+      "media",
+      "forms",
+      "tables",
+      "modals"
+    ]
+  },
+  "visualRegression": {
+    "snapshots": [
+      "public-home",
+      "public-contact",
+      "admin-dashboard"
+    ],
+    "updatePolicy": "review-before-update",
+    "coverageNote": "Capture branded public/admin areas when visual smoke is run; do not update baselines without human review."
+  },
+  "contentOverflow": {
+    "checks": [
+      "horizontal-scroll",
+      "text-overflow",
+      "button-label-overflow",
+      "card-content-overflow"
+    ],
+    "surfaces": [
+      "public-home",
+      "public-footer",
+      "admin-dashboard",
+      "admin-forms",
+      "admin-tables"
+    ],
+    "coverageNote": "Responsive smoke should fail on unintended horizontal scrolling, clipped labels, or overflowing card/form text."
+  },
+  "publicLinkChecks": {
+    "command": "npm run test:e2e",
+    "routes": [
+      "/",
+      "/services",
+      "/booking",
+      "/gallery",
+      "/products",
+      "/contact",
+      "/faq",
+      "/policies"
+    ],
+    "coverageNote": "Public smoke should verify internal nav/footer links resolve without branded 404s unless intentionally unknown."
+  },
+  "publicImageChecks": {
+    "command": "npm run test:e2e",
+    "routes": [
+      "/",
+      "/services",
+      "/booking",
+      "/gallery",
+      "/products",
+      "/contact",
+      "/faq",
+      "/policies"
+    ],
+    "coverageNote": "Public smoke should scan rendered images for broken natural dimensions and missing required alt text where applicable."
+  },
+  "emailTemplateSnapshots": {
+    "templates": [
+      "booking request notification",
+      "booking status notification",
+      "contact message notification"
+    ],
+    "command": "npm run test:unit",
+    "coverageNote": "Snapshot stable subject/body payload shape while avoiding live provider sends."
+  },
+  "paymentPayloadSnapshots": {
+    "notApplicableReason": "No online payment provider payloads in this site."
+  },
+  "auditLogReadability": {
+    "checks": [
+      "human-readable action labels",
+      "record context in summaries",
+      "raw details remain available",
+      "unknown actions render safely"
+    ],
+    "command": "npm run test:unit",
+    "coverageNote": "Admin audit/history surfaces should show plain-language action summaries without hiding raw diagnostics."
+  },
+  "fixtureCleanup": {
+    "auditCommand": "npm run test:unit",
+    "patterns": [
+      "test-*",
+      "dev-*",
+      "Verify *",
+      "Playwright *",
+      "E2E *"
+    ],
+    "coverageNote": "Tests and dev verifiers that create durable records should own cleanup or mark records clearly as test fixtures."
+  },
+  "dataRetention": {
+    "adminSurface": "Admin > Audit Log plus Bookings and Media archive views",
+    "reviewCadence": "quarterly"
   }
 }
