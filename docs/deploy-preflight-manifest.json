@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "siteId": "bow-wow-dog-spa",
+  "productionBaseUrl": "https://bowwowsdogspa.com",
+  "deployModel": "cPanel client site",
+  "hosting": "cPanel",
+  "commands": {
+    "verify": "npm run test:all",
+    "build": "npm run build",
+    "deployPackage": "npm run deploy:make",
+    "deployCheck": "npm run deploy:check"
+  },
+  "artifacts": [
+    {
+      "name": "site-deploy.zip",
+      "maxBytes": 15728640,
+      "snapshot": "docs/deploy-archive-snapshot.json"
+    }
+  ],
+  "sourceMapPolicy": "forbidden-in-deploy-artifacts",
+  "environment": {
+    "local": ".env",
+    "productionSource": ".env.production",
+    "packagedRuntime": "api/.env",
+    "secretsInGit": false
+  },
+  "forbiddenDeployPatterns": [
+    ".git/",
+    ".env.production",
+    "node_modules/",
+    "test-results/",
+    "playwright-report/",
+    "coverage/",
+    "e2e/",
+    "tests/",
+    "*.map",
+    "api/uploads/**",
+    "!api/uploads/.htaccess"
+  ],
+  "routeMap": {
+    "publicRoutes": ["/", "/services", "/booking", "/gallery", "/products", "/contact", "/faq", "/policies"],
+    "adminRoutes": ["/admin", "/admin/system"],
+    "apiHealth": "/api/health",
+    "driftChecks": ["public-nav", "footer-links", "admin-routes", "root-htaccess"]
+  },
+  "adminContract": {
+    "adminRoutes": ["/admin", "/admin/system"],
+    "blankScreenGuard": "Admin routes must render content or the friendly module error panel.",
+    "systemChecks": {
+      "page": "/admin/system",
+      "endpoint": "/api/admin/system-checks",
+      "requiredFields": ["checks", "sections"]
+    }
+  },
+  "mediaContract": {
+    "storage": "r2-ready-with-local-fallback",
+    "publicCdn": "https://cdn.bowwowsdogspa.com",
+    "fallback": "bundled placeholder production remains authoritative until full-app launch",
+    "deployUploadsPolicy": "only api/uploads/.htaccess may be packaged"
+  },
+  "migrationDryRun": {
+    "requiredBeforeDeploy": true,
+    "command": "npm run test:deploy:full-local",
+    "backupRequired": true,
+    "idempotencyRequired": true
+  },
+  "testSafety": {
+    "productionDatabaseNames": [],
+    "liveProviderEnvVars": ["GOOGLE_CLIENT_SECRET", "SMTP_PASS", "R2_SECRET_ACCESS_KEY"],
+    "liveUploadBuckets": ["bowwowsdogspa-com-media-public", "bowwowsdogspa-com-media-private"]
+  }
+}

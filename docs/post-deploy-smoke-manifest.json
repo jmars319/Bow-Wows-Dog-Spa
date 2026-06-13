@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "siteId": "bow-wow-dog-spa",
+  "productionBaseUrl": "https://bowwowsdogspa.com",
+  "routes": {
+    "public": ["/", "/services", "/booking", "/gallery", "/products", "/contact", "/faq", "/policies"],
+    "admin": ["/admin", "/admin/system"],
+    "api": ["/api/health", "/api/admin/system-checks"]
+  },
+  "readOnlyDiagnostics": [
+    "Health endpoint returns ok.",
+    "Admin login page loads without a blank screen.",
+    "System Checks loads or returns an auth gate, not a white screen.",
+    "Public image references do not resolve to missing local uploads."
+  ],
+  "formDryRun": "Do not submit live booking/contact forms without explicit approval.",
+  "exposureProbes": [
+    { "path": "/site-deploy.zip", "expectedStatus": [403, 404] },
+    { "path": "/backend-deploy.zip", "expectedStatus": [403, 404] },
+    { "path": "/frontend-deploy.zip", "expectedStatus": [403, 404] },
+    { "path": "/deploy.tar.gz", "expectedStatus": [403, 404] },
+    { "path": "/.env", "expectedStatus": [403, 404] },
+    { "path": "/.git/config", "expectedStatus": [403, 404] }
+  ]
+}
