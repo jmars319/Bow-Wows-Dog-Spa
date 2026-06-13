@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "siteId": "bow-wow-dog-spa",
+  "playwrightPolicy": {
+    "ciRetries": 1,
+    "trace": "retain-on-failure",
+    "screenshot": "only-on-failure",
+    "video": "retain-on-failure",
+    "jsonReporter": true
+  },
+  "flakeHistory": {
+    "command": "node $JAMARQ_ROOT/Agents/agentic-instructions/scripts/ci-flake-history-report.mjs jmars319/Bow-Wows-Dog-Spa"
+  },
+  "runtimeBudget": {
+    "command": "node $JAMARQ_ROOT/Agents/agentic-instructions/scripts/ci-run-duration-report.mjs jmars319/Bow-Wows-Dog-Spa",
+    "warnFactor": 2.5
+  },
+  "dependencyDrift": {
+    "command": "node $JAMARQ_ROOT/Agents/agentic-instructions/scripts/dependency-drift-summary.mjs --site-only",
+    "lockfiles": ["package-lock.json"]
+  },
+  "githubMetadata": {
+    "descriptionRequired": true,
+    "topicsRequired": true
+  },
+  "knownExceptions": {
+    "decisionRecord": "$JAMARQ_ROOT/Agents/agentic-instructions/docs/security-advisory-decisions.md",
+    "warningDays": 45
+  },
+  "skippedTests": {
+    "auditCommand": "node $JAMARQ_ROOT/Agents/agentic-instructions/scripts/skipped-test-audit.mjs --allow-missing",
+    "allowedMarkers": ["optional-admin-env", "skip-intentional", "mobile-scope-intentional", "desktop-scope-intentional"]
+  },
+  "selectorAudit": {
+    "command": "node $JAMARQ_ROOT/Agents/agentic-instructions/scripts/broad-selector-audit.mjs --allow-missing",
+    "broadPatterns": [".first(", ".nth("],
+    "allowedMarkers": ["selector-intentional-first", "selector-intentional-nth"]
+  },
+  "accessibilitySmoke": {
+    "adminShellRoutes": ["/admin", "/admin/system-checks"]
+  },
+  "keyboardSmoke": {
+    "surfaces": ["admin-sidebar", "modal", "media-picker", "combobox", "content-editor"]
+  }
+}

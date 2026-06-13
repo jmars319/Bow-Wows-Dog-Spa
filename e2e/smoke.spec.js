@@ -205,7 +205,7 @@ test.describe.serial('stability smoke suite', () => {
     await mediaCard.getByRole('button', { name: 'Archive' }).click();
     await confirmAdminAction(page, 'Archive media');
     await expect(page.getByText('Media archived.')).toBeVisible();
-    await page.locator('.media-filter select').nth(2).selectOption('archived');
+    await page.locator('.media-filter select').nth(2).selectOption('archived'); // selector-intentional-nth: third media filter select is the archive status filter.
     const archivedCard = page.locator('[data-media-id]').filter({ hasText: mediaTitle }).first(); // selector-intentional-first: archived uploaded media title is unique per run.
     await expect(archivedCard).toBeVisible();
     await expect(archivedCard.getByRole('button', { name: 'Delete archived media' })).toHaveCount(0);

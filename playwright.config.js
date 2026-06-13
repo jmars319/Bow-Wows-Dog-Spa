@@ -12,7 +12,7 @@ export default defineConfig({
     : [['list'], ['json', { outputFile: 'test-results/playwright-results.json' }]],
   use: {
     baseURL: process.env.BOWWOW_E2E_BASE_URL || 'http://127.0.0.1:3206',
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
