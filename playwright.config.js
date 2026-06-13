@@ -7,7 +7,9 @@ export default defineConfig({
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
   timeout: 90_000,
-  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : [['list']],
+  reporter: process.env.CI
+    ? [['github'], ['html', { open: 'never' }], ['json', { outputFile: 'test-results/playwright-results.json' }]]
+    : [['list'], ['json', { outputFile: 'test-results/playwright-results.json' }]],
   use: {
     baseURL: process.env.BOWWOW_E2E_BASE_URL || 'http://127.0.0.1:3206',
     trace: 'on-first-retry',

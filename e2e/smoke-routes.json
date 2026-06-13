@@ -1,0 +1,11 @@
+{
+  "routes": [
+    { "name": "public-home", "path": "/", "surface": "public" },
+    { "name": "booking-anchor", "path": "/#booking", "surface": "public" },
+    { "name": "admin-login", "path": "/admin/login", "surface": "admin" },
+    { "name": "admin-content", "path": "/admin/content", "surface": "admin" },
+    { "name": "admin-retail", "path": "/admin/retail", "surface": "admin" },
+    { "name": "admin-booking", "path": "/admin/booking", "surface": "admin" },
+    { "name": "admin-media", "path": "/admin/media", "surface": "admin" }
+  ]
+}

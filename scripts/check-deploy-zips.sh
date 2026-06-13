@@ -172,5 +172,6 @@ if ! grep -Eq 'bootstrap|config|db|migrations|scripts|src|tests' <<< "$api_htacc
 fi
 
 node "$ROOT_DIR/scripts/verify-permanent-assets.mjs" --site-zip "$SITE_ZIP"
+node "$ROOT_DIR/scripts/verify-deploy-archive-snapshot.mjs"
 
 log_success "site-deploy.zip looks good."

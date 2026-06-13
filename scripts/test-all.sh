@@ -12,6 +12,7 @@ npm run build
 npm run audit:maintainability -- --strict
 npm run budget:bundle
 npm run test:e2e
+npm run test:flake-report
 npm run verify
 npm run test:deploy:full-local
 npm run test:deploy

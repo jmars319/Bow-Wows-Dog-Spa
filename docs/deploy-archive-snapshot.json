@@ -1,0 +1,21 @@
+{
+  "archive": "site-deploy.zip",
+  "requiredPatterns": [
+    "^index[.]html$",
+    "^admin/index[.]html$",
+    "^api/index[.]php$",
+    "^api/[.]env$",
+    "^api/uploads/[.]htaccess$",
+    "^[.]htaccess$"
+  ],
+  "forbiddenPatterns": [
+    "(^|/)playwright-report/",
+    "(^|/)test-results/",
+    "(^|/)blob-report/",
+    "(^|/)coverage/",
+    "^e2e/",
+    "(^|/)tests/",
+    "^src/",
+    "^node_modules/"
+  ]
+}
