@@ -282,5 +282,128 @@
     ],
     "reviewCadence": "after each deploy and during weekly read-only audit automation",
     "coverageNote": "Monitoring is read-only: check health, admin diagnostics, CDN/cache state, and CI/security status without mutating live data."
+  },
+  "backupVerification": {
+    "source": "docs/deploy-preflight-manifest.json migrationDryRun/backups plus cPanel deploy runbook",
+    "checks": [
+      "server-local backup folder named before deploy",
+      "database dump or affected-table export captured when the site has server-side data",
+      "current .htaccess and runtime env files backed up when deploy-sensitive",
+      "current deploy artifact or file listing preserved",
+      "api/uploads or legacy fallback media preserved when present"
+    ],
+    "reviewCadence": "before each production cPanel deploy",
+    "coverageNote": "This site has a migration/backup requirement before deploy."
+  },
+  "cachePurgeVerification": {
+    "command": "npm run cdn:purge",
+    "signals": [
+      "Cloudflare or host cache purge action when configured",
+      "homepage and key public route refreshed after purge",
+      "admin/static asset version refresh confirmed",
+      "archive exposure probes still 403/404 after purge"
+    ],
+    "reviewCadence": "after each production cPanel deploy when cache/CDN is enabled",
+    "coverageNote": "Cache verification is read-only unless the deploy plan explicitly includes a purge step."
+  },
+  "legalCopyDrift": {
+    "surfaces": [
+      "footer legal links",
+      "privacy policy copy",
+      "terms/service policy copy"
+    ],
+    "sourceOfTruth": "site content/admin settings, footer links, privacy policy, terms/service policy, and client-approved copy",
+    "reviewCadence": "quarterly and before material form/payment/tracking changes",
+    "coverageNote": "Legal/privacy copy drift checks should catch missing footer links, stale business names, tracking/payment copy changes, and broken legal routes."
+  },
+  "clientAdminDocumentation": {
+    "surfaces": [
+      "admin dashboard guidance",
+      "settings/help text",
+      "System Checks fix links",
+      "post-deploy/admin review checklist"
+    ],
+    "coverageNote": "Admin documentation should stay close to the workflow: dashboard cards, settings helper text, System Checks, and repo docs should not contradict current navigation."
+  },
+  "adminHelpSearch": {
+    "surfaces": [
+      "admin dashboard",
+      "settings hub or grouped navigation",
+      "System Checks",
+      "media/content workflows"
+    ],
+    "searchTargets": [
+      "payments",
+      "media",
+      "messages/requests",
+      "system checks",
+      "backup and rollback",
+      "forms",
+      "visibility/status controls"
+    ],
+    "coverageNote": "cPanel admin apps should keep common help/search wording aligned with the grouped sidebar and current workflow labels."
+  },
+  "structuredChangelog": {
+    "source": "git commits, deployment notes, and client-visible admin/public changes",
+    "audiences": [
+      "internal operator",
+      "client/admin reviewer"
+    ],
+    "reviewCadence": "per release or deploy wave",
+    "coverageNote": "Changelogs should separate user-visible behavior, admin workflow changes, deploy/security hardening, and verification/deploy notes."
+  },
+  "preReleaseChecklist": {
+    "checklist": "docs/deploy-preflight-manifest.json, docs/post-deploy-smoke-manifest.json, and docs/test-hardening-manifest.json",
+    "command": "npm run test:all",
+    "checks": [
+      "clean git state",
+      "current with remote",
+      "green local verification",
+      "green pushed CI",
+      "deploy artifact inspected",
+      "post-deploy smoke scope reviewed",
+      "migration/backup/rollback decision recorded",
+      "no live forms/payments/uploads unless approved"
+    ]
+  },
+  "rollbackDryRun": {
+    "documentation": "cPanel deploy docs, docs/deploy-preflight-manifest.json, and docs/post-deploy-smoke-manifest.json",
+    "checks": [
+      "backup folder and previous artifact identified",
+      "database rollback decision recorded before migrations",
+      "maintenance-mode or temporary hold page path known",
+      "cache purge/recheck path known",
+      "api/uploads and runtime env preservation confirmed"
+    ],
+    "reviewCadence": "before each production cPanel deploy with app/API changes",
+    "coverageNote": "Rollback dry-run is a mental/procedural check unless an explicit live rollback rehearsal is approved."
+  },
+  "sameBugRegistry": {
+    "registry": "$JAMARQ_ROOT/Agents/agentic-instructions/docs/same-bug-across-sites-registry.md",
+    "categories": [
+      "admin blank screen",
+      "system checks regression",
+      "deploy archive exposure",
+      "media fallback and CDN drift",
+      "status/filter mismatch",
+      "admin contrast drift",
+      "large-list selector usability"
+    ],
+    "reviewCadence": "whenever a bug fix has a shared cPanel, admin-kit, media, deployment, or queue/filter pattern"
+  },
+  "weeklyReadOnlyAudit": {
+    "command": "node $JAMARQ_ROOT/Agents/agentic-instructions/scripts/weekly-read-only-site-audit.mjs --site-only",
+    "signals": [
+      "site hardening manifests",
+      "test hardening manifests",
+      "production test safety",
+      "Playwright policy",
+      "skipped/broad selector audits",
+      "dependency drift",
+      "security exception expiry",
+      "GitHub metadata",
+      "repo health"
+    ],
+    "reviewCadence": "weekly and after multi-repo hardening waves"
   }
 }
