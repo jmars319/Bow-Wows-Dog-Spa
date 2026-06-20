@@ -60,7 +60,7 @@ final class Dotenv
             $value = substr($value, 1, -1);
         }
 
-        // Remove trailing comments
+        // Only unquoted " #" starts a comment so hashes inside quoted secrets survive.
         if (str_contains($value, ' #')) {
             [$value] = explode(' #', $value, 2);
             $value = rtrim($value);

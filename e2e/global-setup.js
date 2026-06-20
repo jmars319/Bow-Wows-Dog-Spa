@@ -24,7 +24,7 @@ async function waitForUrl(url, attempts = 60) {
         return;
       }
     } catch (error) {
-      // keep retrying until the local stack is ready
+      // Local PHP/Vite startup races are expected, so readiness owns the timeout.
     }
 
     await new Promise((resolve) => setTimeout(resolve, 1_000));

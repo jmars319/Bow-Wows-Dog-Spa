@@ -131,7 +131,7 @@ export function MediaPage() {
                 message = `${draftCount} gallery draft${draftCount === 1 ? '' : 's'} created for review.`;
               }
             } catch (err) {
-              // ignore parse errors
+              // Non-JSON upload responses still use the generic success message.
             }
             setUploadStatus(message);
             setTimeout(() => setUploadStatus(null), 2000);
@@ -143,7 +143,7 @@ export function MediaPage() {
             const parsed = JSON.parse(request.responseText);
             message = parsed.error?.message || message;
           } catch (err) {
-            // ignore parse errors
+            // Non-JSON error responses should not hide the generic upload failure.
           }
           setUploadStatus(message);
           setUploadProgress(0);

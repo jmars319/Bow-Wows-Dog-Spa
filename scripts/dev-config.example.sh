@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
-# Copy this file to .dev/dev-config.sh to override dev script defaults.
-
-# export DEV_HOST=127.0.0.1
-# export BACKEND_PORT=3316
-# export FRONTEND_PORT=3206
-# export ADMIN_PORT=3406
-# export BACKEND_DIR="$ROOT_DIR/backend"
-# export FRONTEND_PUBLIC_DIR="$ROOT_DIR/frontend/public-app"
-# export FRONTEND_ADMIN_DIR="$ROOT_DIR/frontend/admin-app"
-
-# Browser auto-open behavior:
-# export DEV_BROWSER_OPEN=1  # Set to 0 to skip opening a browser.
-# export DEV_BROWSER=safari  # macOS default: safari. Windows default: chrome.
-# export DEV_BROWSER=chrome  # Alternate examples: chrome, edge, firefox, default.
+# This template uses defaulted exports so sourcing it directly matches the repo defaults.
+export DEV_HOST="${DEV_HOST:-127.0.0.1}"
+export BACKEND_PORT="${BACKEND_PORT:-3316}"
+export FRONTEND_PORT="${FRONTEND_PORT:-3206}"
+export ADMIN_PORT="${ADMIN_PORT:-3406}"
+export BACKEND_DIR="${BACKEND_DIR:-$ROOT_DIR/backend}"
+export FRONTEND_PUBLIC_DIR="${FRONTEND_PUBLIC_DIR:-$ROOT_DIR/frontend/public-app}"
+export FRONTEND_ADMIN_DIR="${FRONTEND_ADMIN_DIR:-$ROOT_DIR/frontend/admin-app}"
+export DEV_BROWSER_OPEN="${DEV_BROWSER_OPEN:-1}"
+export DEV_BROWSER="${DEV_BROWSER:-default}"
