@@ -5,6 +5,7 @@ import { publicApi } from '../publicApi';
 import { textHasContent } from '../siteConfig';
 
 export function HeroSection({ settings, content, primaryCta, secondaryCta }) {
+  // Hero content contract
   const phoneHref = settings.phone ? toPhoneHref(settings.phone) : null;
   const servingAreaLabel = escapeHtml(settings.serving_area || 'Greater Winston-Salem and the Triad area');
   const heroSubheading =
@@ -94,6 +95,7 @@ export function HeroSection({ settings, content, primaryCta, secondaryCta }) {
 
 
 export function TrustStrip({ settings, content }) {
+  // Trust signal surface
   const points = Array.isArray(content.points) ? content.points : [];
   const hasGoogleSummary = textHasContent(settings.google_review_rating) && textHasContent(settings.google_review_count);
 
@@ -143,6 +145,7 @@ export function TrustStrip({ settings, content }) {
 
 
 export function ServicesSection({ content, services, settings, primaryCta }) {
+  // Services display surface
   return (
     <section id="services" className="section">
       <div className="container">
@@ -328,6 +331,7 @@ export function RetailSection({ content, categories, settings }) {
 
 
 export function ReviewsSection({ settings, content, items, primaryCta }) {
+  // Review carousel surface
   const reviewUrl = settings.google_reviews_url;
 
   return (
@@ -448,6 +452,7 @@ export function AboutSection({ content, settings }) {
 
 
 export function ContactSection({ content, location, settings }) {
+  // Contact form workflow
   const [form, setForm] = useState({ name: '', email: '', phone: '', message: '', bowwow_hp: '' });
   const [status, setStatus] = useState(null);
   const [submitting, setSubmitting] = useState(false);

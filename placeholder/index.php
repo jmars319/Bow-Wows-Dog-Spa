@@ -11,6 +11,7 @@ header('Permissions-Policy: geolocation=(), microphone=(), camera=()', true);
 header('Strict-Transport-Security: max-age=31536000; includeSubDomains', true);
 header('Set-Cookie: bowwow_admin=; Max-Age=0; Path=/; Secure; HttpOnly; SameSite=Lax', false);
 
+// Placeholder metadata contract
 $business = "Bow Wow's Dog Spa";
 $phone = '(336) 842-3723';
 $phoneHref = 'tel:+13368423723';
@@ -31,6 +32,7 @@ $highlights = [
     'Full booking, gallery, and service details coming with the approved site',
 ];
 
+// Structured data contract
 $structuredData = [
     '@context' => 'https://schema.org',
     '@type' => 'LocalBusiness',
@@ -84,6 +86,7 @@ $structuredData = [
     <script type="application/ld+json"><?php echo json_encode($structuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?></script>
     <title><?php echo htmlspecialchars($business, ENT_QUOTES, 'UTF-8'); ?> | Website Coming Soon</title>
     <style>
+      /* Placeholder layout boundary */
       :root {
         color-scheme: light;
         font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -180,6 +183,7 @@ $structuredData = [
         max-width: 58ch;
       }
 
+      /* Placeholder action surface */
       .actions {
         display: flex;
         flex-wrap: wrap;
@@ -208,6 +212,7 @@ $structuredData = [
         color: #4f7772;
       }
 
+      /* Contact detail surface */
       .details {
         background: #f2f0ea;
         display: grid;
@@ -277,6 +282,7 @@ $structuredData = [
         width: 160px;
       }
 
+      /* Responsive layout constraints */
       @media (min-width: 760px) {
         .hero {
           grid-template-columns: minmax(280px, 0.95fr) minmax(0, 1.05fr);
@@ -307,6 +313,7 @@ $structuredData = [
   <body>
     <div class="wrap">
       <main>
+        <!-- Placeholder hero surface -->
         <section class="hero" aria-labelledby="page-title">
           <div class="logo-panel">
             <picture>
@@ -325,6 +332,7 @@ $structuredData = [
             </div>
           </div>
         </section>
+        <!-- Business detail surface -->
         <section class="details" aria-label="Business details">
           <ul class="highlights">
             <?php foreach ($highlights as $highlight): ?>

@@ -35,6 +35,7 @@ final class RetailService
     {
     }
 
+    // Retail catalogue contract
     public function adminCatalog(): array
     {
         $categories = $this->loadCategories(false);
@@ -60,6 +61,7 @@ final class RetailService
         ];
     }
 
+    // Retail category workflow
     public function saveCategory(array $payload): array
     {
         $id = !empty($payload['id']) ? (int) $payload['id'] : null;
@@ -138,6 +140,7 @@ final class RetailService
         Database::run('DELETE FROM retail_categories WHERE id = :id', ['id' => $id]);
     }
 
+    // Retail item workflow
     public function saveItem(array $payload): array
     {
         $id = !empty($payload['id']) ? (int) $payload['id'] : null;
@@ -319,6 +322,7 @@ final class RetailService
         return $row ? $this->hydrateItem($row) : null;
     }
 
+    // Retail hydration surface
     private function loadCategories(bool $publishedOnly): array
     {
         $sql = 'SELECT c.*, COUNT(i.id) AS product_total, SUM(CASE WHEN i.is_published = 1 THEN 1 ELSE 0 END) AS published_product_total
@@ -409,6 +413,7 @@ final class RetailService
         ];
     }
 
+    // Retail ordering boundary
     private function attachItemsToCategories(array $categories, array $items, bool $includeEmptyCategories): array
     {
         $grouped = [];
@@ -435,6 +440,7 @@ final class RetailService
         ));
     }
 
+    // Retail uniqueness boundary
     private function assertUniqueCategoryName(string $name, ?int $ignoreId = null): void
     {
         $lower = function_exists('mb_strtolower') ? mb_strtolower($name) : strtolower($name);

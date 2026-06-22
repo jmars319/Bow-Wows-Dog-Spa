@@ -31,6 +31,8 @@ export const DEFAULT_RETAIL_PRODUCT_OPTIONS = {
 
 export function RetailPage() {
   const confirm = useAdminConfirm();
+
+  // Retail catalog state
   const [categories, setCategories] = useState([]);
   const [commerce, setCommerce] = useState({ mode: 'catalog_only', mode_label: 'Catalog only', checkout_enabled: false });
   const [productOptions, setProductOptions] = useState(DEFAULT_RETAIL_PRODUCT_OPTIONS);
@@ -81,6 +83,7 @@ export function RetailPage() {
     setProductForm(createRetailProductForm(fallbackCategoryId));
   };
 
+  // Retail save workflow
   const saveCategory = async (event) => {
     event.preventDefault();
     setSavingCategory(true);
@@ -220,6 +223,7 @@ export function RetailPage() {
     setProductForm(createRetailProductForm(String(categoryId)));
   };
 
+  // Retail delete workflow
   const deleteCategory = async (category) => {
     if (!(await confirm({
       message: `Delete "${category.name}"? Categories can only be deleted when they are empty.`,
@@ -271,6 +275,8 @@ export function RetailPage() {
   };
 
   const totalProducts = categories.reduce((sum, category) => sum + (category.items?.length || 0), 0);
+
+  // Retail catalog surface
   const filteredCategories = useMemo(() => {
     const query = retailSearch.trim().toLowerCase();
     if (!query) {

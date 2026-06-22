@@ -142,6 +142,7 @@ final class SiteContentService
     ) {
     }
 
+    // Site snapshot contract
     public function getSiteSnapshot(): array
     {
         $settings = $this->defaultSettings;
@@ -191,6 +192,7 @@ final class SiteContentService
         ];
     }
 
+    // Site settings persistence
     public function saveSettings(array $settings): void
     {
         $allowed = array_keys($this->defaultSettings);
@@ -215,6 +217,7 @@ final class SiteContentService
         }
     }
 
+    // Section content workflow
     public function saveBlocks(array $blocks): void
     {
         $allowed = array_keys($this->defaultSections);
@@ -232,6 +235,7 @@ final class SiteContentService
         }
     }
 
+    // Section defaults boundary
     private function normalizeSection(string $key, array $value): array
     {
         $enabled = isset($value['enabled']) ? (bool) $value['enabled'] : true;
@@ -289,6 +293,7 @@ final class SiteContentService
         return $merged;
     }
 
+    // Legacy gallery fallback
     private function legacyGalleryFallback(): array
     {
         $rows = Database::fetchAll('SELECT * FROM happy_clients WHERE is_published = 1 ORDER BY sort_order ASC, created_at DESC');
@@ -367,6 +372,7 @@ final class SiteContentService
         return $value;
     }
 
+    // Hero media hydration
     private function hydrateHeroSection(array $section): array
     {
         $mediaId = !empty($section['media_id']) ? (int) $section['media_id'] : null;

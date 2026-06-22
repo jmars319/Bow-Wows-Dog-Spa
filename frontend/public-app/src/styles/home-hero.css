@@ -1,3 +1,4 @@
+/* Hero layout boundary */
 .hero-section {
   position: relative;
   padding: 3.1rem 0 4.25rem;
@@ -29,7 +30,7 @@
   height: 14rem;
   background: radial-gradient(circle, rgba(17, 182, 124, 0.18), transparent 68%);
 }
-
+/* Hero media boundary */
 .hero-section--with-media {
   min-height: min(760px, calc(100vh - 5rem));
   display: grid;
@@ -66,7 +67,7 @@
 .hero-background img {
   object-fit: cover;
 }
-
+/* Shared layout primitives */
 .hero-grid,
 .about-grid,
 .reviews-shell,
@@ -148,7 +149,7 @@
   color: var(--accent-primary);
   font-size: 0.78rem;
 }
-
+/* Action control surface */
 .hero-actions,
 .step-actions,
 .pill-row,
@@ -206,7 +207,7 @@
   box-shadow: 0 10px 22px rgba(29, 36, 51, 0.06);
   font-size: 0.92rem;
 }
-
+/* Card surface contract */
 .hero-card,
 .trust-summary-card,
 .proof-card,
@@ -298,7 +299,7 @@
   pointer-events: none;
   white-space: nowrap;
 }
-
+/* Hero visual boundary */
 .hero-visual {
   display: grid;
   align-items: end;

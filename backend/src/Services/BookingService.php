@@ -21,7 +21,7 @@ final class BookingService
         private readonly CalendarSyncService $calendarSync = new CalendarSyncService(),
         private readonly CalendarAvailabilityService $externalAvailability = new CalendarAvailabilityService(),
     ) {}
-
+    // Booking hold boundary
     public function createHold(string $date, string $time, array $payload = []): array
     {
         $this->expireStalePending();
@@ -73,7 +73,7 @@ final class BookingService
             ];
         });
     }
-
+    // Booking request workflow
     public function createBooking(array $payload, array $files = []): array
     {
         $this->expireStalePending();
@@ -286,7 +286,7 @@ final class BookingService
 
         return array_map([$this, 'hydrateBooking'], Database::fetchAll($sql, $params));
     }
-
+    // Booking lifecycle surface
     public function transition(int $id, string $action, ?string $notes, int $adminId, AuditService $audit): array
     {
         $this->expireStalePending();
@@ -395,7 +395,7 @@ final class BookingService
 
         return $updated;
     }
-
+    // Booking detail contract
     public function updateBookingDetails(int $id, array $payload, int $adminId, AuditService $audit): array
     {
         $this->expireStalePending();
@@ -576,7 +576,7 @@ final class BookingService
 
         return $updated;
     }
-
+    // Booking payload normalization
     private function hydrateBooking(array $row): array
     {
         $services = json_decode($row['services_json'] ?? '[]', true);
@@ -782,7 +782,7 @@ final class BookingService
 
         return $slots;
     }
-
+    // Schedule collision boundary
     private function assertSlotsAvailableWithinTransaction(PDO $pdo, string $date, array $slots, ?string $excludeHoldToken, ?int $excludeBookingId): void
     {
         if ($slots === []) {

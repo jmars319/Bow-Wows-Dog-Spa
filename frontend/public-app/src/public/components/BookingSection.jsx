@@ -47,6 +47,7 @@ export function BookingSection({ settings, content, services }) {
   const holdRemainingMs = holdExpiresAt ? Math.max(0, holdExpiresAt - holdClock) : 0;
   const holdRemainingLabel = holdToken && holdExpiresAt ? formatHoldRemaining(holdRemainingMs) : null;
 
+  // Booking hold boundary
   const clearSelectedTime = () => {
     setSelectedSlot(null);
     setHoldToken(null);
@@ -91,6 +92,7 @@ export function BookingSection({ settings, content, services }) {
     });
   }, [dogCount]);
 
+  // Availability data workflow
   useEffect(() => {
     if (selectedServiceIds.length === 0) {
       setAvailability([]);
@@ -198,6 +200,7 @@ export function BookingSection({ settings, content, services }) {
     return () => window.clearTimeout(timeoutId);
   }, [step]);
 
+  // Service selection workflow
   const toggleService = (serviceId) => {
     setFlowStatus(null);
     setSubmitStatus(null);
@@ -427,6 +430,8 @@ export function BookingSection({ settings, content, services }) {
 
   const canContinueToSlots = selectedServiceIds.length > 0;
   const bookingContactRequired = availabilityMeta.availability_status === 'contact_required';
+
+  // Booking wizard surface
   return (
     <section id="booking" className="section section--booking">
       <div className="container">

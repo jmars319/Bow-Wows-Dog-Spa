@@ -8,6 +8,8 @@ export const WEEKDAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thur
 export function SchedulePage() {
   const { user } = useAuth();
   const confirm = useAdminConfirm();
+
+  // Schedule editor state
   const [templates, setTemplates] = useState([]);
   const [overrides, setOverrides] = useState([]);
   const [settings, setSettings] = useState({
@@ -24,6 +26,7 @@ export function SchedulePage() {
   const [feedback, setFeedback] = useState(null);
   const timeOptions = useMemo(() => buildScheduleTimeOptions(slotMinutes), [slotMinutes]);
 
+  // Schedule data hydration
   const load = useCallback(async () => {
     const [tpl, ov] = await Promise.all([api.get('/schedule/templates'), api.get('/schedule/overrides')]);
     const templateRows = tpl.data.data.templates || [];
@@ -53,6 +56,7 @@ export function SchedulePage() {
     load();
   }, [load]);
 
+  // Slot builder workflow
   const toggleBuilderDay = (weekday) => {
     setBuilder((prev) => {
       const exists = prev.weekdays.includes(weekday);
@@ -132,6 +136,7 @@ export function SchedulePage() {
     );
   };
 
+  // Template persistence workflow
   const toggleTemplateTime = (weekday, time) => {
     const times = templates.find((tpl) => tpl.weekday === weekday)?.times || [];
     updateTemplateTimes(weekday, toggleScheduleTime(times, time));
@@ -154,6 +159,7 @@ export function SchedulePage() {
     }
   };
 
+  // Override management boundary
   const submitOverride = async (e) => {
     e.preventDefault();
     try {
@@ -207,6 +213,7 @@ export function SchedulePage() {
           message: 'Add enabled weekday times or keep vacation mode on so customers are routed to contact.',
         };
 
+  // Schedule editor surface
   const addOverrideTime = () => {
     const normalized = normalizeAdminTimeInput(overrideTimeDraft);
     if (!normalized) {

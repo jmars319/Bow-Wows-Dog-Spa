@@ -25,6 +25,7 @@ final class ScheduleService
     ) {
     }
 
+    // Schedule template contract
     public function getTemplates(): array
     {
         return Database::fetchAll('SELECT * FROM schedule_weekday_templates ORDER BY weekday ASC');
@@ -82,6 +83,7 @@ final class ScheduleService
         );
     }
 
+    // Availability search workflow
     public function availabilityForDate(string $date, array $options = []): array
     {
         if ($this->isOnlineBookingPaused()) {
@@ -169,6 +171,7 @@ final class ScheduleService
         return null;
     }
 
+    // Duration policy boundary
     public function calculateDuration(array $serviceIds = [], int $petCount = 1, ?int $fallbackMinutes = null): array
     {
         $normalizedIds = array_values(array_unique(array_filter(array_map('intval', $serviceIds), static fn (int $id): bool => $id > 0)));
@@ -187,6 +190,7 @@ final class ScheduleService
         return $selection;
     }
 
+    // Booking safety settings
     public function getSettings(): array
     {
         if ($this->settingsCache !== null) {
@@ -326,6 +330,7 @@ final class ScheduleService
         return $this->normalizeTime($time);
     }
 
+    // Slot blocking boundary
     private function blockedLookupForDate(string $date, ?string $excludeHoldToken = null, ?int $excludeBookingId = null): array
     {
         $blockedLookup = [];
@@ -385,6 +390,7 @@ final class ScheduleService
         return true;
     }
 
+    // Time normalization surface
     private function normalizeTimes(array $times): array
     {
         $normalized = [];

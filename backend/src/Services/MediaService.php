@@ -15,7 +15,7 @@ final class MediaService
         private readonly MediaUploadValidator $uploadValidator = new MediaUploadValidator(),
     ) {
     }
-
+    // Media library contract
     public function list(?string $category = null, array $filters = []): array
     {
         $sql = 'SELECT * FROM media_assets';
@@ -80,7 +80,7 @@ final class MediaService
 
         return $items;
     }
-
+    // Upload safety boundary
     public function upload(array $file, int $adminId, array $payload = []): array
     {
         try {
@@ -221,7 +221,7 @@ final class MediaService
             throw $e;
         }
     }
-
+    // Usage replacement workflow
     public function delete(int $id): void
     {
         $asset = Database::fetch('SELECT * FROM media_assets WHERE id = :id', ['id' => $id]);
@@ -384,7 +384,7 @@ final class MediaService
         $row = Database::fetch('SELECT * FROM media_assets WHERE id = :id', ['id' => $id]);
         return $row ? $this->hydrateRow($row) : null;
     }
-
+    // Asset metadata hydration
     private function hydrateRow(array $row): array
     {
         if (!$row) {
@@ -685,7 +685,7 @@ final class MediaService
         }
         return $candidate;
     }
-
+    // Image variant workflow
     private function generateVariants(
         string $originalPath,
         string $mime,
@@ -895,7 +895,7 @@ final class MediaService
 
         return false;
     }
-
+    // Storage path boundary
     private function resolveConfig(): array
     {
         $config = Config::get('media', []);

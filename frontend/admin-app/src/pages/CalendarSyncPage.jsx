@@ -5,11 +5,14 @@ import { createCalendarIntegrationForm, humanizeCalendarConnectionStatus } from 
 
 export function CalendarSyncPage() {
   const confirm = useAdminConfirm();
+
+  // Calendar sync state
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [status, setStatus] = useState(null);
   const [form, setForm] = useState(createCalendarIntegrationForm());
 
+  // Calendar sync data hydration
   const load = useCallback(async () => {
     const response = await api.get('/calendar-integrations');
     setData(response.data.data);
@@ -42,6 +45,7 @@ export function CalendarSyncPage() {
     setStatus(null);
   };
 
+  // Integration save workflow
   const save = async (event) => {
     event.preventDefault();
     try {
@@ -99,6 +103,7 @@ export function CalendarSyncPage() {
     }
   };
 
+  // Google connection boundary
   const connectGoogle = async (item) => {
     try {
       const response = await api.post(`/calendar-integrations/${item.id}/connect-google`);
@@ -136,6 +141,7 @@ export function CalendarSyncPage() {
     }
   };
 
+  // Sync queue workflow
   const runSync = async () => {
     try {
       const response = await api.post('/calendar-sync/run');
@@ -158,6 +164,7 @@ export function CalendarSyncPage() {
     return <div className="card">Loading calendar sync…</div>;
   }
 
+  // Calendar readiness surface
   const providerLookup = Object.fromEntries((data.providers ?? []).map((provider) => [provider.key, provider]));
   const selectedProvider = providerLookup[form.provider] || data.providers?.[0] || null;
   const editingIntegration = form.id ? (data.integrations ?? []).find((item) => item.id === form.id) : null;

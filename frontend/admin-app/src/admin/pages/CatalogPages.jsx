@@ -12,6 +12,8 @@ import { buildScheduleTimeOptions, formatScheduleTime, minutesToScheduleValue, n
 
 export function ServicesPage() {
   const confirm = useAdminConfirm();
+
+  // Services catalog state
   const defaultForm = {
     id: null,
     name: '',
@@ -181,6 +183,7 @@ export function ServicesPage() {
     setDraggedService(null);
   };
 
+  // Services catalog surface
   const filteredServices = useMemo(() => {
     const query = serviceSearch.trim().toLowerCase();
     if (!query) {
@@ -330,6 +333,7 @@ export function ServicesPage() {
 
 
 export function FeaturedReviewsPage() {
+  // Review content workflow
   const defaultForm = {
     id: null,
     reviewer_name: '',
@@ -502,6 +506,7 @@ export function FeaturedReviewsPage() {
 
 
 export function GalleryPage() {
+  // Gallery catalog workflow
   const defaultForm = {
     id: null,
     title: '',
@@ -769,6 +774,7 @@ export function GalleryPage() {
 
 
 export function ContactMessagesPage() {
+  // Contact message surface
   const [items, setItems] = useState([]);
   const [messageSearch, setMessageSearch] = useState('');
 

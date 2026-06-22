@@ -22,6 +22,8 @@ const HOMEPAGE_SECTION_LABELS = {
 export function ContentPage() {
   const { setDirtyState, clearDirty } = useAdminDirtyState();
   const confirm = useAdminConfirm();
+
+  // Content editor state
   const [settings, setSettings] = useState(null);
   const [sections, setSections] = useState(null);
   const [savedSnapshot, setSavedSnapshot] = useState('');
@@ -44,6 +46,7 @@ export function ContentPage() {
     enabled: Boolean(isDirty && settings && sections),
   });
 
+  // Content data hydration
   useEffect(() => {
     let ignore = false;
 
@@ -90,6 +93,7 @@ export function ContentPage() {
     }
   }, [isDirty, status]);
 
+  // Homepage ordering workflow
   const updateSection = (key, updates) => {
     setStatus(null);
     setSections((prev) => ({

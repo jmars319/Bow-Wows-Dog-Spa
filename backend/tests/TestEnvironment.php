@@ -163,6 +163,7 @@ final class TestEnvironment
         return self::$instance;
     }
 
+    // Test database safety boundary
     public function resetDatabase(): void
     {
         $pdo = Connection::pdo();
@@ -186,6 +187,7 @@ final class TestEnvironment
         $_SERVER['HTTP_USER_AGENT'] = 'BowWow Test Runner';
     }
 
+    // Upload fixture boundary
     public function resetUploads(): void
     {
         if (is_dir($this->uploadDir)) {
@@ -214,6 +216,7 @@ final class TestEnvironment
         return $this->reusesConfiguredDatabase;
     }
 
+    // Configured database safety
     public function backupConfiguredDatabase(): string
     {
         if (!$this->reusesConfiguredDatabase) {
@@ -267,6 +270,7 @@ final class TestEnvironment
         }
     }
 
+    // Fixture seeding workflow
     public function seedAdminUser(array $overrides = []): int
     {
         $data = array_merge([
@@ -476,6 +480,7 @@ final class TestEnvironment
         }
     }
 
+    // Test helper boundary
     private function requireCommand(string $name): string
     {
         $path = trim((string) shell_exec('command -v ' . escapeshellarg($name)));

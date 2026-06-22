@@ -26,11 +26,13 @@ final class PublicController
     ) {
     }
 
+    // Public site snapshot
     public function site(Request $request): void
     {
         Response::success($this->content->getSiteSnapshot());
     }
 
+    // Public schedule surface
     public function schedule(Request $request): void
     {
         $date = trim((string) ($request->query['date'] ?? ''));
@@ -96,6 +98,7 @@ final class PublicController
         ]);
     }
 
+    // Booking hold boundary
     public function bookingHold(Request $request): void
     {
         $pause = $this->schedule->pauseStatus();
@@ -145,6 +148,7 @@ final class PublicController
         Response::success($hold);
     }
 
+    // Booking request workflow
     public function bookingRequest(Request $request): void
     {
         $pause = $this->schedule->pauseStatus();
@@ -267,6 +271,7 @@ final class PublicController
         ]);
     }
 
+    // Contact fallback workflow
     public function contact(Request $request): void
     {
         if ($this->honeypotTripped($request->body)) {
@@ -377,6 +382,7 @@ final class PublicController
         return 422;
     }
 
+    // Next availability fallback
     private function nextAvailableForSelection(string $date, string $time, array $serviceIds, int $petCount): ?array
     {
         if (trim($date) === '') {

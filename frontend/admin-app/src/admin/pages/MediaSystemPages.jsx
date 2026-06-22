@@ -42,6 +42,8 @@ function formatAuditActionLabel(action) {
 
 export function MediaPage() {
   const confirm = useAdminConfirm();
+
+  // Media library state
   const [items, setItems] = useState([]);
   const [files, setFiles] = useState([]);
   const [metadata, setMetadata] = useState({ alt_text: '', title: '', caption: '', category: 'default' });
@@ -69,6 +71,7 @@ export function MediaPage() {
     return 'Document';
   };
 
+  // Media upload workflow
   const load = useCallback(async () => {
     const params = Object.fromEntries(
       Object.entries(filters).filter(([, value]) => value !== '' && value !== 'all')
@@ -279,6 +282,7 @@ export function MediaPage() {
     setFilters((current) => ({ ...current, [key]: value }));
   };
 
+  // Media library surface
   return (
     <div>
       <h1>Media Library</h1>
@@ -512,6 +516,7 @@ export function MediaPage() {
 
 
 export function AuditLogPage() {
+  // Audit log surface
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -568,6 +573,8 @@ export function AuditLogPage() {
 
 export function AdminUsersPage() {
   const { user } = useAuth();
+
+  // Admin user workflow
   const [items, setItems] = useState([]);
   const [form, setForm] = useState({ username: '', email: '', password: '', role: 'manager', is_enabled: true });
   const [status, setStatus] = useState(null);
@@ -662,6 +669,7 @@ export function AdminUsersPage() {
 }
 
 export function ChangePasswordPage() {
+  // Password change boundary
   const [form, setForm] = useState({ current_password: '', new_password: '', confirm_password: '' });
   const [status, setStatus] = useState(null);
 

@@ -8,6 +8,8 @@ import { formatDateLabel, formatTimeAgo, formatTimeLabel, formatTimeRange, rende
 
 export function BookingRequestsPage() {
   const confirm = useAdminConfirm();
+
+  // Booking request state
   const [items, setItems] = useState([]);
   const [stats, setStats] = useState({});
   const [statusFilter, setStatusFilter] = useState('');
@@ -84,6 +86,7 @@ export function BookingRequestsPage() {
     setEditDirty(false);
   }, [editDirty, items, notesDirty, selected]);
 
+  // Booking detail workflow
   const openDetails = (request) => {
     setFeedback(null);
     setSelected(request);
@@ -120,6 +123,7 @@ export function BookingRequestsPage() {
     }
   };
 
+  // Booking action workflow
   const performAction = async (action) => {
     if (!selected) return;
     if (!(await confirm({ message: bookingActionPrompt(selected, action), confirmLabel: 'Continue', tone: 'danger' }))) {
@@ -170,6 +174,7 @@ export function BookingRequestsPage() {
     }
   };
 
+  // Hold management boundary
   const extendHold = async () => {
     if (!selected) return;
     try {
@@ -238,6 +243,7 @@ export function BookingRequestsPage() {
     }
   };
 
+  // Admin export surface
   const previewCustomerEmail = async (template) => {
     if (!selected) return;
     setPreviewLoading(true);

@@ -15,6 +15,7 @@ final class CalendarSyncService
     ) {
     }
 
+    // Calendar sync queue boundary
     public function queueBookingSync(array $booking, ?string $previousStatus = null): void
     {
         if (!(bool) Config::get('calendar_sync.enabled', true)) {
@@ -35,6 +36,7 @@ final class CalendarSyncService
         }
     }
 
+    // Queue processing workflow
     /** @return array{processed:int,completed:int,failed:int,skipped:int} */
     public function processPendingJobs(int $limit = 25): array
     {
@@ -90,6 +92,7 @@ final class CalendarSyncService
         return $result;
     }
 
+    // Provider dispatch boundary
     private function processJob(array $job): string
     {
         $integration = Database::fetch(
@@ -205,6 +208,7 @@ final class CalendarSyncService
         return 'completed';
     }
 
+    // Status transition policy
     private function actionForStatusChange(string $status, ?string $previousStatus): ?string
     {
         if ($status === 'confirmed') {
@@ -309,6 +313,7 @@ final class CalendarSyncService
         });
     }
 
+    // Calendar payload contract
     private function payloadForBooking(array $booking): array
     {
         return [

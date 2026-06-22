@@ -16,6 +16,7 @@ final class CalendarIntegrationService
     ) {
     }
 
+    // Calendar dashboard contract
     public function dashboardPayload(): array
     {
         return [
@@ -51,6 +52,7 @@ final class CalendarIntegrationService
         }, $rows);
     }
 
+    // Integration persistence workflow
     public function save(array $payload): array
     {
         $id = (int) ($payload['id'] ?? 0);
@@ -210,6 +212,7 @@ final class CalendarIntegrationService
         );
     }
 
+    // Google OAuth boundary
     public function googleAuthorizationUrl(int $integrationId, string $state): string
     {
         $integration = Database::fetch('SELECT * FROM calendar_integrations WHERE id = :id LIMIT 1', ['id' => $integrationId]);
@@ -359,6 +362,7 @@ final class CalendarIntegrationService
         return [];
     }
 
+    // Integration hydration surface
     private function hydrateIntegration(array $row, array $stats): array
     {
         $provider = $this->providers->find((string) $row['provider']);
@@ -425,6 +429,7 @@ final class CalendarIntegrationService
         return $calendars[0] ?? null;
     }
 
+    // Primary calendar safety
     private function clearOtherPrimaryTargets(int $integrationId): void
     {
         Database::run(
@@ -495,6 +500,7 @@ final class CalendarIntegrationService
         return $stats;
     }
 
+    // Queue diagnostics surface
     private function queueStatusTotals(): array
     {
         $totals = [
