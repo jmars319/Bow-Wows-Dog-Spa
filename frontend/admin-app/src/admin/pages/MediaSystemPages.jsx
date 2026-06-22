@@ -131,7 +131,7 @@ export function MediaPage() {
                 message = `${draftCount} gallery draft${draftCount === 1 ? '' : 's'} created for review.`;
               }
             } catch (err) {
-              // Non-JSON upload responses still use the generic success message.
+              // Keep the generic success text because legacy upload handlers may return non-JSON bodies.
             }
             setUploadStatus(message);
             setTimeout(() => setUploadStatus(null), 2000);
