@@ -30,8 +30,18 @@ function fail(message) {
   failures.push(message);
 }
 
+function githubActionsEscape(value) {
+  return value
+    .replace(/%/g, "%25")
+    .replace(/\r/g, "%0D")
+    .replace(/\n/g, "%0A");
+}
+
 function warn(message) {
   warnings.push(message);
+  if (process.env.GITHUB_ACTIONS === "true") {
+    console.warn(`::warning title=Bundle budget::${githubActionsEscape(message)}`);
+  }
 }
 
 for (const entry of budget.entries ?? []) {

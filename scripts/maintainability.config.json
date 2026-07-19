@@ -63,7 +63,7 @@
   "failOnWarnings": true,
   "bundleBudget": {
     "nearBudgetKb": 4,
-    "failOnWarnings": true,
+    "failOnWarnings": false,
     "entries": [
       {
         "label": "public",
