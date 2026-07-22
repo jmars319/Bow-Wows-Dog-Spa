@@ -8,7 +8,17 @@ ErrorDocument 500 /error-documents/500.html
 ErrorDocument 503 /error-documents/503.html
 
 <IfModule mod_headers.c>
-Header always set Retry-After "3600" env=BOWWOW_MAINTENANCE
+  Header always set Retry-After "3600" env=BOWWOW_MAINTENANCE
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  Header always set Content-Security-Policy "base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-XSS-Protection "0"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+  Header always set X-Permitted-Cross-Domain-Policies "none"
+  Header always set Origin-Agent-Cluster "?1"
+  Header always unset X-Powered-By
 </IfModule>
 
 # Canonical host + scheme. Keep this at the server layer so requests land on

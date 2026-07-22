@@ -2,12 +2,17 @@
 
 declare(strict_types=1);
 
+header_remove('X-Powered-By');
 header('X-Robots-Tag: noindex, nofollow', true);
 header('Cache-Control: no-store, max-age=0', true);
+header("Content-Security-Policy: base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'", true);
 header('X-Content-Type-Options: nosniff', true);
+header('X-XSS-Protection: 0', true);
 header('X-Frame-Options: SAMEORIGIN', true);
 header('Referrer-Policy: strict-origin-when-cross-origin', true);
 header('Permissions-Policy: geolocation=(), microphone=(), camera=()', true);
+header('X-Permitted-Cross-Domain-Policies: none', true);
+header('Origin-Agent-Cluster: ?1', true);
 header('Strict-Transport-Security: max-age=31536000; includeSubDomains', true);
 header('Set-Cookie: bowwow_admin=; Max-Age=0; Path=/; Secure; HttpOnly; SameSite=Lax', false);
 

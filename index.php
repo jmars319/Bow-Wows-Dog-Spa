@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+header_remove('X-Powered-By');
+
 function bowwowPublicRequestPath(): string
 {
     $uri = $_SERVER['REQUEST_URI'] ?? '/';
